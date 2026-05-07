@@ -51,7 +51,7 @@ export interface Offer {
   frequency: 'Daily' | 'Weekly' | 'Monthly';
   commission: number;
   commissionPct: number;
-  status: 'Draft' | 'Sent' | 'Viewed' | 'Accepted' | 'Rejected' | 'Expired';
+  status: 'Draft' | 'Sent' | 'Viewed' | 'Accepted' | 'Rejected' | 'Expired' | 'Contract Sent';
   createdAt: string;
 }
 

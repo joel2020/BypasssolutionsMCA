@@ -1,0 +1,16 @@
+{
+  "name": "Bypass Solution",
+  "short_name": "Bypass",
+  "description": "Working capital and business funding CRM portal.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1426",
+  "theme_color": "#0B64D8",
+  "icons": [
+    {
+      "src": "/logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

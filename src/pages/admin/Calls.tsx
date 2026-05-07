@@ -1,4 +1,4 @@
-import { Phone, PhoneMissed, PhoneCall, Plus, Clock, User } from 'lucide-react';
+import { Phone, PhoneMissed, PhoneCall, Plus } from 'lucide-react';
 
 const callQueue = [
   { id: 'Q1', name: 'Linda Thompson', business: 'Thompson E-Commerce', phone: '(555) 901-2345', priority: 'High', reason: 'Initial outreach — new lead' },

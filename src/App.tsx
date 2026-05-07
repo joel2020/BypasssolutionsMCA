@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
+import { getCurrentUserRole, type RoleCheckResult } from './lib/auth';
 import type { Session } from '@supabase/supabase-js';
 
 // Layouts
@@ -35,17 +36,65 @@ import Email from './pages/admin/Email';
 import Commissions from './pages/admin/Commissions';
 import Reports from './pages/admin/Reports';
 import Settings from './pages/admin/Settings';
+import Unauthorized from './components/auth/Unauthorized';
 
-function AdminGuard({ session, children }: { session: Session | null; children: React.ReactNode }) {
-  if (session === undefined) {
-    // Still loading — show nothing to avoid flash
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-[#0B1426] flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+    </div>
+  );
+}
+
+function AdminGuard({ session, children }: { session: Session | null | undefined; children: React.ReactNode }) {
+  const [roleCheck, setRoleCheck] = useState<RoleCheckResult | null>(null);
+  const [checkingRole, setCheckingRole] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!session) {
+      setRoleCheck(null);
+      setCheckingRole(false);
+      return;
+    }
+
+    setCheckingRole(true);
+    getCurrentUserRole()
+      .then((result) => {
+        if (active) setRoleCheck(result);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setRoleCheck({
+            profile: null,
+            role: null,
+            allowed: false,
+            reason: error instanceof Error ? error.message : 'Unable to verify CRM permissions.',
+          });
+        }
+      })
+      .finally(() => {
+        if (active) setCheckingRole(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
+  if (session === undefined || checkingRole) return <LoadingScreen />;
+  if (!session) return <Navigate to="/admin" replace />;
+
+  if (!roleCheck?.allowed) {
     return (
-      <div className="min-h-screen bg-[#0B1426] flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-      </div>
+      <Unauthorized
+        message={roleCheck?.setupMissing && import.meta.env.DEV ? 'CRM setup required' : 'Unauthorized access'}
+        detail={roleCheck?.reason}
+      />
     );
   }
-  if (!session) return <Navigate to="/admin" replace />;
+
   return <>{children}</>;
 }
 
@@ -67,6 +116,16 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* SEO aliases */}
+        <Route path="/funding-solutions" element={<Navigate to="/solutions" replace />} />
+        <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
+        <Route path="/terms-of-use" element={<Navigate to="/terms" replace />} />
+        <Route path="/funding-disclosure" element={<Navigate to="/disclosure" replace />} />
+        <Route path="/business-funding" element={<Navigate to="/solutions" replace />} />
+        <Route path="/merchant-cash-advance" element={<Navigate to="/solutions" replace />} />
+        <Route path="/working-capital" element={<Navigate to="/solutions" replace />} />
+        <Route path="/revenue-based-financing" element={<Navigate to="/solutions" replace />} />
+
         {/* Public site */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />

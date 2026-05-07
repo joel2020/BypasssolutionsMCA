@@ -7,7 +7,7 @@ import {
 import { supabase, type Lead, type LeadStatus, type Note, type Task } from '../../lib/supabase';
 import { statusColors, pipelineStatuses } from '../../data/mockData';
 
-const tabs = ['Overview', 'Application', 'Documents', 'Notes', 'Tasks', 'Calls'];
+const tabs = ['Overview', 'Application', 'Underwriting', 'Risk Checks', 'DataMerch', 'Credit Reports', 'Compliance Log', 'Documents', 'Notes', 'Tasks', 'Calls'];
 
 const docChecklist = [
   '3-Month Bank Statement', '4-Month Bank Statement', '5-Month Bank Statement',
@@ -293,6 +293,19 @@ export default function LeadDetail() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {['Underwriting', 'Risk Checks', 'DataMerch', 'Credit Reports', 'Compliance Log'].includes(activeTab) && (
+        <div className="card p-6">
+          <h3 className="text-[16px] font-semibold text-navy-900 mb-2">{activeTab}</h3>
+          <p className="text-[14px] text-slate-500 leading-relaxed">
+            {activeTab === 'DataMerch' && 'DataMerch checks are planned for a server-side Supabase Edge Function and will require recorded applicant consent before any real request is run.'}
+            {activeTab === 'Credit Reports' && 'Credit report requests are planned for a server-side workflow only. API credentials and reports must never be exposed in the browser.'}
+            {activeTab === 'Compliance Log' && 'Consent records, audit events, document access, and funding disclosures will be tracked here after the production schema is applied.'}
+            {activeTab === 'Underwriting' && 'Underwriting worksheets, bank-statement analysis, stipulations, and approval notes will be managed here.'}
+            {activeTab === 'Risk Checks' && 'Risk flags, duplicate application checks, fraud review notes, and restricted-industry reviews will be managed here.'}
+          </p>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, type Lead, type LeadStatus } from '../../lib/supabase';
-import { statusColors, pipelineStatuses } from '../../data/mockData';
+import { statusColors } from '../../data/mockData';
 
 const columns: LeadStatus[] = [
   'New Lead', 'Contacted', 'Application Started', 'Docs Requested',

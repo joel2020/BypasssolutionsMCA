@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, Users, FileText, Kanban, FolderOpen, Tag,
   Building2, CheckSquare, Phone, MessageSquare, Mail, DollarSign,
-  BarChart3, Settings, LogOut, Bell, Search, Menu, X, ChevronDown,
+  BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
 } from 'lucide-react';
 
 const navSections = [
@@ -91,19 +92,9 @@ export default function AdminLayout() {
   const Sidebar = () => (
     <aside className="w-[260px] flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-slate-200">
-        <div className="w-8 h-8 bg-accent-600 rounded-md flex items-center justify-center">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M3 9L7.5 4.5L12 9L7.5 13.5L3 9Z" fill="white" fillOpacity="0.7"/>
-            <path d="M7.5 9L12 4.5L16.5 9L12 13.5L7.5 9Z" fill="white"/>
-          </svg>
-        </div>
-        <div>
-          <p className="text-[15px] font-bold text-navy-900 leading-none">
-            Bypass <span className="text-accent-600">Solution</span>
-          </p>
-          <p className="text-[11px] text-slate-400 font-medium mt-0.5">CRM Admin</p>
-        </div>
+      <div className="px-5 py-5 border-b border-slate-200">
+        <Logo size="md" />
+        <p className="text-[11px] text-slate-400 font-medium mt-1 ml-10">CRM Admin</p>
       </div>
 
       {/* Nav */}

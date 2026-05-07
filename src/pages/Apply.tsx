@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, Upload, ArrowRight, ArrowLeft, Building2, User, DollarSign, FileText, Shield } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { assertSupabaseConfigured, supabase } from '../lib/supabase';
 
 const steps = [
   { label: 'Business Info', icon: Building2 },
@@ -119,6 +119,17 @@ function SelectField({ value, onChange, options, placeholder }: {
   );
 }
 
+function parseMoney(value: string) {
+  const numbers = value.match(/[0-9,]+/g);
+  if (!numbers?.length) return 0;
+  return parseFloat(numbers[numbers.length - 1].replace(/,/g, '')) || 0;
+}
+
+function validateRequired(values: Array<[string, string | boolean]>) {
+  const missing = values.find(([, value]) => value === '' || value === false);
+  return missing?.[0] || '';
+}
+
 export default function Apply() {
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<FormData>(defaultForm);
@@ -143,37 +154,68 @@ export default function Apply() {
     e.preventDefault();
     setSubmitError('');
 
-    const { error } = await supabase.from('leads').insert({
-      business_name: form.businessName,
-      dba: form.dba,
-      industry: form.industry,
-      website: form.website,
-      state: form.state,
-      time_in_business: form.timeInBusiness,
-      monthly_revenue: parseFloat(form.monthlyRevenue.replace(/[^0-9.]/g, '')) || 0,
-      funding_amount_requested: 0,
-      first_name: form.firstName,
-      last_name: form.lastName,
-      email: form.email,
-      phone: form.phone,
-      credit_score_range: form.creditScore,
-      ownership_pct: form.ownershipPct,
-      use_of_funds: form.useOfFunds,
-      existing_advances: form.existingAdvances === 'Yes',
-      monthly_deposits: parseFloat(form.monthlyDeposits.replace(/[^0-9.]/g, '')) || 0,
-      avg_daily_balance: parseFloat(form.avgDailyBalance.replace(/[^0-9.]/g, '')) || 0,
-      urgency: form.urgency,
-      status: 'Application Started',
-      source: 'Website',
-      consent: form.consent,
-    });
+    const missing = validateRequired([
+      ['Business legal name', form.businessName],
+      ['Industry', form.industry],
+      ['State', form.state],
+      ['Time in business', form.timeInBusiness],
+      ['Average monthly revenue', form.monthlyRevenue],
+      ['Funding amount requested', form.fundingAmount],
+      ['First name', form.firstName],
+      ['Last name', form.lastName],
+      ['Email address', form.email],
+      ['Phone number', form.phone],
+      ['Credit score range', form.creditScore],
+      ['Ownership percentage', form.ownershipPct],
+      ['Use of funds', form.useOfFunds],
+      ['Existing advances or loans', form.existingAdvances],
+      ['Current monthly bank deposits', form.monthlyDeposits],
+      ['Funding timeline', form.urgency],
+      ['Consent authorization', form.consent],
+    ]);
 
-    if (error) {
-      setSubmitError('There was a problem submitting your application. Please try again.');
+    if (missing) {
+      setSubmitError(`${missing} is required before submitting your application.`);
       return;
     }
 
-    setSubmitted(true);
+    try {
+      assertSupabaseConfigured();
+
+      const { error } = await supabase.from('leads').insert({
+        business_name: form.businessName.trim(),
+        dba: form.dba.trim(),
+        industry: form.industry,
+        website: form.website.trim(),
+        state: form.state,
+        time_in_business: form.timeInBusiness,
+        monthly_revenue: parseMoney(form.monthlyRevenue),
+        funding_amount_requested: parseMoney(form.fundingAmount),
+        first_name: form.firstName.trim(),
+        last_name: form.lastName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        credit_score_range: form.creditScore,
+        ownership_pct: form.ownershipPct,
+        use_of_funds: form.useOfFunds,
+        existing_advances: form.existingAdvances === 'Yes',
+        monthly_deposits: parseMoney(form.monthlyDeposits),
+        avg_daily_balance: parseMoney(form.avgDailyBalance),
+        urgency: form.urgency,
+        status: 'Application Started',
+        source: 'Website',
+        consent: form.consent,
+      });
+
+      if (error) {
+        setSubmitError('There was a problem submitting your application. Please try again or contact info@bypasssolution.com.');
+        return;
+      }
+
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Application submission is temporarily unavailable. Please contact info@bypasssolution.com.');
+    }
   };
 
   if (submitted) {
@@ -632,7 +674,7 @@ export default function Apply() {
                     {form.consent && <Check size={12} className="text-white" />}
                   </div>
                   <p className="text-[14px] text-slate-700 leading-relaxed">
-                    I confirm the information provided is accurate and authorize Bypass Solution and its partners to review my application and contact me regarding business funding options. Funding is subject to review and approval. Terms may vary. I have read and agree to the{' '}
+                    I confirm the information provided is accurate and authorize Bypass Solution and its funding partners to review my application, contact me regarding business funding options, verify business information, review bank statements, and obtain business credit information where permitted. Funding is subject to review and approval. Terms may vary and not all applicants qualify. I have read and agree to the{' '}
                     <a href="/terms" target="_blank" className="text-accent-600 hover:underline">Terms of Use</a> and{' '}
                     <a href="/privacy" target="_blank" className="text-accent-600 hover:underline">Privacy Policy</a>.
                   </p>
