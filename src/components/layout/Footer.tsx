@@ -48,9 +48,9 @@ export default function Footer() {
                 <Mail size={15} className="text-accent-400" />
                 info@bypasssolution.com
               </a>
-              <a href="tel:+18005551234" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
+              <a href="tel:+18136484272" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
                 <Phone size={15} className="text-accent-400" />
-                (800) 555-1234
+                +1 (813) 648-4272
               </a>
               <div className="flex items-center gap-2.5 text-slate-400 text-[14px]">
                 <MapPin size={15} className="text-accent-400" />
