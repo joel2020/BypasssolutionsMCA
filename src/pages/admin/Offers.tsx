@@ -12,8 +12,10 @@ const statusColors: Record<string, string> = {
   Expired: 'bg-slate-100 text-slate-400',
 };
 
+type OfferWithLead = Offer & { leads?: { first_name: string; last_name: string; business_name: string } | null };
+
 export default function Offers() {
-  const [offers, setOffers] = useState<(Offer & { leads?: { first_name: string; last_name: string; business_name: string } })[]>([]);
+  const [offers, setOffers] = useState<OfferWithLead[]>([]);
   const [funders, setFunders] = useState<Funder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -23,7 +25,7 @@ export default function Offers() {
       supabase.from('offers').select('*, leads(first_name, last_name, business_name)').order('created_at', { ascending: false }),
       supabase.from('funders').select('*').eq('status', 'Active').order('name'),
     ]).then(([{ data: offersData }, { data: fundersData }]) => {
-      if (offersData) setOffers(offersData as any);
+      if (offersData) setOffers(offersData as OfferWithLead[]);
       if (fundersData) setFunders(fundersData as Funder[]);
       setLoading(false);
     });

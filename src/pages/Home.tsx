@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   CheckCircle2,
-  Clock,
   Shield,
   TrendingUp,
   Users,

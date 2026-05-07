@@ -3,8 +3,8 @@
     <linearGradient id="mark" x1="22" y1="18" x2="134" y2="142" gradientUnits="userSpaceOnUse"><stop stop-color="#2F8CFF"/><stop offset=".52" stop-color="#0E5BE8"/><stop offset="1" stop-color="#062C86"/></linearGradient>
     <linearGradient id="slash" x1="30" y1="124" x2="129" y2="48" gradientUnits="userSpaceOnUse"><stop stop-color="#001536"/><stop offset="1" stop-color="#0B64D8"/></linearGradient>
   </defs>
-  <rect width="160" height="160" rx="32" fill="#07152B"/><rect x="10" y="10" width="140" height="140" rx="27" fill="#0A1D3A" stroke="#1F3E70" stroke-width="2"/>
-  <g transform="translate(4 4) scale(.95)">
+  
+  <g transform="translate(0 0)">
     <path fill="url(#mark)" d="M25 18h78c27 0 45 17 45 41 0 17-8 30-22 37 17 7 27 21 27 40 0 25-19 42-48 42H25l20-31h57c13 0 21-7 21-18 0-12-8-19-22-19H69l20-31h13c11 0 18-6 18-16 0-9-7-15-18-15H60v29H25V18Z"/>
     <path fill="#fff" d="M26 131 132 55 109 86 47 145 26 131Z" opacity=".94"/>
     <path fill="url(#slash)" d="M43 123 124 65 101 96 58 137 43 123Z" opacity=".92"/>

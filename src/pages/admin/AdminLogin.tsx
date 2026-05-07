@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import Logo from '../../components/brand/Logo';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -31,16 +32,8 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-[#0B1426] flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-9 h-9 bg-accent-600 rounded-md flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
-              <path d="M3 9L7.5 4.5L12 9L7.5 13.5L3 9Z" fill="white" fillOpacity="0.7"/>
-              <path d="M7.5 9L12 4.5L16.5 9L12 13.5L7.5 9Z" fill="white"/>
-            </svg>
-          </div>
-          <span className="text-[18px] font-bold text-white">
-            Bypass <span className="text-accent-400">Solution</span>
-          </span>
+        <div className="flex justify-center mb-8">
+          <Logo size="lg" inverse />
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-8">

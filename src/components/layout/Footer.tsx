@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Logo from '../brand/Logo';
 import { Mail, Phone, MapPin } from 'lucide-react';
 
 const footerLinks = {
@@ -36,16 +37,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8">
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2.5 mb-5">
-              <div className="w-8 h-8 bg-accent-600 rounded-md flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M3 9L7.5 4.5L12 9L7.5 13.5L3 9Z" fill="white" fillOpacity="0.7"/>
-                  <path d="M7.5 9L12 4.5L16.5 9L12 13.5L7.5 9Z" fill="white"/>
-                </svg>
-              </div>
-              <span className="text-[17px] font-bold text-white">
-                Bypass <span className="text-accent-400">Solution</span>
-              </span>
+            <Link to="/" className="inline-flex mb-5" aria-label="Bypass Solution home">
+              <Logo size="md" inverse />
             </Link>
             <p className="text-slate-400 text-[15px] leading-relaxed max-w-xs mb-6">
               Helping small businesses explore fast, flexible funding options. Working capital and business financing, subject to review and approval.

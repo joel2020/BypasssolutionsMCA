@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Send, Mail, Copy } from 'lucide-react';
+import { Send, Copy } from 'lucide-react';
 
 const templates = [
   {

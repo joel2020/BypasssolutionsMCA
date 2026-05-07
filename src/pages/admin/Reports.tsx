@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import { supabase, type Lead, type Commission } from '../../lib/supabase';
 import { pipelineStatuses } from '../../data/mockData';

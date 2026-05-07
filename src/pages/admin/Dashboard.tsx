@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, Users, FileText, DollarSign, CheckSquare, AlertCircle, ArrowUpRight, ArrowRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Users, FileText, DollarSign, CheckSquare, AlertCircle, ArrowUpRight, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, type Lead, type Task } from '../../lib/supabase';
 import { statusColors } from '../../data/mockData';

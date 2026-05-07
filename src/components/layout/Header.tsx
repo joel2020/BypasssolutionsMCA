@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
+import Logo from '../brand/Logo';
 
 const navLinks = [
   {
@@ -46,29 +47,8 @@ export default function Header() {
       <div className="max-w-[1200px] mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-[72px]">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-8 h-8 bg-accent-600 rounded-md flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M3 9L7.5 4.5L12 9L7.5 13.5L3 9Z" fill="white" fillOpacity="0.7"/>
-                <path d="M7.5 9L12 4.5L16.5 9L12 13.5L7.5 9Z" fill="white"/>
-              </svg>
-            </div>
-            <div>
-              <span
-                className={`text-[17px] font-bold tracking-tight transition-colors ${
-                  scrolled ? 'text-navy-900' : 'text-navy-900'
-                }`}
-              >
-                Bypass
-              </span>
-              <span
-                className={`text-[17px] font-bold tracking-tight transition-colors ${
-                  scrolled ? 'text-accent-600' : 'text-accent-600'
-                }`}
-              >
-                {' '}Solution
-              </span>
-            </div>
+          <Link to="/" className="flex items-center flex-shrink-0" aria-label="Bypass Solution home">
+            <Logo size="md" />
           </Link>
 
           {/* Desktop Nav */}
