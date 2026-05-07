@@ -62,10 +62,10 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-[14px] font-semibold text-navy-900">Phone</p>
-                    <a href="tel:+18005551234" className="text-[15px] text-accent-600 hover:text-accent-700 transition-colors">
-                      (800) 555-1234
+                    <a href="tel:+18136484272" className="text-[15px] text-accent-600 hover:text-accent-700 transition-colors">
+                      +1 (813) 648-4272
                     </a>
-                    <p className="text-[13px] text-slate-400 mt-0.5">Toll-free</p>
+                    <p className="text-[13px] text-slate-400 mt-0.5">Direct line</p>
                   </div>
                 </div>
 
