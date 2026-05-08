@@ -6,7 +6,7 @@ export default function Terms() {
     },
     {
       title: '2. Description of Services',
-      content: 'Bypass Solution is a business funding marketplace. We connect business owners with funding partners who may offer merchant cash advances, revenue-based financing, working capital, and other business financing products. Bypass Solution is not a lender and does not make lending decisions.',
+      content: 'Bypass Solution is a business funding marketplace. We connect business owners with funding partners who may offer revenue-based funding, working capital, equipment and expansion capital, and other business financing products. Bypass Solution is not a lender and does not make lending decisions.',
     },
     {
       title: '3. No Guarantee of Funding',

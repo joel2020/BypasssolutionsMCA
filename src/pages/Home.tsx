@@ -59,27 +59,27 @@ const howItWorks = [
 const solutions = [
   {
     icon: Zap,
-    title: 'Merchant Cash Advance',
-    desc: 'Access working capital based on your future business revenue. Repayment adjusts with your daily sales.',
-    tag: 'Revenue-Based',
+    title: 'Working Capital',
+    desc: 'Business funding built around cash flow for inventory, payroll, supplier payments, or seasonal timing gaps.',
+    tag: 'Cash Flow',
   },
   {
     icon: TrendingUp,
-    title: 'Revenue-Based Financing',
-    desc: 'Flexible capital with repayment tied to monthly revenue, so payments scale with your business performance.',
-    tag: 'Flexible Terms',
+    title: 'Revenue-Based Funding',
+    desc: 'Flexible capital options reviewed around business performance, deposits, and revenue trends.',
+    tag: 'Flexible Capital',
   },
   {
     icon: Building2,
-    title: 'Working Capital Loans',
-    desc: 'Short-term capital to cover operational costs, inventory, payroll, or bridge gaps between receivables.',
-    tag: 'Operations',
+    title: 'Business Funding',
+    desc: 'Funding options for operators, owners, and growing companies that need capital to move decisively.',
+    tag: 'Growth Ready',
   },
   {
     icon: Shield,
-    title: 'Business Line of Credit',
-    desc: 'Draw funds as needed and only pay interest on what you use. Ideal for managing seasonal cash flow needs.',
-    tag: 'On-Demand',
+    title: 'Equipment & Expansion Capital',
+    desc: 'Capital for equipment, buildouts, new locations, and expansion needs without a slow bank process.',
+    tag: 'Expansion',
   },
 ];
 
@@ -95,11 +95,11 @@ const industries = [
 const whyUs = [
   {
     title: 'Fast Review Process',
-    desc: 'Most applications receive a decision within 24–48 business hours, not weeks like traditional lending.',
+    desc: 'Most completed applications receive a fast funding review, often within 24–48 business hours.',
   },
   {
     title: 'Multiple Funding Options',
-    desc: 'We work with a broad network of funding partners to present options that may fit your business profile.',
+    desc: 'We help owners compare working capital options, revenue-based funding, and flexible capital solutions through funding partners.',
   },
   {
     title: 'Dedicated Specialists',
@@ -327,7 +327,7 @@ export default function Home() {
           <div className="text-center mb-14">
             <p className="section-label mb-3">Funding Options</p>
             <h2 className="text-h2 text-navy-900 mb-4">
-              Flexible Capital Solutions
+              Flexible Funding Solutions
             </h2>
             <p className="text-[17px] text-slate-500 max-w-xl mx-auto">
               Every business has different needs. We work with multiple funding partners to explore options that may fit your situation. Funding is subject to review and approval.

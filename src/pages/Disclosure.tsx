@@ -36,7 +36,7 @@ export default function Disclosure() {
                 <h2 className="text-[18px] font-bold text-navy-900">About Bypass Solution</h2>
               </div>
               <p className="text-[15px] text-slate-600 leading-relaxed">
-                Bypass Solution is a business funding marketplace, not a lender. We connect small business owners with a network of funding partners who may offer various business financing products, including merchant cash advances, revenue-based financing, working capital, business lines of credit, and equipment financing.
+                Bypass Solution is a business funding marketplace, not a lender. We connect small business owners with a network of funding partners who may offer various business financing products, including revenue-based funding, working capital, business lines of credit, equipment financing, and other flexible capital options.
               </p>
               <p className="text-[15px] text-slate-600 leading-relaxed mt-3">
                 Bypass Solution does not make lending decisions. All funding decisions are made exclusively by individual funding partners based on their own underwriting criteria. Bypass Solution may receive compensation from funding partners when a business owner accepts a funding offer.
@@ -48,17 +48,17 @@ export default function Disclosure() {
                 <div className="w-10 h-10 rounded-md bg-accent-50 flex items-center justify-center">
                   <FileText size={18} className="text-accent-600" />
                 </div>
-                <h2 className="text-[18px] font-bold text-navy-900">Merchant Cash Advance Disclosure</h2>
+                <h2 className="text-[18px] font-bold text-navy-900">Revenue-Based Funding Disclosure</h2>
               </div>
               <p className="text-[15px] text-slate-600 leading-relaxed mb-3">
-                A merchant cash advance (MCA) is not a loan. It is a purchase of a portion of your future business revenue at a discount. Key characteristics include:
+                Certain revenue-based funding products are not loans. They may involve the purchase of a portion of future business revenue at a discount. Key characteristics can include:
               </p>
               <ul className="flex flex-col gap-2.5">
                 {[
                   'Repayment is structured as a percentage of daily or weekly revenue, not fixed monthly payments.',
                   'The total amount repaid (payback amount) is determined by a factor rate, not an interest rate.',
                   'The effective cost of capital can be significantly higher than traditional bank financing.',
-                  'MCA agreements are typically not subject to usury laws applicable to traditional loans.',
+                  'Some revenue purchase agreements may not be subject to usury laws applicable to traditional loans.',
                   'Early repayment does not reduce the total payback amount in most cases.',
                   'Funding amounts and factor rates vary based on your business profile and the funding partner.',
                   'Subject to approval. Terms are estimated only and not guaranteed.',
@@ -72,7 +72,7 @@ export default function Disclosure() {
             </div>
 
             <div className="card p-7">
-              <h2 className="text-[18px] font-bold text-navy-900 mb-4">Revenue-Based Financing Disclosure</h2>
+              <h2 className="text-[18px] font-bold text-navy-900 mb-4">Revenue-Based Funding Disclosure</h2>
               <p className="text-[15px] text-slate-600 leading-relaxed mb-3">
                 Revenue-based financing (RBF) involves receiving capital in exchange for a percentage of future revenue until a predetermined amount is repaid. Key disclosures:
               </p>

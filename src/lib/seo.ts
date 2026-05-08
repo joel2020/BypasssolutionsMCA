@@ -3,13 +3,13 @@ export const CANONICAL_ORIGIN = 'https://www.bypasssolution.com';
 export const ROUTE_META: Record<string, { title: string; description: string; keywords?: string }> = {
   '/': {
     title: 'Bypass Solution | Business Funding Built Around Cash Flow',
-    description: 'Explore working capital, merchant cash advance, revenue-based financing, and business funding options through Bypass Solution’s streamlined review process.',
-    keywords: 'business funding, working capital, merchant cash advance, revenue based financing, small business funding, fast business funding',
+    description: 'Explore working capital, revenue-based funding, and business funding options through Bypass Solution’s streamlined review process.',
+    keywords: 'business funding, working capital, revenue based funding, flexible capital solutions, small business funding, fast business funding',
   },
   '/solutions': {
-    title: 'Funding Solutions | Working Capital & Revenue-Based Financing',
-    description: 'Compare business funding options including merchant cash advance, revenue-based financing, working capital, business lines of credit, equipment funding, and short-term funding.',
-    keywords: 'merchant cash advance, revenue based financing, working capital, business line of credit, equipment funding, short term business funding',
+    title: 'Funding Solutions | Working Capital & Revenue-Based Funding',
+    description: 'Compare funding solutions including working capital, revenue-based funding, business funding, equipment and expansion capital, and short-term business funding.',
+    keywords: 'business funding solutions, revenue based funding, working capital, business line of credit, equipment funding, short term business funding',
   },
   '/industries': {
     title: 'Industry Funding Options | Restaurants, Trucking, Construction & More',

@@ -25,7 +25,7 @@ const documentRequirements = [
   { key: 'governmentId', label: 'Government-issued ID', type: 'government_id', required: true, multiple: false },
   { key: 'voidedCheck', label: 'Voided check', type: 'voided_check', required: true, multiple: false },
   { key: 'merchantStatements', label: 'Merchant statements, if applicable', type: 'merchant_statement', required: false, multiple: true },
-  { key: 'existingStatements', label: 'Existing MCA / loan statements, if applicable', type: 'existing_advance_statement', required: false, multiple: true },
+  { key: 'existingStatements', label: 'Existing funding / loan statements, if applicable', type: 'existing_advance_statement', required: false, multiple: true },
 ] as const;
 
 type DocumentKey = (typeof documentRequirements)[number]['key'];
@@ -404,7 +404,7 @@ export default function Apply() {
                 <Field label="Current bank" required><Input value={form.currentBank} onChange={(e) => set('currentBank')(e.target.value)} placeholder="Bank name" /></Field>
                 <Field label="NSFs in last 90 days" required><Input type="number" min={0} value={form.nsfsLast90Days} onChange={(e) => set('nsfsLast90Days')(e.target.value)} placeholder="0" /></Field>
                 <Field label="Negative days"><Input type="number" min={0} value={form.negativeDays} onChange={(e) => set('negativeDays')(e.target.value)} placeholder="0" /></Field>
-                <Field label="Current MCA balances"><Input inputMode="numeric" value={form.currentMcaBalances} onChange={(e) => set('currentMcaBalances')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
+                <Field label="Current funding balances"><Input inputMode="numeric" value={form.currentMcaBalances} onChange={(e) => set('currentMcaBalances')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
                 <Field label="Current daily payments"><Input inputMode="numeric" value={form.currentDailyPayments} onChange={(e) => set('currentDailyPayments')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
                 <Field label="Current weekly payments"><Input inputMode="numeric" value={form.currentWeeklyPayments} onChange={(e) => set('currentWeeklyPayments')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
                 <Field label="Gross monthly revenue"><Input inputMode="numeric" value={form.grossMonthlyRevenue} onChange={(e) => set('grossMonthlyRevenue')(formatMoneyInput(e.target.value))} placeholder="85,000" /></Field>

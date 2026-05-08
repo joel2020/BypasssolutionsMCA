@@ -4,24 +4,24 @@ import { ArrowRight, CheckCircle2, Zap, TrendingUp, Building2, Shield, Package, 
 const solutions = [
   {
     icon: Zap,
-    title: 'Merchant Cash Advance',
-    tag: 'Revenue-Based',
+    title: 'Working Capital',
+    tag: 'Cash Flow',
     tagColor: 'badge-brand',
     range: '$5,000 – $1,000,000',
-    bestFor: 'Businesses with consistent daily credit/debit card sales',
+    bestFor: 'Businesses managing inventory, payroll, suppliers, or seasonal cash-flow timing',
     useCase: 'Inventory purchases, equipment repairs, hiring staff, covering slow seasons, marketing campaigns, or unexpected operational expenses.',
     qualifying: [
       'Minimum 3 months in business',
-      'At least $10,000/month in card processing',
+      'At least $10,000/month in business revenue',
       '3 months business bank statements',
       'Government-issued ID',
     ],
-    description: 'A merchant cash advance provides working capital based on your anticipated future revenue. Repayment is typically structured as a percentage of daily card sales, meaning payments fluctuate with your business performance. Not a loan — terms vary by funding partner.',
-    note: 'Subject to review and approval. Factor rates and terms vary. Review all terms before accepting.',
+    description: 'Working capital options help owners access flexible business funding based on cash flow, deposits, and operating history. Structures and repayment schedules vary by funding partner, and every offer should be reviewed carefully before acceptance.',
+    note: 'Subject to review and approval. Pricing and terms vary. Review all terms before accepting.',
   },
   {
     icon: TrendingUp,
-    title: 'Revenue-Based Financing',
+    title: 'Revenue-Based Funding',
     tag: 'Flexible Repayment',
     tagColor: 'badge-success',
     range: '$10,000 – $2,000,000',
@@ -33,16 +33,16 @@ const solutions = [
       '6 months business bank statements',
       'Business license and EIN',
     ],
-    description: 'Revenue-based financing provides capital with repayment structured as a fixed percentage of your monthly gross revenue. As your revenue grows, repayment scales accordingly. Ideal for businesses with predictable revenue that want flexibility.',
+    description: 'Revenue-based funding provides capital with repayment structures aligned to business revenue and performance. It can be useful for operators who want flexible capital options reviewed around real sales activity and cash flow.',
     note: 'Estimated terms only. Not all applicants qualify. Funding options may vary based on business performance.',
   },
   {
     icon: Building2,
-    title: 'Working Capital',
-    tag: 'Short-Term',
+    title: 'Business Funding',
+    tag: 'Operator Capital',
     tagColor: 'badge-warning',
     range: '$5,000 – $500,000',
-    bestFor: 'Businesses needing fast capital for day-to-day operations',
+    bestFor: 'Owners and operators needing flexible capital for day-to-day operations or growth',
     useCase: 'Payroll, rent, utilities, supplier payments, bridging receivables gaps, tax obligations, or managing seasonal cash flow.',
     qualifying: [
       'Minimum 3 months in business',
@@ -50,29 +50,29 @@ const solutions = [
       '3 months bank statements',
       'Valid business documentation',
     ],
-    description: 'Working capital funding is designed to cover the everyday operational needs of your business. Short-term, accessible, and fast to review. Perfect for businesses that need immediate liquidity without long application processes.',
+    description: 'Business funding options are designed to support the everyday operational needs of growing companies. The review focuses on business performance, cash flow, and documentation so owners can compare available options clearly.',
     note: 'Subject to approval. Terms and amounts vary. Estimated funding timeline is not guaranteed.',
   },
   {
     icon: Shield,
-    title: 'Business Line of Credit',
-    tag: 'On-Demand Access',
+    title: 'Fast Funding Review',
+    tag: 'Guided Review',
     tagColor: 'badge-navy',
     range: '$10,000 – $500,000',
-    bestFor: 'Established businesses wanting flexible access to capital',
-    useCase: 'Draw funds when needed and only pay interest on what you use. Ideal for seasonal fluctuations, unexpected expenses, or ongoing project financing.',
+    bestFor: 'Established businesses wanting a clear path to compare available capital options',
+    useCase: 'Seasonal fluctuations, unexpected expenses, growth projects, inventory timing, or ongoing project financing.',
     qualifying: [
-      'Minimum 12 months in business',
-      'At least $20,000/month in revenue',
-      '6 months bank statements',
-      'Personal and business credit review',
+      'Minimum 6 months in business preferred',
+      'Recent business revenue activity',
+      '3–6 months bank statements',
+      'Personal and business credit review may apply',
     ],
-    description: 'A business line of credit gives you access to a revolving credit facility. Draw funds as needed, repay, and draw again. More flexible than a term loan, with interest only accruing on the outstanding balance.',
-    note: 'Subject to credit review and approval. Not all applicants qualify. Available credit and terms vary.',
+    description: 'A guided funding review helps business owners understand available options, documentation needs, and next steps before accepting any offer. Terms vary by funding partner and business profile.',
+    note: 'Subject to review and approval. Not all applicants qualify. Available options and terms vary.',
   },
   {
     icon: Package,
-    title: 'Equipment Funding',
+    title: 'Equipment & Expansion Capital',
     tag: 'Asset-Backed',
     tagColor: 'badge-default',
     range: '$5,000 – $1,000,000',
@@ -84,7 +84,7 @@ const solutions = [
       'Business bank statements',
       'Equipment type and value assessment',
     ],
-    description: 'Equipment funding allows businesses to acquire the tools they need without depleting working capital. The equipment itself often serves as collateral, which may enable more favorable terms compared to unsecured options.',
+    description: 'Equipment and expansion capital helps businesses acquire tools, vehicles, technology, or buildout resources without depleting working capital. The equipment itself often serves as collateral, which may enable more favorable terms compared to unsecured options.',
     note: 'Equipment must meet funder requirements. Subject to review. Terms and approval not guaranteed.',
   },
   {
@@ -128,7 +128,7 @@ export default function Solutions() {
         </div>
       </section>
 
-      {/* Solutions */}
+      {/* Funding Solutions */}
       <section className="section-gap bg-white">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8">
           <div className="flex flex-col gap-10">
