@@ -1,228 +1,125 @@
-import { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, FileText, DollarSign, CheckSquare, AlertCircle, ArrowUpRight, ArrowRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, type Lead, type Task } from '../../lib/supabase';
-import { statusColors } from '../../data/mockData';
+import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CheckCircle2, Circle, LockKeyhole, Table2, KanbanSquare, ArrowUpRight } from 'lucide-react';
+import {
+  activities, crmApplications, documentChecklist, fundingTrend, kpis, pipelineStages, sourceMix,
+  type CrmApplication, type PipelineStage,
+} from '../../data/crmData';
 
-const monthlyData = [
-  { month: 'Aug', leads: 18, funded: 4, volume: 142000 },
-  { month: 'Sep', leads: 24, funded: 6, volume: 215000 },
-  { month: 'Oct', leads: 31, funded: 8, volume: 289000 },
-  { month: 'Nov', leads: 27, funded: 7, volume: 263000 },
-  { month: 'Dec', leads: 35, funded: 10, volume: 395000 },
-  { month: 'Jan', leads: 0, funded: 0, volume: 0 },
-];
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
-const sourceData = [
-  { name: 'Website', value: 0 },
-  { name: 'Google Ads', value: 0 },
-  { name: 'Referral', value: 0 },
-  { name: 'Facebook', value: 0 },
-  { name: 'Instagram', value: 0 },
-];
+function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.09] to-white/[0.035] shadow-2xl shadow-blue-950/20 backdrop-blur ${className}`}>{children}</div>;
+}
 
-function StatCard({ label, value, sub, icon: Icon, trend, color }: {
-  label: string; value: string; sub: string; icon: React.ElementType; trend?: string; color: string;
-}) {
+function KpiCard({ item, wide = false }: { item: typeof kpis[number]; wide?: boolean }) {
+  const Icon = item.icon;
   return (
-    <div className="card p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-md flex items-center justify-center ${color}`}>
-          <Icon size={18} className="text-white" />
+    <GlassCard className={`p-5 ${wide ? 'min-h-[128px]' : ''}`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[13px] font-medium text-blue-100/90">{item.label}</p>
+          <p className="mt-2 text-[30px] font-bold tracking-tight text-white">{item.value}</p>
         </div>
-        {trend && (
-          <span className="flex items-center gap-1 text-[12px] font-semibold text-green-600">
-            <ArrowUpRight size={13} />
-            {trend}
-          </span>
-        )}
+        <span className="grid h-10 w-10 place-items-center rounded-full bg-blue-600/20 text-blue-300 ring-1 ring-blue-400/10"><Icon size={20} /></span>
       </div>
-      <p className="text-[26px] font-bold text-navy-900 leading-none mb-1">{value}</p>
-      <p className="text-[13px] font-medium text-slate-700">{label}</p>
-      <p className="text-[12px] text-slate-400 mt-0.5">{sub}</p>
-    </div>
+      <div className="mt-3 flex items-center gap-1.5 text-[12px]"><ArrowUpRight size={14} className="text-emerald-300" /><span className="font-semibold text-emerald-300">{item.trend}</span><span className="text-slate-400">vs last 30 days</span></div>
+    </GlassCard>
+  );
+}
+
+function PipelineCard({ app }: { app: CrmApplication }) {
+  return (
+    <Link to={`/admin/leads/${app.id}`} className="block rounded-lg border border-white/10 bg-white/[0.045] p-3 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-white/[0.075]">
+      <div className="flex items-start justify-between gap-2">
+        <div><h4 className="text-[13px] font-bold text-white">{app.businessName}</h4><p className="mt-1 text-[11px] text-slate-400">Owner: {app.ownerName}</p></div>
+        <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-blue-100">{app.assignedRep}</span>
+      </div>
+      <p className="mt-2 text-[13px] font-bold text-white">{currency.format(app.requestedFunding)}</p>
+      <p className="text-[11px] text-slate-300">Monthly Rev: {currency.format(app.monthlyRevenue)}</p>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style={{ width: `${app.progress}%` }} /></div>
+        <span className="text-[10px] text-slate-400">{app.lastActivity}</span>
+      </div>
+    </Link>
+  );
+}
+
+function PipelineColumn({ stage }: { stage: PipelineStage }) {
+  const apps = crmApplications.filter((app) => app.status === stage).slice(0, 3);
+  const counts: Record<PipelineStage, number> = { 'New Lead': 125, 'Documents Needed': 86, 'Under Review': 152, 'Pre-Approved': 67, 'Offer Sent': 43, Funded: 143 };
+  return (
+    <GlassCard className="min-w-[235px] p-3">
+      <div className="mb-3 flex items-center justify-between"><h3 className="text-[13px] font-bold text-white">{stage}</h3><span className="rounded-full bg-blue-950/70 px-2 py-0.5 text-[11px] font-semibold text-blue-200">{counts[stage]}</span></div>
+      <div className="space-y-2.5">{apps.map((app) => <PipelineCard app={app} key={app.id} />)}</div>
+      <p className="mt-3 text-[11px] text-slate-300">+ {Math.max(counts[stage] - apps.length, 0)} more</p>
+    </GlassCard>
+  );
+}
+
+function ActivityFeed() {
+  return (
+    <GlassCard className="p-4 xl:sticky xl:top-6">
+      <h2 className="px-1 text-[16px] font-bold text-white">Activity Feed</h2>
+      <div className="mt-5 space-y-0">
+        {activities.map((activity, index) => {
+          const Icon = activity.icon;
+          return (
+            <div key={`${activity.description}-${index}`} className="relative grid grid-cols-[34px_1fr] gap-3 pb-5 last:pb-0">
+              {index < activities.length - 1 && <span className="absolute left-[16px] top-9 h-[calc(100%-34px)] w-px bg-blue-400/20" />}
+              <span className={`z-10 grid h-8 w-8 place-items-center rounded-full ${activity.urgent ? 'bg-rose-500/80' : 'bg-blue-600'} text-white ring-4 ring-[#07152c]`}><Icon size={15} /></span>
+              <div className="border-b border-white/8 pb-4 last:border-0">
+                <div className="flex items-start justify-between gap-2"><p className="text-[13px] font-bold text-white">{activity.description}</p><span className={`text-[11px] ${activity.urgent ? 'text-rose-300' : 'text-slate-400'}`}>{activity.timestamp}</span></div>
+                <p className="mt-1 text-[12px] text-blue-100">{activity.business}</p><p className="text-[12px] text-slate-400">by {activity.user}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button className="mt-4 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] text-[13px] font-semibold text-white hover:bg-white/10">View All Activity</button>
+    </GlassCard>
   );
 }
 
 export default function Dashboard() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const [{ data: leadsData }, { data: tasksData }] = await Promise.all([
-        supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('tasks').select('*').order('due_date', { ascending: true }).limit(20),
-      ]);
-      if (leadsData) setLeads(leadsData as Lead[]);
-      if (tasksData) setTasks(tasksData as Task[]);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  const today = new Date().toISOString().split('T')[0];
-  const newToday = leads.filter(l => l.created_at?.startsWith(today)).length;
-  const inProgress = leads.filter(l => ['Application Started', 'Docs Requested', 'Docs Received'].includes(l.status)).length;
-  const docsReceived = leads.filter(l => l.status === 'Docs Received').length;
-  const funded = leads.filter(l => l.status === 'Funded').length;
-  const offersAvailable = leads.filter(l => l.status === 'Offers Available').length;
-  const openTasks = tasks.filter(t => t.status !== 'Completed').length;
-  const overdueTasks = tasks.filter(t => t.status !== 'Completed' && t.due_date && t.due_date < today).length;
-
-  // Live source counts
-  const liveSourceData = sourceData.map(s => ({
-    ...s,
-    value: leads.filter(l => l.source === s.name).length,
-  }));
-  const totalLeadsForSource = liveSourceData.reduce((sum, s) => sum + s.value, 0) || 1;
-
-  // Update Jan with live count
-  const chartData = [...monthlyData];
-  chartData[chartData.length - 1] = {
-    ...chartData[chartData.length - 1],
-    leads: leads.length,
-    funded,
-  };
+  const [volumeMode, setVolumeMode] = useState<'requested' | 'funded'>('requested');
+  const totals = useMemo(() => crmApplications.reduce((acc, app) => ({ requested: acc.requested + app.requestedFunding, funded: acc.funded + (app.status === 'Funded' ? app.requestedFunding : 0) }), { requested: 0, funded: 0 }), []);
 
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mb-7 flex items-center justify-between">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-slate-400">Welcome back</p>
-          <h1 className="text-[22px] font-bold text-navy-900">Dashboard</h1>
+    <div className="p-5 lg:p-8">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0">
+          <div className="mb-5"><h1 className="text-[24px] font-bold text-white">Dashboard</h1><p className="mt-1 text-[14px] text-slate-300">Welcome back, Michael. Here’s what’s happening with your pipeline today.</p></div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{kpis.slice(0, 5).map((item) => <KpiCard item={item} key={item.label} />)}</div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <GlassCard className="grid gap-0 sm:grid-cols-3 p-0 overflow-hidden">
+              {kpis.slice(5).map((item, index) => <div key={item.label} className={`p-5 ${index ? 'border-t sm:border-l sm:border-t-0 border-white/10' : ''}`}><KpiCard item={item} wide /></div>)}
+            </GlassCard>
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-5"><ResponsiveContainer width={96} height={96}><PieChart><Pie data={sourceMix} innerRadius={31} outerRadius={48} dataKey="value" stroke="none">{sourceMix.map((entry) => <Cell key={entry.name} fill={entry.color} />)}</Pie></PieChart></ResponsiveContainer><div className="flex-1"><h3 className="text-[14px] font-bold text-white">Applications by Source</h3>{sourceMix.map((item) => <div key={item.name} className="mt-2 flex items-center justify-between gap-2 text-[12px]"><span className="flex items-center gap-2 text-slate-300"><span className="h-2 w-2 rounded-full" style={{ background: item.color }} />{item.name}</span><span className="font-bold text-white">{item.value}%</span></div>)}</div></div>
+            </GlassCard>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between"><h2 className="text-[18px] font-bold text-white">Pipeline Overview</h2><div className="rounded-lg border border-white/10 bg-white/[0.05] p-1"><button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[12px] font-bold text-white"><KanbanSquare size={14} /> Kanban</button><button className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12px] font-bold text-slate-400"><Table2 size={14} /> Table</button></div></div>
+          <div className="mt-3 overflow-x-auto pb-1"><div className="grid min-w-[1430px] grid-cols-6 gap-3">{pipelineStages.map((stage) => <PipelineColumn stage={stage} key={stage} />)}</div></div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.9fr_0.72fr]">
+            <GlassCard className="p-5"><div className="mb-3 flex items-center justify-between"><h3 className="text-[16px] font-bold text-white">Funding Volume Trend</h3><div className="rounded-lg bg-white/[0.06] p-1"><button onClick={() => setVolumeMode('requested')} className={`rounded-md px-3 py-1.5 text-[12px] font-semibold ${volumeMode === 'requested' ? 'bg-blue-600 text-white' : 'text-slate-300'}`}>Requested</button><button onClick={() => setVolumeMode('funded')} className={`rounded-md px-3 py-1.5 text-[12px] font-semibold ${volumeMode === 'funded' ? 'bg-blue-600 text-white' : 'text-slate-300'}`}>Funded</button></div></div><ResponsiveContainer width="100%" height={190}><AreaChart data={fundingTrend}><defs><linearGradient id="volume" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#2f6bff" stopOpacity={0.5}/><stop offset="95%" stopColor="#2f6bff" stopOpacity={0}/></linearGradient></defs><XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} /><YAxis tickFormatter={(value) => `$${value}M`} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: '#081631', border: '1px solid rgba(255,255,255,.12)', borderRadius: 12, color: 'white' }} formatter={(value) => [`$${value}M`, volumeMode]} /><Area type="monotone" dataKey={volumeMode} stroke="#3b82f6" strokeWidth={3} fill="url(#volume)" /></AreaChart></ResponsiveContainer><p className="mt-1 text-[12px] text-slate-400">Live sample total: {currency.format(totals[volumeMode])}</p></GlassCard>
+
+            <GlassCard className="p-5"><h3 className="text-[16px] font-bold text-white">Underwriting Snapshot</h3><div className="mt-5 grid grid-cols-2 gap-4 text-sm"><Metric label="Avg. Daily Balance" value="$18,750" /><Metric label="Monthly Deposits" value="$562,300" /><Metric label="NSFs (90 Days)" value="3" /><Metric label="Current MCA Balances" value="$245,000" /><Metric label="Factor Rate (Avg.)" value="1.27" /><Metric label="Payback Amount (Avg.)" value="$155,300" /><Metric label="Funding Partner" value="OnDeck" /><Metric label="Offer Status" value="Active" green /></div></GlassCard>
+
+            <GlassCard className="p-5"><h3 className="text-[16px] font-bold text-white">Document Uploads</h3><div className="mt-5 flex items-center gap-5"><div className="relative grid h-28 w-28 place-items-center rounded-full bg conic-gradient"><svg viewBox="0 0 120 120" className="absolute inset-0 -rotate-90"><circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="12" /><circle cx="60" cy="60" r="48" fill="none" stroke="#2f6bff" strokeLinecap="round" strokeWidth="12" strokeDasharray="277 302" /></svg><div className="text-center"><p className="text-2xl font-bold text-white">92%</p><p className="text-[11px] text-slate-300">Complete</p></div></div><div className="flex-1 space-y-2">{documentChecklist.map((doc) => <div key={doc.label} className="flex items-center justify-between gap-2 text-[12px]"><span className="flex items-center gap-2 text-slate-200">{doc.status === 'complete' ? <CheckCircle2 size={13} className="text-emerald-300" /> : <Circle size={13} className="text-slate-500" />}{doc.label}</span><span className="text-slate-300">{doc.count}</span></div>)}</div></div><p className="mt-5 flex items-center gap-2 text-[12px] text-slate-300"><LockKeyhole size={13} className="text-emerald-300" /> All documents are securely encrypted</p></GlassCard>
+          </div>
         </div>
-        <div className="text-[13px] text-slate-400">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-        </div>
+        <ActivityFeed />
       </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-7 h-7 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-        </div>
-      ) : (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
-            <StatCard label="Total Leads" value={String(leads.length)} sub="All time" icon={Users} color="bg-accent-600" />
-            <StatCard label="New Today" value={String(newToday)} sub="Last 24 hours" icon={ArrowUpRight} color="bg-blue-500" />
-            <StatCard label="In Progress" value={String(inProgress)} sub="Active applications" icon={FileText} color="bg-amber-500" />
-            <StatCard label="Deals Funded" value={String(funded)} sub="Total funded" icon={DollarSign} color="bg-green-600" />
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Docs Received" value={String(docsReceived)} sub="Ready for review" icon={CheckSquare} color="bg-teal-500" />
-            <StatCard label="Offers Available" value={String(offersAvailable)} sub="Awaiting response" icon={FileText} color="bg-slate-600" />
-            <StatCard label="Open Tasks" value={String(openTasks)} sub="Across all leads" icon={CheckSquare} color="bg-emerald-600" />
-            <StatCard label="Overdue Tasks" value={String(overdueTasks)} sub="Needs attention" icon={AlertCircle} color="bg-red-500" />
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-7">
-            <div className="card p-6 lg:col-span-2">
-              <h3 className="text-[15px] font-semibold text-navy-900 mb-1">Lead Volume & Funded Deals</h3>
-              <p className="text-[12px] text-slate-400 mb-5">Aug – present</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={chartData} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px' }} cursor={{ fill: '#f8fafc' }} />
-                  <Bar dataKey="leads" name="Leads" fill="#0891b2" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="funded" name="Funded" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="card p-6">
-              <h3 className="text-[15px] font-semibold text-navy-900 mb-4">Lead Sources</h3>
-              <div className="flex flex-col gap-3">
-                {liveSourceData.map((s) => (
-                  <div key={s.name}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[13px] text-slate-600">{s.name}</span>
-                      <span className="text-[13px] font-semibold text-slate-700">
-                        {Math.round((s.value / totalLeadsForSource) * 100)}%
-                      </span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent-500 rounded-full transition-all"
-                        style={{ width: `${Math.round((s.value / totalLeadsForSource) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Recent leads & tasks */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[15px] font-semibold text-navy-900">Recent Leads</h3>
-                <Link to="/admin/leads" className="text-[13px] text-accent-600 hover:text-accent-700 font-medium flex items-center gap-1">
-                  View all <ArrowRight size={13} />
-                </Link>
-              </div>
-              <div className="flex flex-col gap-2">
-                {leads.slice(0, 6).map((lead) => (
-                  <div key={lead.id} className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-none">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[12px] font-bold text-slate-600 flex-shrink-0">
-                      {lead.first_name?.[0]}{lead.last_name?.[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-slate-800 truncate">{lead.first_name} {lead.last_name}</p>
-                      <p className="text-[12px] text-slate-400 truncate">{lead.business_name}</p>
-                    </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold flex-shrink-0 ${statusColors[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                      {lead.status}
-                    </span>
-                  </div>
-                ))}
-                {leads.length === 0 && (
-                  <p className="text-[13px] text-slate-400 text-center py-4">No leads yet. Submit an application from the public site.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[15px] font-semibold text-navy-900">Open Tasks</h3>
-                <Link to="/admin/tasks" className="text-[13px] text-accent-600 hover:text-accent-700 font-medium flex items-center gap-1">
-                  View all <ArrowRight size={13} />
-                </Link>
-              </div>
-              {overdueTasks > 0 && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-3">
-                  <AlertCircle size={14} className="text-red-500" />
-                  <p className="text-[13px] text-red-600">{overdueTasks} overdue task{overdueTasks !== 1 ? 's' : ''}</p>
-                </div>
-              )}
-              <div className="flex flex-col gap-2">
-                {tasks.filter(t => t.status !== 'Completed').slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-none">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-slate-800 truncate">{task.title}</p>
-                      <p className="text-[12px] text-slate-400">Due {task.due_date || 'No date'} — {task.assigned_rep}</p>
-                    </div>
-                    <span className={`badge text-[11px] flex-shrink-0 ${task.priority === 'High' ? 'bg-red-50 text-red-600' : task.priority === 'Medium' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {task.priority}
-                    </span>
-                  </div>
-                ))}
-                {tasks.filter(t => t.status !== 'Completed').length === 0 && (
-                  <p className="text-[13px] text-slate-400 text-center py-4">No open tasks.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
+}
+
+function Metric({ label, value, green = false }: { label: string; value: string; green?: boolean }) {
+  return <div className="border-l border-white/10 pl-3"><p className="text-[11px] text-slate-400">{label}</p><p className={`mt-1 text-[18px] font-bold ${green ? 'inline-flex rounded-md border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-sm text-emerald-300' : 'text-white'}`}>{value}</p></div>;
 }
