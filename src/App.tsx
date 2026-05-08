@@ -21,6 +21,7 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Disclosure from './pages/Disclosure';
 import Unauthorized from './components/auth/Unauthorized';
+import NotFound from './pages/NotFound';
 
 // Admin pages are lazy-loaded so public landing pages do not ship CRM/reporting code.
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
@@ -180,7 +181,7 @@ export default function App() {
         </Route>
 
         {/* Catch all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
     </BrowserRouter>
