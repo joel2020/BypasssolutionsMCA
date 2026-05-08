@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { ArrowRight, Mail, Phone, Clock, MapPin, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { assertSupabaseConfigured, supabase } from '../lib/supabase';
+import { getAttribution, normalizePhone, sanitizeText } from '../lib/tracking';
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', message: '', type: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', message: '', type: '', consent: false, website: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const setConsent = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, consent: e.target.checked }));
 
   const [submitError, setSubmitError] = useState('');
 
@@ -16,21 +21,51 @@ export default function Contact() {
     e.preventDefault();
     setSubmitError('');
 
-    const { error } = await supabase.from('contact_submissions').insert({
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      company: form.company,
-      inquiry_type: form.type,
-      message: form.message,
-    });
-
-    if (error) {
-      setSubmitError('There was a problem sending your message. Please try again.');
+    if (form.website) {
+      setSubmitted(true);
       return;
     }
 
-    setSubmitted(true);
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setSubmitError('Please complete your name, email address, and message.');
+      return;
+    }
+
+    if (!form.consent) {
+      setSubmitError('Please confirm that Bypass Solution may contact you about your inquiry.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      assertSupabaseConfigured();
+      const attribution = getAttribution();
+      const attributionNote = Object.entries(attribution)
+        .filter(([, value]) => value)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' | ');
+
+      const { error } = await supabase.from('contact_submissions').insert({
+        name: sanitizeText(form.name, 120),
+        email: sanitizeText(form.email, 180).toLowerCase(),
+        phone: normalizePhone(form.phone),
+        company: sanitizeText(form.company, 180),
+        inquiry_type: sanitizeText(form.type, 120),
+        message: `${sanitizeText(form.message, 2000)}${attributionNote ? `\n\nAttribution: ${attributionNote}` : ''}`,
+      });
+
+      if (error) {
+        setSubmitError('There was a problem sending your message. Please try again or call +1 (813) 648-4272.');
+        return;
+      }
+
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Message submission is temporarily unavailable. Please call +1 (813) 648-4272.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -133,30 +168,34 @@ export default function Contact() {
                 <div className="card p-8">
                   <h2 className="text-[20px] font-bold text-navy-900 mb-6">Send Us a Message</h2>
 
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                  <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+                    <div className="hidden" aria-hidden="true">
+                      <label htmlFor="company-website">Company website</label>
+                      <input id="company-website" tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Your Name <span className="text-red-500">*</span></label>
-                        <input className="input-field" placeholder="John Smith" value={form.name} onChange={set('name')} required />
+                        <input id="contact-name" className="input-field" placeholder="John Smith" value={form.name} onChange={set('name')} autoComplete="name" required />
                       </div>
                       <div>
                         <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Business Name</label>
-                        <input className="input-field" placeholder="Your Company LLC" value={form.company} onChange={set('company')} />
+                        <input id="contact-company" className="input-field" placeholder="Your Company LLC" value={form.company} onChange={set('company')} autoComplete="organization" />
                       </div>
                       <div>
                         <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Email Address <span className="text-red-500">*</span></label>
-                        <input className="input-field" type="email" placeholder="john@company.com" value={form.email} onChange={set('email')} required />
+                        <input id="contact-email" className="input-field" type="email" placeholder="john@company.com" value={form.email} onChange={set('email')} autoComplete="email" required />
                       </div>
                       <div>
                         <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Phone Number</label>
-                        <input className="input-field" type="tel" placeholder="(555) 000-0000" value={form.phone} onChange={set('phone')} />
+                        <input id="contact-phone" className="input-field" type="tel" placeholder="+1 (813) 648-4272" value={form.phone} onChange={set('phone')} autoComplete="tel" />
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-[14px] font-medium text-slate-700 mb-1.5">I'm Interested In</label>
                       <div className="relative">
-                        <select className="select-field pr-10" value={form.type} onChange={set('type')}>
+                        <select id="contact-interest" className="select-field pr-10" value={form.type} onChange={set('type')}>
                           <option value="">Select an option</option>
                           <option>Learning about funding options</option>
                           <option>Checking application status</option>
@@ -173,6 +212,7 @@ export default function Contact() {
                     <div>
                       <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Message <span className="text-red-500">*</span></label>
                       <textarea
+                        id="contact-message"
                         className="input-field h-32 py-3 resize-none"
                         placeholder="Tell us about your business and what you're looking for..."
                         value={form.message}
@@ -181,19 +221,32 @@ export default function Contact() {
                       />
                     </div>
 
+                    <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-[13px] leading-relaxed text-slate-600">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                        checked={form.consent}
+                        onChange={setConsent}
+                        required
+                      />
+                      <span>
+                        I consent to be contacted by Bypass Solution by phone, email, or text regarding this inquiry and potential business funding options. Consent is not a condition of funding. Message/data rates may apply.
+                      </span>
+                    </label>
+
                     {submitError && (
-                      <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2.5">
+                      <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2.5" role="alert" aria-live="polite">
                         <p className="text-[13px] text-red-600">{submitError}</p>
                       </div>
                     )}
 
-                    <button type="submit" className="btn-primary self-start">
-                      Send Message
+                    <button type="submit" className="btn-primary self-start" disabled={submitting}>
+                      {submitting ? 'Sending…' : 'Send Message'}
                       <ArrowRight size={16} />
                     </button>
 
                     <p className="text-[12px] text-slate-400">
-                      By submitting this form, you consent to being contacted by Bypass Solution regarding business funding options. We do not sell your information to third parties.
+                      Bypass Solution is not a lender. Funding options are subject to review and approval by funding partners; not all applicants qualify and terms vary.
                     </p>
                   </form>
                 </div>
