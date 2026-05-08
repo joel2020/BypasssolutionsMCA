@@ -2,7 +2,28 @@ import { useState } from 'react';
 import { supabase, type Document } from '../lib/supabase';
 import { useSupabaseQuery } from './useSupabaseQuery';
 
-const DOCUMENT_BUCKET = 'application-documents';
+export const DOCUMENT_BUCKET = 'application-documents';
+export const MAX_DOCUMENT_SIZE_BYTES = 50 * 1024 * 1024;
+
+export const REQUIRED_DOCUMENT_TYPES = [
+  'Bank Statement',
+  'Driver License',
+  'Voided Check',
+  'Tax Returns',
+  'MCA Position Sheet',
+  'Processing Statements',
+  'Business Docs',
+  'Contract',
+] as const;
+
+const ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+]);
 
 export interface DocumentFilters {
   leadId?: string;
@@ -10,7 +31,7 @@ export interface DocumentFilters {
 }
 
 export interface UploadDocumentInput {
-  leadId?: string | null;
+  leadId: string;
   applicationId?: string | null;
   documentType: string;
   file: File;
@@ -21,7 +42,22 @@ function safeFileName(name: string) {
   const parts = name.split('.');
   const extension = parts.length > 1 ? `.${parts.pop()}` : '';
   const base = parts.join('.') || name;
-  return `${base.toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '')}${extension.toLowerCase()}`;
+  const safeBase = base.toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'document';
+  return `${safeBase}${extension.toLowerCase()}`;
+}
+
+function validateFile(file: File) {
+  if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+    throw new Error('File is too large. Maximum upload size is 50MB.');
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  const allowedExtension = extension && ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'].includes(extension);
+  const allowedMime = file.type ? ALLOWED_MIME_TYPES.has(file.type) : false;
+
+  if (!allowedExtension && !allowedMime) {
+    throw new Error('Unsupported file type. Upload PDF, DOC, DOCX, PNG, JPG, or JPEG files only.');
+  }
 }
 
 export function useDocuments(filters?: string | DocumentFilters) {
@@ -51,10 +87,13 @@ export function useUploadDocument() {
     setError(null);
 
     try {
+      if (!input.leadId) throw new Error('Select a lead before uploading a document.');
+      validateFile(input.file);
+
       const { data: userData } = await supabase.auth.getUser();
       const timestamp = Date.now();
       const sanitized = safeFileName(input.file.name);
-      const ownerId = input.applicationId ?? input.leadId ?? 'unassigned';
+      const ownerId = input.applicationId ?? input.leadId;
       const folder = input.applicationId ? `applications/${ownerId}` : `leads/${ownerId}`;
       const storagePath = `${folder}/${timestamp}-${sanitized}`;
 
@@ -69,7 +108,7 @@ export function useUploadDocument() {
       if (storageError) throw storageError;
 
       const payload = {
-        lead_id: input.leadId ?? null,
+        lead_id: input.leadId,
         application_id: input.applicationId ?? null,
         doc_type: input.documentType,
         document_type: input.documentType,
@@ -92,12 +131,12 @@ export function useUploadDocument() {
 
       if (insertError) throw insertError;
 
-      await supabase.from('activity_logs').insert({
-        application_id: input.applicationId ?? null,
-        lead_id: input.leadId ?? null,
-        user_id: userData.user?.id ?? null,
+      await supabase.from('audit_logs').insert({
+        actor_id: userData.user?.id ?? null,
+        lead_id: input.leadId,
         action: 'document_uploaded',
         metadata: {
+          application_id: input.applicationId ?? null,
           document_type: input.documentType,
           file_name: input.file.name,
           storage_path: storagePath,
