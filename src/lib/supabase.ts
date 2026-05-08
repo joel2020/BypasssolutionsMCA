@@ -1,11 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-const missingSupabaseMessage = 'Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.';
+export const missingSupabaseMessage = 'Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+function isValidSupabaseUrl(value: string | undefined) {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname.endsWith('.supabase.co');
+  } catch {
+    return false;
+  }
+}
+
+export const isSupabaseConfigured = Boolean(isValidSupabaseUrl(supabaseUrl) && supabaseAnonKey && supabaseAnonKey.length > 20);
 
 if (!isSupabaseConfigured) {
   console.error(missingSupabaseMessage);
@@ -18,17 +29,26 @@ export function assertSupabaseConfigured() {
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
+  isSupabaseConfigured ? supabaseUrl! : 'https://missing-config.invalid',
+  isSupabaseConfigured ? supabaseAnonKey! : 'missing-supabase-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
 );
+
 // ── Database types ────────────────────────────────────────────────────────────
 
 export type LeadStatus =
+  | 'New' | 'Submitted' | 'In Review' | 'Underwriting' | 'Approved'
+  | 'Offer Sent' | 'Funded' | 'Declined' | 'Withdrawn'
   | 'New Lead' | 'Contacted' | 'Application Started' | 'Documents Needed'
-  | 'Docs Requested' | 'Docs Received' | 'Submitted' | 'Under Review'
-  | 'Underwriting' | 'Pre-Approved' | 'Offer Sent' | 'Offers Available'
-  | 'Approved' | 'Contract Sent' | 'Funded' | 'Renewal Eligible'
-  | 'Declined' | 'Lost / No Response' | 'Lost';
+  | 'Docs Requested' | 'Docs Received' | 'Under Review' | 'Pre-Approved'
+  | 'Offers Available' | 'Contract Sent' | 'Renewal Eligible'
+  | 'Lost / No Response' | 'Lost';
 
 export interface Lead {
   id: string;

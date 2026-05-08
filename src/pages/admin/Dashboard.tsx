@@ -48,7 +48,7 @@ function PipelineCard({ app }: { app: CrmApplication }) {
 
 function PipelineColumn({ stage }: { stage: PipelineStage }) {
   const apps = crmApplications.filter((app) => app.status === stage).slice(0, 3);
-  const counts: Record<PipelineStage, number> = { 'New Lead': 125, 'Documents Needed': 86, 'Under Review': 152, 'Pre-Approved': 67, 'Offer Sent': 43, Funded: 143 };
+  const counts: Record<PipelineStage, number> = { New: 125, Submitted: 86, 'In Review': 96, Underwriting: 152, Approved: 67, 'Offer Sent': 43, Funded: 143, Declined: 18, Withdrawn: 9 };
   return (
     <GlassCard className="min-w-[235px] p-3">
       <div className="mb-3 flex items-center justify-between"><h3 className="text-[13px] font-bold text-white">{stage}</h3><span className="rounded-full bg-blue-950/70 px-2 py-0.5 text-[11px] font-semibold text-blue-200">{counts[stage]}</span></div>
