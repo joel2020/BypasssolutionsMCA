@@ -1,34 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Plus, Upload, Download, ChevronDown } from 'lucide-react';
-import { supabase, type Lead, type LeadStatus } from '../../lib/supabase';
-import { statusColors, pipelineStatuses } from '../../data/mockData';
+import { useLeads } from '../../hooks/useLeads';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
+import { canonicalLeadStatuses, leadStatusColors } from '../../lib/status';
 
 const reps = ['All', 'Sarah K.', 'Mike T.', 'Tom R.', 'Unassigned'];
 const sources = ['All', 'Website', 'Google Ads', 'Referral', 'Facebook', 'Instagram'];
 
 export default function Leads() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterRep, setFilterRep] = useState('All');
   const [filterSource, setFilterSource] = useState('All');
-
-  const fetchLeads = useCallback(async () => {
-    setLoading(true);
-    let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
-
-    if (filterStatus !== 'All') query = query.eq('status', filterStatus);
-    if (filterRep !== 'All') query = query.eq('assigned_rep', filterRep);
-    if (filterSource !== 'All') query = query.eq('source', filterSource);
-
-    const { data, error } = await query;
-    if (!error && data) setLeads(data as Lead[]);
-    setLoading(false);
-  }, [filterStatus, filterRep, filterSource]);
-
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  const { data: leads, loading, error } = useLeads({ status: filterStatus === 'All' ? 'All' : filterStatus as never, assignedRep: filterRep, source: filterSource });
 
   const filtered = leads.filter((l) => {
     const q = search.toLowerCase();
@@ -78,7 +63,7 @@ export default function Leads() {
         </div>
 
         {[
-          { label: 'Status', value: filterStatus, set: setFilterStatus, options: ['All', ...pipelineStatuses] },
+          { label: 'Status', value: filterStatus, set: setFilterStatus, options: ['All', ...canonicalLeadStatuses] },
           { label: 'Rep', value: filterRep, set: setFilterRep, options: reps },
           { label: 'Source', value: filterSource, set: setFilterSource, options: sources },
         ].map((f) => (
@@ -98,9 +83,11 @@ export default function Leads() {
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-          </div>
+          <SkeletonLoader label="Loading leads from Supabase..." />
+        ) : error ? (
+          <ErrorState message={error} />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No leads found" message="Supabase returned no leads matching the selected filters." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -147,7 +134,7 @@ export default function Leads() {
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-sm text-[11px] font-semibold whitespace-nowrap ${statusColors[lead.status as LeadStatus] ?? 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-sm text-[11px] font-semibold whitespace-nowrap ${leadStatusColors[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
                         {lead.status}
                       </span>
                     </td>

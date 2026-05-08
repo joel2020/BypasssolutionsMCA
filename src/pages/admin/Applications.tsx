@@ -1,37 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Eye } from 'lucide-react';
-import { supabase, type Lead } from '../../lib/supabase';
-import { statusColors } from '../../data/mockData';
-
-const activeStatuses = ['New', 'Submitted', 'In Review', 'Underwriting', 'Approved', 'Offer Sent', 'Funded'];
-
-const progressMap: Record<string, number> = {
-  New: 12,
-  Submitted: 28,
-  'In Review': 45,
-  Underwriting: 65,
-  Approved: 78,
-  'Offer Sent': 88,
-  Funded: 100,
-};
+import { useLeads } from '../../hooks/useLeads';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
+import { activeLeadStatuses, leadProgressMap, leadStatusColors } from '../../lib/status';
 
 export default function Applications() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    supabase
-      .from('leads')
-      .select('*')
-      .in('status', activeStatuses)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setLeads(data as Lead[]);
-        setLoading(false);
-      });
-  }, []);
+  const { data: allLeads, loading, error } = useLeads();
+  const leads = allLeads.filter((lead) => activeLeadStatuses.includes(lead.status));
 
   const filtered = leads.filter(l => {
     const q = search.toLowerCase();
@@ -63,13 +40,15 @@ export default function Applications() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-        </div>
+        <SkeletonLoader label="Loading applications from Supabase..." />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : filtered.length === 0 ? (
+        <EmptyState title="No active applications" message="Supabase returned no active application records." />
       ) : (
         <div className="flex flex-col gap-4">
           {filtered.map((lead) => {
-            const progress = progressMap[lead.status] ?? 10;
+            const progress = leadProgressMap[lead.status] ?? 10;
             return (
               <div key={lead.id} className="card p-6">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -80,7 +59,7 @@ export default function Applications() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[16px] font-semibold text-navy-900">{lead.business_name}</h3>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold ${statusColors[lead.status as keyof typeof statusColors] ?? 'bg-slate-100 text-slate-600'}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold ${leadStatusColors[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
                           {lead.status}
                         </span>
                       </div>
@@ -115,7 +94,7 @@ export default function Applications() {
                   </div>
                 </div>
 
-                {lead.status === 'Submitted' && (
+                {lead.status === 'Documents Needed' && (
                   <div className="mt-3 flex items-center gap-2 text-[12px] text-amber-600 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Waiting on documents from client
@@ -124,12 +103,6 @@ export default function Applications() {
               </div>
             );
           })}
-
-          {filtered.length === 0 && (
-            <div className="card p-12 text-center">
-              <p className="text-[15px] text-slate-400">No active applications.</p>
-            </div>
-          )}
         </div>
       )}
     </div>

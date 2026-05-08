@@ -1,27 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, CheckCircle2, Circle } from 'lucide-react';
 import { supabase, type Task } from '../../lib/supabase';
+import { useTasks } from '../../hooks/useTasks';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
-
-  useEffect(() => {
-    supabase
-      .from('tasks')
-      .select('*')
-      .order('due_date', { ascending: true })
-      .then(({ data }) => {
-        if (data) setTasks(data as Task[]);
-        setLoading(false);
-      });
-  }, []);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const { data: tasks, loading, error, refetch } = useTasks();
 
   const toggle = async (task: Task) => {
     const newStatus = task.status === 'Completed' ? 'Open' : 'Completed';
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id);
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus as Task['status'] } : t));
+    const { error: updateError } = await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id);
+    setFeedback(updateError ? updateError.message : 'Task saved successfully.');
+    if (!updateError) await refetch();
   };
 
   const filtered = tasks.filter(t => filterStatus === 'All' || t.status === filterStatus);
@@ -60,10 +52,14 @@ export default function Tasks() {
         ))}
       </div>
 
+      {feedback && <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] text-blue-700">{feedback}</div>}
+
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-        </div>
+        <SkeletonLoader label="Loading tasks from Supabase..." />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : filtered.length === 0 ? (
+        <EmptyState title="No tasks found" message="Supabase returned no tasks matching the selected filter." />
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full">
@@ -119,12 +115,6 @@ export default function Tasks() {
               ))}
             </tbody>
           </table>
-
-          {filtered.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-[14px] text-slate-400">No tasks found.</p>
-            </div>
-          )}
         </div>
       )}
     </div>

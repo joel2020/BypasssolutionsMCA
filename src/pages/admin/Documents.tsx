@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FileText, Eye, CheckCircle2, Clock, XCircle, Search } from 'lucide-react';
-import { supabase, type Document } from '../../lib/supabase';
+import { type Document } from '../../lib/supabase';
+import { useDocuments } from '../../hooks/useDocuments';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
 const docTypes = ['All', 'Bank Statement', 'Voided Check', 'ID', 'Business Docs', 'Tax Docs', 'Contract'];
 
@@ -22,21 +24,10 @@ const statusBadge = (s: string) => {
 };
 
 export default function Documents() {
-  const [docs, setDocs] = useState<DocWithLead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('All');
   const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    supabase
-      .from('documents')
-      .select('*, leads(first_name, last_name, business_name)')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setDocs(data as DocWithLead[]);
-        setLoading(false);
-      });
-  }, []);
+  const { data, loading, error } = useDocuments();
+  const docs = data as DocWithLead[];
 
   const filtered = docs.filter(d => {
     const leadName = d.leads ? `${d.leads.first_name} ${d.leads.last_name}` : '';
@@ -83,9 +74,11 @@ export default function Documents() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-        </div>
+        <SkeletonLoader label="Loading documents from Supabase..." />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : filtered.length === 0 ? (
+        <EmptyState title="No documents found" message="Supabase returned no document records." />
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full">
@@ -135,12 +128,6 @@ export default function Documents() {
               ))}
             </tbody>
           </table>
-
-          {filtered.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <p className="text-[14px] text-slate-400">No documents found.</p>
-            </div>
-          )}
         </div>
       )}
     </div>

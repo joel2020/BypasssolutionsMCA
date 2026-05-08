@@ -43,12 +43,18 @@ export const supabase = createClient(
 // ── Database types ────────────────────────────────────────────────────────────
 
 export type LeadStatus =
-  | 'New' | 'Submitted' | 'In Review' | 'Underwriting' | 'Approved'
-  | 'Offer Sent' | 'Funded' | 'Declined' | 'Withdrawn'
   | 'New Lead' | 'Contacted' | 'Application Started' | 'Documents Needed'
-  | 'Docs Requested' | 'Docs Received' | 'Under Review' | 'Pre-Approved'
-  | 'Offers Available' | 'Contract Sent' | 'Renewal Eligible'
-  | 'Lost / No Response' | 'Lost';
+  | 'Under Review' | 'Pre-Approved' | 'Offer Sent' | 'Funded'
+  | 'Declined' | 'Lost';
+
+
+export interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  role: 'admin' | 'rep';
+  status: 'active' | 'inactive';
+}
 
 export interface Lead {
   id: string;

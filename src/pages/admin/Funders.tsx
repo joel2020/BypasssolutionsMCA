@@ -1,33 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Phone, Mail } from 'lucide-react';
-import { supabase, type Funder } from '../../lib/supabase';
+import { type Funder } from '../../lib/supabase';
+import { useFunders } from '../../hooks/useFunders';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
 export default function Funders() {
-  const [funders, setFunders] = useState<Funder[]>([]);
+  const { data: funders, loading, error } = useFunders();
   const [selected, setSelected] = useState<Funder | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from('funders')
-      .select('*')
-      .order('name')
-      .then(({ data }) => {
-        if (data) {
-          setFunders(data as Funder[]);
-          if (data.length > 0) setSelected(data[0] as Funder);
-        }
-        setLoading(false);
-      });
-  }, []);
+    setSelected((current) => {
+      if (current) return current;
+      return funders.length > 0 ? funders[0] : null;
+    });
+  }, [funders]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 lg:p-8"><SkeletonLoader label="Loading funders from Supabase..." /></div>;
+  if (error) return <div className="p-6 lg:p-8"><ErrorState message={error} /></div>;
 
   return (
     <div className="p-6 lg:p-8">
@@ -42,9 +31,7 @@ export default function Funders() {
       </div>
 
       {funders.length === 0 ? (
-        <div className="card p-12 text-center">
-          <p className="text-[15px] text-slate-400">No funders yet.</p>
-        </div>
+        <EmptyState title="No funders yet" message="Supabase returned no funding partner records." />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="flex flex-col gap-2.5">

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Save, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 const settingsTabs = ['Organization', 'Team Members', 'Integrations', 'Automations', 'Billing'];
 
@@ -24,13 +26,6 @@ const automationRules = [
   { name: 'No Contact After 3 Attempts', trigger: '3 unanswered outreach attempts', action: 'Move to nurture sequence', enabled: false },
 ];
 
-const teamMembers = [
-  { name: 'Joel Carias', email: 'joelcarias23@gmail.com', role: 'Admin', status: 'Active' },
-  { name: 'Sarah K.', email: 'sarah@bypasssolution.com', role: 'Agent', status: 'Active' },
-  { name: 'Mike T.', email: 'mike@bypasssolution.com', role: 'Agent', status: 'Active' },
-  { name: 'Tom R.', email: 'tom@bypasssolution.com', role: 'Agent', status: 'Active' },
-];
-
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
   return (
     <button onClick={onChange} className={`flex-shrink-0 transition-colors ${enabled ? 'text-accent-600' : 'text-slate-300'}`}>
@@ -42,9 +37,20 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('Organization');
   const [automations, setAutomations] = useState(automationRules);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const { profile } = useCurrentUser();
+  const teamMembers = profile ? [{ name: profile.full_name, email: profile.email, role: profile.role === 'admin' ? 'Admin' : 'Rep', status: profile.status === 'active' ? 'Active' : 'Inactive' }] : [];
 
-  const toggleAutomation = (i: number) => {
-    setAutomations(prev => prev.map((a, idx) => idx === i ? { ...a, enabled: !a.enabled } : a));
+  const toggleAutomation = async (i: number) => {
+    const next = automations.map((a, idx) => idx === i ? { ...a, enabled: !a.enabled } : a);
+    setAutomations(next);
+    const { error } = await supabase.from('settings').upsert({ key: 'automation_rules', value: next });
+    setFeedback(error ? error.message : 'Settings saved successfully.');
+  };
+
+  const saveOrganization = async () => {
+    const { error } = await supabase.from('settings').upsert({ key: 'organization_profile', value: { updated_at: new Date().toISOString() } });
+    setFeedback(error ? error.message : 'Settings saved successfully.');
   };
 
   return (
@@ -53,6 +59,7 @@ export default function Settings() {
         <h1 className="text-[20px] font-bold text-navy-900">Settings</h1>
         <p className="text-[13px] text-slate-400">Manage your organization, team, and integrations</p>
       </div>
+      {feedback && <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] text-blue-700">{feedback}</div>}
 
       {/* Tab nav */}
       <div className="flex gap-1 mb-6 bg-white border border-slate-200 rounded-lg p-1 w-fit">
@@ -85,7 +92,7 @@ export default function Settings() {
                 <input className="input-field" defaultValue={field.value} />
               </div>
             ))}
-            <button className="btn-primary self-start mt-2">
+            <button onClick={saveOrganization} className="btn-primary self-start mt-2">
               <Save size={15} /> Save Changes
             </button>
           </div>
@@ -95,7 +102,7 @@ export default function Settings() {
       {activeTab === 'Team Members' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[14px] text-slate-600">{teamMembers.length} team members • Joel Carias is the permanent administrator</p>
+            <p className="text-[14px] text-slate-600">{teamMembers.length} team member{teamMembers.length === 1 ? '' : 's'} • {profile?.full_name || 'Current user'} is loaded from profiles</p>
             <button className="btn-primary h-9 text-[13px] px-4">
               <Plus size={14} /> Add Member
             </button>

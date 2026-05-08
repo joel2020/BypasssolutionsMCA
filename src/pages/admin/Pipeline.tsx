@@ -1,34 +1,14 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, type Lead, type LeadStatus } from '../../lib/supabase';
-import { statusColors } from '../../data/mockData';
-
-const columns: LeadStatus[] = [
-  'New', 'Submitted', 'In Review', 'Underwriting', 'Approved', 'Offer Sent', 'Funded', 'Declined', 'Withdrawn',
-];
+import { useLeads } from '../../hooks/useLeads';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
+import { canonicalLeadStatuses, leadStatusColors } from '../../lib/status';
 
 export default function Pipeline() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: leads, loading, error } = useLeads();
 
-  useEffect(() => {
-    supabase
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setLeads(data as Lead[]);
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 lg:p-8"><SkeletonLoader label="Loading pipeline from Supabase..." /></div>;
+  if (error) return <div className="p-6 lg:p-8"><ErrorState message={error} /></div>;
+  if (leads.length === 0) return <div className="p-6 lg:p-8"><EmptyState title="No pipeline records" message="Supabase returned no leads for the pipeline." /></div>;
 
   return (
     <div className="p-6 lg:p-8">
@@ -41,7 +21,7 @@ export default function Pipeline() {
 
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max">
-          {columns.map((status) => {
+          {canonicalLeadStatuses.map((status) => {
             const colLeads = leads.filter((l) => l.status === status);
             const totalAmount = colLeads.reduce((sum, l) => sum + (l.funding_amount_requested || 0), 0);
 
@@ -49,7 +29,7 @@ export default function Pipeline() {
               <div key={status} className="w-[260px] flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold ${statusColors[status]}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold ${leadStatusColors[status]}`}>
                       {status}
                     </span>
                     <span className="text-[12px] font-semibold text-slate-400 bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center">
