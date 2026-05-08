@@ -1,20 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type DragEvent } from 'react';
 import { Download, FileText, Send, Upload, XCircle } from 'lucide-react';
-import { createDocumentSignedUrl, useUploadDocument } from '../../hooks/useDocuments';
+import { createDocumentSignedUrl, REQUIRED_DOCUMENT_TYPES, useUploadDocument } from '../../hooks/useDocuments';
 import { useCreatePartnerSubmission, useFundingPartners } from '../../hooks/usePartnerSubmissions';
 import type { Document, FundingPartner, PartnerSubmission } from '../../lib/supabase';
 
-export const documentTypes = [
-  'Bank Statements',
-  'Processing Statements',
-  'Voided Check',
-  'Driver License',
-  'Tax Return',
-  'Business License',
-  'Funding Agreement',
-  'Payoff Letter',
-  'Other',
-];
+export const documentTypes = [...REQUIRED_DOCUMENT_TYPES, 'Other'];
 
 export const denialReasons = [
   'Low revenue',
@@ -61,11 +51,22 @@ export function UploadDocumentModal({ leadId, applicationId, onClose, onUploaded
   const [file, setFile] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
   const [success, setSuccess] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const { uploadDocument, uploading, error } = useUploadDocument();
+
+  function pickFile(nextFile?: File) {
+    if (nextFile) setFile(nextFile);
+  }
+
+  function onDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    pickFile(event.dataTransfer.files?.[0]);
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!file) return;
+    if (!file || !leadId) return;
 
     await uploadDocument({ leadId, applicationId, documentType, file, notes });
     setSuccess('Document uploaded securely.');
@@ -77,7 +78,7 @@ export function UploadDocumentModal({ leadId, applicationId, onClose, onUploaded
     <ModalShell title="Upload Document" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block"><span className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Document type</span><select value={documentType} onChange={(e) => setDocumentType(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[14px] text-white outline-none focus:border-blue-400">{documentTypes.map((type) => <option key={type} className="bg-[#0b1730]" value={type}>{type}</option>)}</select></label>
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-blue-300/30 bg-blue-500/10 p-8 text-center hover:bg-blue-500/15"><Upload size={28} className="text-blue-200" /><span className="mt-3 text-[14px] font-bold text-white">{file ? file.name : 'Choose a file to upload'}</span><span className="mt-1 text-[12px] text-slate-400">Private Supabase storage. Signed URLs only.</span><input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+        <label onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={onDrop} className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-8 text-center ${isDragging ? 'border-blue-200 bg-blue-500/20' : 'border-blue-300/30 bg-blue-500/10 hover:bg-blue-500/15'}`}><Upload size={28} className="text-blue-200" /><span className="mt-3 text-[14px] font-bold text-white">{file ? file.name : 'Drag and drop a document, or click to browse'}</span><span className="mt-1 text-[12px] text-slate-400">PDF, DOC, DOCX, JPG, PNG up to 50MB. Private storage; signed URLs only.</span><input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} /></label>
         <label className="block"><span className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Notes optional</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-[14px] text-white outline-none focus:border-blue-400" placeholder="Add internal notes..." /></label>
         {error && <p className="text-[13px] text-red-200">{error}</p>}
         {success && <p className="text-[13px] text-emerald-200">{success}</p>}
@@ -122,6 +123,7 @@ export function SubmitToLenderModal({ leadId, applicationId, documents, onClose,
   const [notes, setNotes] = useState('');
   const selectedPartnerRecords = useMemo(() => partners.filter((partner) => selectedPartners.includes(partner.id)), [partners, selectedPartners]);
 
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     for (const fundingPartnerId of selectedPartners) {
@@ -152,6 +154,7 @@ export function MarkDeclinedModal({ submission, leadId, onClose, onDeclined }: {
   const [reason, setReason] = useState(denialReasons[0]);
   const [notes, setNotes] = useState('');
   const { markDeclined, loading } = useCreatePartnerSubmission();
+
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
