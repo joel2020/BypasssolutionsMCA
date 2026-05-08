@@ -20,7 +20,9 @@ const footerLinks = {
     { label: 'E-commerce', href: '/industries' },
   ],
   company: [
+    { label: 'About', href: '/about' },
     { label: 'How It Works', href: '/how-it-works' },
+    { label: 'FAQ', href: '/faq' },
     { label: 'Apply Now', href: '/apply' },
     { label: 'Contact Us', href: '/contact' },
     { label: 'Privacy Policy', href: '/privacy' },

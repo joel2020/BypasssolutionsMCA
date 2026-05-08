@@ -24,9 +24,11 @@ export const supabase = createClient(
 // ── Database types ────────────────────────────────────────────────────────────
 
 export type LeadStatus =
-  | 'New Lead' | 'Contacted' | 'Application Started' | 'Docs Requested'
-  | 'Docs Received' | 'Underwriting' | 'Offers Available' | 'Contract Sent'
-  | 'Funded' | 'Renewal Eligible' | 'Declined' | 'Lost';
+  | 'New Lead' | 'Contacted' | 'Application Started' | 'Documents Needed'
+  | 'Docs Requested' | 'Docs Received' | 'Submitted' | 'Under Review'
+  | 'Underwriting' | 'Pre-Approved' | 'Offer Sent' | 'Offers Available'
+  | 'Approved' | 'Contract Sent' | 'Funded' | 'Renewal Eligible'
+  | 'Declined' | 'Lost / No Response' | 'Lost';
 
 export interface Lead {
   id: string;

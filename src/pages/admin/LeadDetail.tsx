@@ -14,9 +14,21 @@ const docChecklist = [
   '6-Month Bank Statement', 'Voided Check', "Driver's License", 'Business License / Docs',
 ];
 
+type ExtendedLead = Lead & Partial<Record<
+  'annual_revenue' | 'requested_amount' | 'nsfs_last_90_days' | 'negative_days' | 'current_mca_balances' | 'current_daily_payments' | 'current_weekly_payments' | 'gross_monthly_revenue' | 'net_monthly_deposits' | 'number_of_deposits' | 'monthly_card_volume' | 'deposits_per_month',
+  number
+>> & Partial<Record<
+  'legal_name' | 'business_address' | 'business_phone' | 'business_email' | 'ein_last_four' | 'entity_type' | 'start_date' | 'current_advances' | 'current_bank' | 'ending_balances' | 'owner_full_name' | 'owner_title' | 'owner_dob' | 'ssn_last_four' | 'owner_home_address' | 'payment_processor' | 'routing_last_four' | 'account_last_four' | 'decline_reason' | 'risk_notes' | 'underwriter_notes',
+  string
+>> & Partial<Record<'accepts_credit_cards' | 'sms_opt_in', boolean>>;
+
+function money(value?: number | null) {
+  return value ? `$${value.toLocaleString()}` : '—';
+}
+
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
-  const [lead, setLead] = useState<Lead | null>(null);
+  const [lead, setLead] = useState<ExtendedLead | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTab, setActiveTab] = useState('Overview');
@@ -35,7 +47,7 @@ export default function LeadDetail() {
       supabase.from('tasks').select('*').eq('lead_id', id).order('created_at', { ascending: false }),
     ]);
 
-    if (leadData) setLead(leadData as Lead);
+    if (leadData) setLead(leadData as ExtendedLead);
     if (notesData) setNotes(notesData as Note[]);
     if (tasksData) setTasks(tasksData as Task[]);
     setLoading(false);
@@ -257,27 +269,30 @@ export default function LeadDetail() {
             {
               title: 'Business Information',
               fields: [
-                { label: 'Business Legal Name', value: lead.business_name },
+                { label: 'Business Legal Name', value: lead.legal_name || lead.business_name },
                 { label: 'DBA', value: lead.dba },
+                { label: 'Business Address', value: lead.business_address },
+                { label: 'Business Phone', value: lead.business_phone || lead.phone },
+                { label: 'Business Email', value: lead.business_email || lead.email },
+                { label: 'EIN Last Four', value: lead.ein_last_four ? `••••${lead.ein_last_four}` : '—' },
+                { label: 'Entity Type', value: lead.entity_type },
+                { label: 'Business Start Date', value: lead.start_date },
                 { label: 'Industry', value: lead.industry },
                 { label: 'Website', value: lead.website },
-                { label: 'State', value: lead.state },
-                { label: 'Time in Business', value: lead.time_in_business },
-                { label: 'Monthly Revenue', value: lead.monthly_revenue ? `$${lead.monthly_revenue.toLocaleString()}` : '—' },
-                { label: 'Funding Requested', value: lead.funding_amount_requested ? `$${lead.funding_amount_requested.toLocaleString()}` : '—' },
               ],
             },
             {
               title: 'Owner & Funding Details',
               fields: [
-                { label: 'Owner Name', value: `${lead.first_name} ${lead.last_name}` },
+                { label: 'Owner Name', value: lead.owner_full_name || `${lead.first_name} ${lead.last_name}` },
+                { label: 'Title', value: lead.owner_title },
                 { label: 'Email', value: lead.email },
                 { label: 'Phone', value: lead.phone },
-                { label: 'Credit Score Range', value: lead.credit_score_range },
+                { label: 'Date of Birth', value: lead.owner_dob },
+                { label: 'SSN Last Four', value: lead.ssn_last_four ? `••••${lead.ssn_last_four}` : '—' },
+                { label: 'Home Address', value: lead.owner_home_address },
                 { label: 'Ownership %', value: lead.ownership_pct ? `${lead.ownership_pct}%` : '—' },
-                { label: 'Use of Funds', value: lead.use_of_funds },
-                { label: 'Existing Advances', value: lead.existing_advances ? 'Yes' : 'No' },
-                { label: 'Urgency', value: lead.urgency },
+                { label: 'SMS Opt-In', value: lead.sms_opt_in ? 'Yes' : 'No' },
               ],
             },
           ].map((section) => (
@@ -296,17 +311,56 @@ export default function LeadDetail() {
         </div>
       )}
 
-      {['Underwriting', 'Risk Checks', 'DataMerch', 'Credit Reports', 'Compliance Log'].includes(activeTab) && (
-        <div className="card p-6">
-          <h3 className="text-[16px] font-semibold text-navy-900 mb-2">{activeTab}</h3>
-          <p className="text-[14px] text-slate-500 leading-relaxed">
-            {activeTab === 'DataMerch' && 'DataMerch checks are planned for a server-side Supabase Edge Function and will require recorded applicant consent before any real request is run.'}
-            {activeTab === 'Credit Reports' && 'Credit report requests are planned for a server-side workflow only. API credentials and reports must never be exposed in the browser.'}
-            {activeTab === 'Compliance Log' && 'Consent records, audit events, document access, and funding disclosures will be tracked here after the production schema is applied.'}
-            {activeTab === 'Underwriting' && 'Underwriting worksheets, bank-statement analysis, stipulations, and approval notes will be managed here.'}
-            {activeTab === 'Risk Checks' && 'Risk flags, duplicate application checks, fraud review notes, and restricted-industry reviews will be managed here.'}
-          </p>
+      {activeTab === 'Underwriting' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {[{
+            title: 'Revenue Profile',
+            fields: [
+              { label: 'Requested Amount', value: money(lead.requested_amount || lead.funding_amount_requested) },
+              { label: 'Monthly Revenue', value: money(lead.monthly_revenue) },
+              { label: 'Annual Revenue', value: money(lead.annual_revenue) },
+              { label: 'Gross Monthly Revenue', value: money(lead.gross_monthly_revenue) },
+              { label: 'Net Monthly Deposits', value: money(lead.net_monthly_deposits) },
+              { label: 'Number of Deposits', value: lead.number_of_deposits || '—' },
+            ],
+          }, {
+            title: 'Bank Statement Analysis',
+            fields: [
+              { label: 'Average Daily Balance', value: money(lead.avg_daily_balance) },
+              { label: 'NSFs Last 90 Days', value: lead.nsfs_last_90_days ?? '—' },
+              { label: 'Negative Days', value: lead.negative_days ?? '—' },
+              { label: 'Current Bank', value: lead.current_bank || '—' },
+              { label: 'Ending Balances', value: lead.ending_balances || '—' },
+              { label: 'Deposits Per Month', value: lead.deposits_per_month || '—' },
+            ],
+          }, {
+            title: 'Current Debt / Advances',
+            fields: [
+              { label: 'Current Advances', value: lead.current_advances || (lead.existing_advances ? 'Yes' : 'No') },
+              { label: 'Current MCA Balances', value: money(lead.current_mca_balances) },
+              { label: 'Current Daily Payments', value: money(lead.current_daily_payments) },
+              { label: 'Current Weekly Payments', value: money(lead.current_weekly_payments) },
+              { label: 'Use of Funds', value: lead.use_of_funds || '—' },
+              { label: 'Decline Reason', value: lead.decline_reason || '—' },
+            ],
+          }, {
+            title: 'Processing / Risk Notes',
+            fields: [
+              { label: 'Accepts Cards', value: lead.accepts_credit_cards ? 'Yes' : 'No' },
+              { label: 'Payment Processor', value: lead.payment_processor || '—' },
+              { label: 'Monthly Card Volume', value: money(lead.monthly_card_volume) },
+              { label: 'Routing Last Four', value: lead.routing_last_four ? `••••${lead.routing_last_four}` : '—' },
+              { label: 'Account Last Four', value: lead.account_last_four ? `••••${lead.account_last_four}` : '—' },
+              { label: 'Underwriter Notes', value: lead.underwriter_notes || '—' },
+            ],
+          }].map((section) => (
+            <div key={section.title} className="card p-6"><h3 className="text-[15px] font-semibold text-navy-900 mb-4">{section.title}</h3><div className="flex flex-col gap-3">{section.fields.map((field) => <div key={field.label} className="flex items-center justify-between border-b border-slate-100 pb-2 last:border-none last:pb-0 gap-4"><span className="text-[13px] text-slate-500">{field.label}</span><span className="text-[13px] font-medium text-slate-800 text-right">{field.value || '—'}</span></div>)}</div></div>
+          ))}
         </div>
+      )}
+
+      {['Risk Checks', 'DataMerch', 'Credit Reports', 'Compliance Log'].includes(activeTab) && (
+        <div className="card p-6"><h3 className="text-[16px] font-semibold text-navy-900 mb-2">{activeTab}</h3><p className="text-[14px] text-slate-500 leading-relaxed">{activeTab === 'DataMerch' && 'DataMerch checks are prepared for a server-side Supabase Edge Function with recorded consent before any real request is run.'}{activeTab === 'Credit Reports' && 'Credit report requests remain server-side only. API credentials and reports must never be exposed in the browser.'}{activeTab === 'Compliance Log' && 'Consent records, audit events, document access, status history, and communication events are tracked in production schema tables.'}{activeTab === 'Risk Checks' && 'Duplicate detection by email, phone, EIN, and business name is supported by indexed fields and duplicate detection records.'}</p></div>
       )}
 
       {/* DOCUMENTS */}
