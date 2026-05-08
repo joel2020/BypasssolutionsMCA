@@ -293,7 +293,7 @@ export default function Apply() {
         routing_last_four: lastFour(form.routingLastFour),
         account_last_four: lastFour(form.accountLastFour),
         sms_opt_in: form.smsOptIn,
-        status: 'Submitted',
+        status: 'Application Started',
         source: 'Website',
         consent: true,
         consent_text: CONSENT_TEXT,

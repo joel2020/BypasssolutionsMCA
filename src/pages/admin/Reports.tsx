@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { supabase, type Lead, type Commission } from '../../lib/supabase';
-import { pipelineStatuses } from '../../data/mockData';
+import { useLeads } from '../../hooks/useLeads';
+import { useCommissions } from '../../hooks/useCommissions';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
+import { canonicalLeadStatuses } from '../../lib/status';
 
 const sourceColors: Record<string, string> = {
   Website: '#0891b2',
@@ -26,20 +27,10 @@ function StatBox({ label, value, sub }: { label: string; value: string; sub?: st
 }
 
 export default function Reports() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [commissions, setCommissions] = useState<Commission[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      supabase.from('leads').select('*'),
-      supabase.from('commissions').select('*'),
-    ]).then(([{ data: leadsData }, { data: commData }]) => {
-      if (leadsData) setLeads(leadsData as Lead[]);
-      if (commData) setCommissions(commData as Commission[]);
-      setLoading(false);
-    });
-  }, []);
+  const { data: leads, loading: leadsLoading, error: leadsError } = useLeads();
+  const { data: commissions, loading: commissionsLoading, error: commissionsError } = useCommissions();
+  const loading = leadsLoading || commissionsLoading;
+  const error = leadsError || commissionsError;
 
   const funded = leads.filter(l => l.status === 'Funded').length;
   const convRate = leads.length > 0 ? ((funded / leads.length) * 100).toFixed(1) : '0';
@@ -47,8 +38,8 @@ export default function Reports() {
   const totalComm = commissions.reduce((sum, c) => sum + c.commission_amount, 0);
 
   // Funnel data
-  const funnelData = pipelineStatuses
-    .filter(s => !['Declined', 'Lost', 'Renewal Eligible'].includes(s))
+  const funnelData = canonicalLeadStatuses
+    .filter(s => !['Declined', 'Lost'].includes(s))
     .map(stage => ({
       stage: stage.replace(' ', '\n'),
       count: leads.filter(l => l.status === stage).length,
@@ -91,9 +82,11 @@ export default function Reports() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-7 h-7 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-        </div>
+        <SkeletonLoader label="Loading reports from Supabase..." />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : leads.length === 0 ? (
+        <EmptyState title="No report data" message="Supabase returned no leads to report on." />
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">

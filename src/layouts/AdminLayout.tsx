@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, FileText, Kanban, FolderOpen, Tag, Building2, CheckSquare,
@@ -43,6 +44,10 @@ function NavItem({ icon: Icon, label, href }: { icon: React.ElementType; label: 
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const { profile } = useCurrentUser();
+  const displayName = profile?.full_name || profile?.email || 'Current User';
+  const displayEmail = profile?.email || '';
+  const initials = (profile?.full_name || profile?.email || 'CU').split(/[ @.]+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -124,13 +129,13 @@ export default function AdminLayout() {
 
           <div className="relative">
             <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">JC</div></div>
-              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">Joel Carias</p><p className="text-[12px] text-slate-400">Admin • Production</p></div>
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">{initials}</div></div>
+              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">{displayName}</p><p className="text-[12px] text-slate-400">{profile?.role === 'admin' ? 'Admin' : 'Rep'} • Production</p></div>
               <ChevronDown size={15} className="text-slate-400" />
             </button>
             {userMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-[#0b1730] shadow-2xl py-2 z-20">
-                <div className="px-4 py-3 border-b border-white/10"><p className="text-[13px] font-semibold text-white">Joel Carias</p><p className="text-[12px] text-slate-400">joelcarias23@gmail.com</p></div>
+                <div className="px-4 py-3 border-b border-white/10"><p className="text-[13px] font-semibold text-white">{displayName}</p><p className="text-[12px] text-slate-400">{displayEmail}</p></div>
                 <Link to="/admin/settings" className="flex items-center gap-2 px-4 py-2 text-[13px] text-slate-300 hover:bg-white/10"><ShieldCheck size={14} /> Security settings</Link>
                 <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-[13px] text-red-300 hover:bg-red-500/10">Sign Out</button>
               </div>

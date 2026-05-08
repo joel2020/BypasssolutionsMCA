@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
 import { DollarSign } from 'lucide-react';
-import { supabase, type Commission } from '../../lib/supabase';
+import { useCommissions } from '../../hooks/useCommissions';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
 const statusColor = (s: string) => {
   if (s === 'Paid') return 'bg-green-50 text-green-700';
@@ -9,19 +9,7 @@ const statusColor = (s: string) => {
 };
 
 export default function Commissions() {
-  const [commissions, setCommissions] = useState<Commission[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase
-      .from('commissions')
-      .select('*')
-      .order('funded_date', { ascending: false })
-      .then(({ data }) => {
-        if (data) setCommissions(data as Commission[]);
-        setLoading(false);
-      });
-  }, []);
+  const { data: commissions, loading, error } = useCommissions();
 
   const total = commissions.reduce((sum, c) => sum + c.commission_amount, 0);
   const paid = commissions.filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.commission_amount, 0);
@@ -53,9 +41,11 @@ export default function Commissions() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-slate-200 border-t-accent-500 rounded-full animate-spin" />
-        </div>
+        <SkeletonLoader label="Loading commissions from Supabase..." />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : commissions.length === 0 ? (
+        <EmptyState title="No commissions recorded" message="Supabase returned no commission records." />
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full">
@@ -86,11 +76,6 @@ export default function Commissions() {
               ))}
             </tbody>
           </table>
-          {commissions.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-[14px] text-slate-400">No commissions recorded yet.</p>
-            </div>
-          )}
         </div>
       )}
     </div>
