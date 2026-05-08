@@ -5,14 +5,15 @@ import Logo from '../brand/Logo';
 
 const navLinks = [
   {
-    label: 'Solutions',
+    label: 'Funding Solutions',
     href: '/solutions',
     children: [
-      { label: 'Merchant Cash Advance', href: '/solutions' },
-      { label: 'Revenue-Based Financing', href: '/solutions' },
       { label: 'Working Capital', href: '/solutions' },
-      { label: 'Business Line of Credit', href: '/solutions' },
-      { label: 'Equipment Funding', href: '/solutions' },
+      { label: 'Business Funding', href: '/solutions' },
+      { label: 'Revenue-Based Funding', href: '/solutions' },
+      { label: 'Short-Term Business Funding', href: '/solutions' },
+      { label: 'Equipment & Expansion Capital', href: '/solutions' },
+      { label: 'Fast Funding Review', href: '/apply' },
     ],
   },
   { label: 'Industries', href: '/industries' },
@@ -22,16 +23,10 @@ const navLinks = [
 ];
 
 export default function Header() {
-  const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   const location = useLocation();
 
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handler);
-    return () => window.removeEventListener('scroll', handler);
-  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -42,9 +37,7 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white border-b border-slate-200 shadow-nav' : 'bg-transparent'
-      }`}
+      className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl"
     >
       <div className="max-w-[1200px] mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-[72px]">
@@ -70,7 +63,7 @@ export default function Header() {
                     />
                   </button>
                   {solutionsOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-1 animate-fade-in">
+                    <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-lg py-1 animate-fade-in">
                       {link.children.map((child) => (
                         <Link
                           key={child.label}

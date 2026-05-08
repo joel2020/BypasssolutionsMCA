@@ -4,12 +4,12 @@ import { Mail, Phone, MapPin } from 'lucide-react';
 
 const footerLinks = {
   solutions: [
-    { label: 'Merchant Cash Advance', href: '/solutions' },
-    { label: 'Revenue-Based Financing', href: '/solutions' },
+    { label: 'Business Funding', href: '/solutions' },
+    { label: 'Revenue-Based Funding', href: '/solutions' },
     { label: 'Working Capital', href: '/solutions' },
-    { label: 'Business Line of Credit', href: '/solutions' },
-    { label: 'Equipment Funding', href: '/solutions' },
-    { label: 'Short-Term Funding', href: '/solutions' },
+    { label: 'Fast Funding Review', href: '/apply' },
+    { label: 'Equipment & Expansion Capital', href: '/solutions' },
+    { label: 'Short-Term Business Funding', href: '/solutions' },
   ],
   industries: [
     { label: 'Restaurants', href: '/industries' },

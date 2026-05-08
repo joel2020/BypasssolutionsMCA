@@ -7,7 +7,7 @@ const faqs = [
   ['What documents are required?', 'Most files include 3–6 months of business bank statements, a government-issued ID, a voided business check, and merchant or existing advance statements when applicable.'],
   ['Will applying affect my credit?', 'Initial review is generally designed around business information and bank statements. If a funding partner needs a hard credit inquiry, that should be disclosed before it occurs.'],
   ['What funding amounts are available?', 'Available working capital depends on revenue, deposits, business history, industry, current advances, and underwriting. Bypass Solution does not guarantee approval or a specific amount.'],
-  ['Do I need perfect credit?', 'No. MCA and revenue-based funding reviews often consider business performance in addition to credit profile, but all applications remain subject to review and approval.'],
+  ['Do I need perfect credit?', 'No. Revenue-based funding reviews often consider business performance in addition to credit profile, but all applications remain subject to review and approval.'],
   ['What happens after I submit my application?', 'Your record is created in the internal CRM, documents are reviewed privately, an activity timeline is started, and a funding specialist follows up with next steps or document requests.'],
   ['Is my information secure?', 'The application masks sensitive identifiers, validates files, stores documents in a private bucket, and restricts internal CRM access to authorized roles.'],
 ];
