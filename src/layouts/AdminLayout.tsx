@@ -3,56 +3,23 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Logo from '../components/brand/Logo';
 import {
-  LayoutDashboard, Users, FileText, Kanban, FolderOpen, Tag,
-  Building2, CheckSquare, Phone, MessageSquare, Mail, DollarSign,
-  BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
+  LayoutDashboard, FileText, Kanban, FolderOpen, Tag, Building2, CheckSquare,
+  MessageSquare, BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
+  Filter, Plus, LifeBuoy, ShieldCheck, ClipboardCheck,
 } from 'lucide-react';
 
-const navSections = [
-  {
-    label: 'Overview',
-    items: [
-      { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
-    ],
-  },
-  {
-    label: 'Pipeline',
-    items: [
-      { icon: Users, label: 'Leads', href: '/admin/leads' },
-      { icon: FileText, label: 'Applications', href: '/admin/applications' },
-      { icon: Kanban, label: 'Pipeline', href: '/admin/pipeline' },
-    ],
-  },
-  {
-    label: 'Documents & Offers',
-    items: [
-      { icon: FolderOpen, label: 'Documents', href: '/admin/documents' },
-      { icon: Tag, label: 'Offers', href: '/admin/offers' },
-      { icon: Building2, label: 'Funders', href: '/admin/funders' },
-    ],
-  },
-  {
-    label: 'Activity',
-    items: [
-      { icon: CheckSquare, label: 'Tasks', href: '/admin/tasks' },
-      { icon: Phone, label: 'Calls', href: '/admin/calls' },
-      { icon: MessageSquare, label: 'SMS', href: '/admin/sms' },
-      { icon: Mail, label: 'Email', href: '/admin/email' },
-    ],
-  },
-  {
-    label: 'Finance',
-    items: [
-      { icon: DollarSign, label: 'Commissions', href: '/admin/commissions' },
-      { icon: BarChart3, label: 'Reports', href: '/admin/reports' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { icon: Settings, label: 'Settings', href: '/admin/settings' },
-    ],
-  },
+const navItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
+  { icon: FileText, label: 'Applications', href: '/admin/applications' },
+  { icon: Kanban, label: 'Pipeline', href: '/admin/pipeline' },
+  { icon: ClipboardCheck, label: 'Underwriting', href: '/admin/leads' },
+  { icon: Tag, label: 'Offers', href: '/admin/offers' },
+  { icon: FolderOpen, label: 'Documents', href: '/admin/documents' },
+  { icon: Building2, label: 'Funding Partners', href: '/admin/funders' },
+  { icon: MessageSquare, label: 'Communications', href: '/admin/email' },
+  { icon: CheckSquare, label: 'Tasks', href: '/admin/tasks' },
+  { icon: BarChart3, label: 'Reports', href: '/admin/reports' },
+  { icon: Settings, label: 'Settings', href: '/admin/settings' },
 ];
 
 function NavItem({ icon: Icon, label, href }: { icon: React.ElementType; label: string; href: string }) {
@@ -62,13 +29,13 @@ function NavItem({ icon: Icon, label, href }: { icon: React.ElementType; label: 
   return (
     <Link
       to={href}
-      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md text-[14px] font-medium transition-colors ${
+      className={`group flex items-center gap-3 px-4 py-3 rounded-lg text-[14px] font-semibold transition-all ${
         active
-          ? 'bg-slate-100 text-slate-900 font-semibold'
-          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-950/30'
+          : 'text-slate-300 hover:text-white hover:bg-white/8'
       }`}
     >
-      <Icon size={16} className={active ? 'text-accent-600' : 'text-slate-400'} />
+      <Icon size={18} className={active ? 'text-white' : 'text-slate-400 group-hover:text-blue-300'} />
       {label}
     </Link>
   );
@@ -76,13 +43,8 @@ function NavItem({ icon: Icon, label, href }: { icon: React.ElementType; label: 
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-  const pageTitle = navSections
-    .flatMap((s) => s.items)
-    .find((item) => location.pathname === item.href || (item.href !== '/admin/dashboard' && location.pathname.startsWith(item.href)))?.label || 'Admin';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -90,121 +52,93 @@ export default function AdminLayout() {
   };
 
   const Sidebar = () => (
-    <aside className="w-[260px] flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-slate-200">
-        <Logo size="md" />
-        <p className="text-[11px] text-slate-400 font-medium mt-1 ml-10">CRM Admin</p>
+    <aside className="w-[292px] flex-shrink-0 border-r border-white/10 bg-[#07152c]/95 backdrop-blur-xl flex flex-col h-full">
+      <div className="px-8 py-7 border-b border-white/10">
+        <Logo size="lg" inverse />
+        <p className="text-[13px] text-blue-100/90 font-medium mt-3">Working Capital. Smarter. Faster.</p>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
-        {navSections.map((section) => (
-          <div key={section.label} className="mb-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400 px-3 mb-1.5">
-              {section.label}
-            </p>
-            {section.items.map((item) => (
-              <NavItem key={item.href} {...item} />
-            ))}
-          </div>
+      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5">
+        {navItems.map((item) => (
+          <NavItem key={item.href} {...item} />
         ))}
       </nav>
 
-      {/* Bottom user area */}
-      <div className="border-t border-slate-200 p-3">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-md text-[14px] text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-        >
-          <LogOut size={16} />
-          Sign Out
+      <div className="p-5 space-y-4">
+        <div className="rounded-xl border border-blue-300/20 bg-gradient-to-br from-blue-500/18 via-blue-500/8 to-transparent p-5 shadow-2xl shadow-blue-950/20">
+          <p className="text-[22px] leading-tight font-bold text-blue-50">Working Capital.<br />Smarter. Faster.</p>
+          <div className="my-5 h-px bg-white/10" />
+          <p className="text-[13px] font-semibold text-white">Need Help?</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-300">Contact your success manager or our support team.</p>
+          <Link to="/admin/settings" className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-[13px] font-semibold text-white hover:bg-blue-500">
+            <LifeBuoy size={15} /> Contact Support
+          </Link>
+        </div>
+        <button onClick={handleLogout} className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-md text-[13px] text-slate-400 hover:text-red-200 hover:bg-red-500/10 transition-colors">
+          <LogOut size={16} /> Sign Out
         </button>
       </div>
     </aside>
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex">
-        <Sidebar />
-      </div>
+    <div className="flex h-screen overflow-hidden bg-[#020a18] text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.25),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.15),transparent_30%)]" />
+      <div className="hidden lg:flex relative z-10"><Sidebar /></div>
 
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 flex">
-            <Sidebar />
-          </div>
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute left-0 top-0 bottom-0 flex"><Sidebar /></div>
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 gap-4 flex-shrink-0">
-          <button
-            className="lg:hidden text-slate-500 hover:text-slate-700 mr-1"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu size={20} />
-          </button>
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="h-[86px] border-b border-white/8 bg-[#061127]/85 backdrop-blur-xl flex items-center px-5 lg:px-9 gap-5 flex-shrink-0">
+          <button className="lg:hidden text-slate-300 hover:text-white" onClick={() => setSidebarOpen(true)}><Menu size={22} /></button>
 
-          <h1 className="text-[17px] font-semibold text-slate-900">{pageTitle}</h1>
-
-          <div className="flex-1 max-w-xs hidden sm:block">
+          <div className="flex-1 max-w-2xl">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search leads, applications..."
-                className="h-9 w-full bg-slate-50 border border-slate-200 rounded-md pl-8 pr-4 text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-accent-500 focus:border-accent-500"
+                placeholder="Search applications, businesses, contacts..."
+                className="h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-12 pr-4 text-[14px] text-slate-100 placeholder:text-slate-400 outline-none transition focus:border-blue-400/70 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
-            <button className="relative w-9 h-9 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors">
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+          <div className="hidden md:flex items-center gap-3 ml-auto">
+            <button className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 text-[14px] font-semibold text-slate-100 hover:bg-white/10">
+              <Filter size={16} /> Filter
             </button>
+            <Link to="/admin/applications" className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-[14px] font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
+              <Plus size={17} /> New Application
+            </Link>
+          </div>
 
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen((v) => !v)}
-                onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
-              >
-                <div className="w-7 h-7 rounded-full bg-accent-600 flex items-center justify-center text-white text-[12px] font-bold">
-                  A
-                </div>
-                <span className="text-[14px] font-medium text-slate-700 hidden sm:block">Admin</span>
-                <ChevronDown size={13} className="text-slate-400" />
-              </button>
-              {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-[13px] font-medium text-slate-800">Admin User</p>
-                    <p className="text-[12px] text-slate-400">admin@bypasssolution.com</p>
-                  </div>
-                  <Link to="/admin/settings" className="block px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50">
-                    Settings
-                  </Link>
-                  <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50">
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
+          <button className="relative w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+            <Bell size={19} />
+            <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-[11px] font-bold text-white">3</span>
+          </button>
+
+          <div className="relative">
+            <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">MA</div></div>
+              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">Michael Anderson</p><p className="text-[12px] text-slate-400">Admin</p></div>
+              <ChevronDown size={15} className="text-slate-400" />
+            </button>
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-[#0b1730] shadow-2xl py-2 z-20">
+                <div className="px-4 py-3 border-b border-white/10"><p className="text-[13px] font-semibold text-white">Michael Anderson</p><p className="text-[12px] text-slate-400">admin@bypasssolution.com</p></div>
+                <Link to="/admin/settings" className="flex items-center gap-2 px-4 py-2 text-[13px] text-slate-300 hover:bg-white/10"><ShieldCheck size={14} /> Security settings</Link>
+                <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-[13px] text-red-300 hover:bg-red-500/10">Sign Out</button>
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
-          <Outlet />
-        </main>
+        <main className="flex-1 overflow-y-auto bg-transparent"><Outlet /></main>
       </div>
     </div>
   );
