@@ -16,14 +16,14 @@ export function useFundingPartners() {
 
 export function usePartnerSubmissions(applicationId?: string) {
   return useSupabaseQuery<PartnerSubmission[]>(async () => {
-    if (!applicationId) return [];
-
-    const { data, error } = await supabase
+    let query = supabase
       .from('partner_submissions')
       .select('*, funding_partners(name, email, contact_name)')
-      .eq('application_id', applicationId)
       .order('created_at', { ascending: false });
 
+    if (applicationId) query = query.eq('application_id', applicationId);
+
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as PartnerSubmission[];
   }, [], [applicationId]);
@@ -34,6 +34,7 @@ export function useCreatePartnerSubmission() {
 
   async function createSubmission(payload: {
     applicationId: string;
+    leadId?: string | null;
     fundingPartnerId: string;
     notes?: string;
     includedDocumentIds?: string[];
@@ -61,6 +62,7 @@ export function useCreatePartnerSubmission() {
 
       await supabase.from('activity_logs').insert({
         application_id: payload.applicationId,
+        lead_id: payload.leadId ?? null,
         user_id: auth.user?.id ?? null,
         action: 'partner_submission_created',
         metadata: {
@@ -69,28 +71,53 @@ export function useCreatePartnerSubmission() {
         },
       });
 
-      return data;
+      return data as PartnerSubmission;
     } finally {
       setLoading(false);
     }
   }
 
-  async function markDeclined(submissionId: string, denialReason: string, denialNotes?: string) {
-    const { data: auth } = await supabase.auth.getUser();
+  async function markDeclined(payload: {
+    submissionId: string;
+    applicationId?: string | null;
+    leadId?: string | null;
+    denialReason: string;
+    denialNotes?: string;
+  }) {
+    setLoading(true);
 
-    const { error } = await supabase
-      .from('partner_submissions')
-      .update({
-        status: 'Declined',
-        denial_reason: denialReason,
-        denial_notes: denialNotes ?? null,
-        denied_by: auth.user?.id ?? null,
-        denied_at: new Date().toISOString(),
-        response_at: new Date().toISOString(),
-      })
-      .eq('id', submissionId);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
 
-    if (error) throw error;
+      const { error } = await supabase
+        .from('partner_submissions')
+        .update({
+          status: 'Declined',
+          response_status: 'Declined',
+          denial_reason: payload.denialReason,
+          denial_notes: payload.denialNotes ?? null,
+          denied_by: auth.user?.id ?? null,
+          denied_at: now,
+          response_at: now,
+        })
+        .eq('id', payload.submissionId);
+
+      if (error) throw error;
+
+      await supabase.from('activity_logs').insert({
+        application_id: payload.applicationId ?? null,
+        lead_id: payload.leadId ?? null,
+        user_id: auth.user?.id ?? null,
+        action: 'partner_submission_declined',
+        metadata: {
+          partner_submission_id: payload.submissionId,
+          denial_reason: payload.denialReason,
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return {
