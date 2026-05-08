@@ -6,7 +6,7 @@ import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, FileText, Kanban, FolderOpen, Tag, Building2, CheckSquare,
   MessageSquare, BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
-  Filter, Plus, LifeBuoy, ShieldCheck, ClipboardCheck,
+  Filter, Plus, ShieldCheck, ClipboardCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -69,16 +69,7 @@ export default function AdminLayout() {
         ))}
       </nav>
 
-      <div className="p-5 space-y-4">
-        <div className="rounded-xl border border-blue-300/20 bg-gradient-to-br from-blue-500/18 via-blue-500/8 to-transparent p-5 shadow-2xl shadow-blue-950/20">
-          <p className="text-[22px] leading-tight font-bold text-blue-50">Working Capital.<br />Smarter. Faster.</p>
-          <div className="my-5 h-px bg-white/10" />
-          <p className="text-[13px] font-semibold text-white">Need Help?</p>
-          <p className="mt-1 text-[12px] leading-5 text-slate-300">Contact your success manager or our support team.</p>
-          <Link to="/admin/settings" className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-[13px] font-semibold text-white hover:bg-blue-500">
-            <LifeBuoy size={15} /> Contact Support
-          </Link>
-        </div>
+      <div className="border-t border-white/10 p-5">
         <button onClick={handleLogout} className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-md text-[13px] text-slate-400 hover:text-red-200 hover:bg-red-500/10 transition-colors">
           <LogOut size={16} /> Sign Out
         </button>
