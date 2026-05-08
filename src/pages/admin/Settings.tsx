@@ -16,16 +16,16 @@ const integrations = [
 const automationRules = [
   { name: 'New Application Submitted', trigger: 'On application submit', action: 'Notify admin via email', enabled: true },
   { name: 'Application Submitted → Confirmation', trigger: 'On application submit', action: 'Send confirmation email to applicant', enabled: true },
-  { name: 'Docs Missing 24hr Reminder', trigger: 'Docs Requested + 24 hours', action: 'Send document reminder SMS + email', enabled: true },
+  { name: 'Docs Missing 24hr Reminder', trigger: 'Submitted + 24 hours', action: 'Send document reminder SMS + email', enabled: true },
   { name: 'Docs Received → Rep Alert', trigger: 'On docs received', action: 'Notify assigned rep', enabled: true },
   { name: 'Offer Sent → 1-Day Follow-up', trigger: 'Offer sent + 1 day', action: 'Create follow-up task for rep', enabled: false },
-  { name: 'Contract Sent → 12hr Follow-up', trigger: 'Contract sent + 12 hours', action: 'Create urgent follow-up task', enabled: true },
+  { name: 'Offer Sent → 12hr Follow-up', trigger: 'Offer sent + 12 hours', action: 'Create urgent follow-up task', enabled: true },
   { name: 'Funded Deal → Renewal Reminder', trigger: 'Deal funded + 90 days', action: 'Create renewal outreach task', enabled: false },
   { name: 'No Contact After 3 Attempts', trigger: '3 unanswered outreach attempts', action: 'Move to nurture sequence', enabled: false },
 ];
 
 const teamMembers = [
-  { name: 'Admin User', email: 'admin@bypasssolution.com', role: 'Admin', status: 'Active' },
+  { name: 'Joel Carias', email: 'joelcarias23@gmail.com', role: 'Admin', status: 'Active' },
   { name: 'Sarah K.', email: 'sarah@bypasssolution.com', role: 'Agent', status: 'Active' },
   { name: 'Mike T.', email: 'mike@bypasssolution.com', role: 'Agent', status: 'Active' },
   { name: 'Tom R.', email: 'tom@bypasssolution.com', role: 'Agent', status: 'Active' },
@@ -95,7 +95,7 @@ export default function Settings() {
       {activeTab === 'Team Members' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[14px] text-slate-600">{teamMembers.length} team members</p>
+            <p className="text-[14px] text-slate-600">{teamMembers.length} team members • Joel Carias is the permanent administrator</p>
             <button className="btn-primary h-9 text-[13px] px-4">
               <Plus size={14} /> Add Member
             </button>
@@ -194,7 +194,7 @@ export default function Settings() {
           <p className="text-[14px] text-slate-500 mb-5">Manage your subscription and payment information.</p>
           <div className="bg-green-50 border border-green-200 rounded-md px-4 py-3 mb-5">
             <p className="text-[13px] font-semibold text-green-800">Enterprise Plan — Active</p>
-            <p className="text-[12px] text-green-600 mt-0.5">Next billing date: February 1, 2024</p>
+            <p className="text-[12px] text-green-600 mt-0.5">Production billing managed outside CRM</p>
           </div>
           <button className="btn-secondary">Manage Subscription</button>
         </div>

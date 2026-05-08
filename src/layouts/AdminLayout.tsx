@@ -124,13 +124,13 @@ export default function AdminLayout() {
 
           <div className="relative">
             <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">MA</div></div>
-              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">Michael Anderson</p><p className="text-[12px] text-slate-400">Admin</p></div>
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">JC</div></div>
+              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">Joel Carias</p><p className="text-[12px] text-slate-400">Admin • Production</p></div>
               <ChevronDown size={15} className="text-slate-400" />
             </button>
             {userMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-[#0b1730] shadow-2xl py-2 z-20">
-                <div className="px-4 py-3 border-b border-white/10"><p className="text-[13px] font-semibold text-white">Michael Anderson</p><p className="text-[12px] text-slate-400">admin@bypasssolution.com</p></div>
+                <div className="px-4 py-3 border-b border-white/10"><p className="text-[13px] font-semibold text-white">Joel Carias</p><p className="text-[12px] text-slate-400">joelcarias23@gmail.com</p></div>
                 <Link to="/admin/settings" className="flex items-center gap-2 px-4 py-2 text-[13px] text-slate-300 hover:bg-white/10"><ShieldCheck size={14} /> Security settings</Link>
                 <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-[13px] text-red-300 hover:bg-red-500/10">Sign Out</button>
               </div>

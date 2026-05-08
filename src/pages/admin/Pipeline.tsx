@@ -4,8 +4,7 @@ import { supabase, type Lead, type LeadStatus } from '../../lib/supabase';
 import { statusColors } from '../../data/mockData';
 
 const columns: LeadStatus[] = [
-  'New Lead', 'Contacted', 'Application Started', 'Docs Requested',
-  'Docs Received', 'Underwriting', 'Offers Available', 'Contract Sent', 'Funded',
+  'New', 'Submitted', 'In Review', 'Underwriting', 'Approved', 'Offer Sent', 'Funded', 'Declined', 'Withdrawn',
 ];
 
 export default function Pipeline() {

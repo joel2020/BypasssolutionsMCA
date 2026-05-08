@@ -1,9 +1,7 @@
 export type LeadStatus =
-  | 'New Lead' | 'Contacted' | 'Application Started' | 'Documents Needed'
-  | 'Docs Requested' | 'Docs Received' | 'Submitted' | 'Under Review'
-  | 'Underwriting' | 'Pre-Approved' | 'Offer Sent' | 'Offers Available'
-  | 'Approved' | 'Contract Sent' | 'Funded' | 'Renewal Eligible'
-  | 'Declined' | 'Lost / No Response' | 'Lost';
+  | 'New' | 'Submitted' | 'In Review' | 'Underwriting' | 'Approved'
+  | 'Offer Sent' | 'Funded' | 'Declined' | 'Withdrawn'
+  | 'Contacted' | 'Renewal Eligible' | 'Lost';
 
 export interface Lead {
   id: string;
@@ -53,7 +51,7 @@ export interface Offer {
   frequency: 'Daily' | 'Weekly' | 'Monthly';
   commission: number;
   commissionPct: number;
-  status: 'Draft' | 'Sent' | 'Viewed' | 'Accepted' | 'Rejected' | 'Expired' | 'Contract Sent';
+  status: 'Draft' | 'Sent' | 'Viewed' | 'Accepted' | 'Rejected' | 'Expired' | 'Offer Sent';
   createdAt: string;
 }
 
@@ -89,7 +87,7 @@ export const mockLeads: Lead[] = [
   {
     id: 'L001', firstName: 'Marcus', lastName: 'Johnson', businessName: 'Johnson Trucking LLC',
     phone: '(555) 234-5678', email: 'marcus@johnsontruck.com', industry: 'Trucking & Transportation',
-    requestedAmount: 75000, monthlyRevenue: 95000, status: 'Docs Received', assignedRep: 'Sarah K.',
+    requestedAmount: 75000, monthlyRevenue: 95000, status: 'In Review', assignedRep: 'Sarah K.',
     lastContact: '2024-01-05', source: 'Website', score: 82, state: 'Texas',
     timeInBusiness: '3–5 years', createdAt: '2024-01-01', useOfFunds: 'Fleet Maintenance',
     existingAdvances: false, urgency: 'Within 1 week',
@@ -97,7 +95,7 @@ export const mockLeads: Lead[] = [
   {
     id: 'L002', firstName: 'Elena', lastName: 'Ramirez', businessName: 'Casa Elena Restaurant',
     phone: '(555) 345-6789', email: 'elena@casaelena.com', industry: 'Restaurants & Food Service',
-    requestedAmount: 45000, monthlyRevenue: 72000, status: 'Offers Available', assignedRep: 'Mike T.',
+    requestedAmount: 45000, monthlyRevenue: 72000, status: 'Approved', assignedRep: 'Mike T.',
     lastContact: '2024-01-06', source: 'Referral', score: 91, state: 'Florida',
     timeInBusiness: '5+ years', createdAt: '2024-01-02', useOfFunds: 'Kitchen Equipment',
     existingAdvances: true, urgency: 'ASAP',
@@ -113,7 +111,7 @@ export const mockLeads: Lead[] = [
   {
     id: 'L004', firstName: 'Priya', lastName: 'Patel', businessName: 'Patel Family Pharmacy',
     phone: '(555) 567-8901', email: 'priya@patelpharma.com', industry: 'Medical & Healthcare',
-    requestedAmount: 100000, monthlyRevenue: 130000, status: 'Contract Sent', assignedRep: 'Tom R.',
+    requestedAmount: 100000, monthlyRevenue: 130000, status: 'Offer Sent', assignedRep: 'Tom R.',
     lastContact: '2024-01-06', source: 'Website', score: 88, state: 'New York',
     timeInBusiness: '5+ years', createdAt: '2023-12-20', useOfFunds: 'Equipment Purchase',
     existingAdvances: false, urgency: 'This month',
@@ -129,7 +127,7 @@ export const mockLeads: Lead[] = [
   {
     id: 'L006', firstName: 'Sophia', lastName: 'Martinez', businessName: 'Bloom Wellness Studio',
     phone: '(555) 789-0123', email: 'sophia@bloomwellness.com', industry: 'Beauty & Wellness',
-    requestedAmount: 25000, monthlyRevenue: 38000, status: 'Application Started', assignedRep: 'Tom R.',
+    requestedAmount: 25000, monthlyRevenue: 38000, status: 'New', assignedRep: 'Tom R.',
     lastContact: '2024-01-05', source: 'Instagram', score: 74, state: 'Arizona',
     timeInBusiness: '1–2 years', createdAt: '2024-01-04', useOfFunds: 'Renovation',
     existingAdvances: false, urgency: 'This month',
@@ -137,7 +135,7 @@ export const mockLeads: Lead[] = [
   {
     id: 'L007', firstName: 'Anthony', lastName: 'Brown', businessName: 'Brown\'s Wholesale Distributors',
     phone: '(555) 890-1234', email: 'anthony@brownwholesale.com', industry: 'Retail & Wholesale',
-    requestedAmount: 200000, monthlyRevenue: 310000, status: 'Docs Requested', assignedRep: 'Sarah K.',
+    requestedAmount: 200000, monthlyRevenue: 310000, status: 'Submitted', assignedRep: 'Sarah K.',
     lastContact: '2024-01-06', source: 'Google Ads', score: 79, state: 'Illinois',
     timeInBusiness: '5+ years', createdAt: '2024-01-03', useOfFunds: 'Inventory',
     existingAdvances: true, urgency: 'Within 1 week',
@@ -145,7 +143,7 @@ export const mockLeads: Lead[] = [
   {
     id: 'L008', firstName: 'Linda', lastName: 'Thompson', businessName: 'Thompson E-Commerce Solutions',
     phone: '(555) 901-2345', email: 'linda@thompsoneco.com', industry: 'E-commerce',
-    requestedAmount: 60000, monthlyRevenue: 82000, status: 'New Lead', assignedRep: 'Unassigned',
+    requestedAmount: 60000, monthlyRevenue: 82000, status: 'New', assignedRep: 'Unassigned',
     lastContact: 'Never', source: 'Website', score: 66, state: 'Washington',
     timeInBusiness: '1–2 years', createdAt: '2024-01-06', useOfFunds: 'Marketing',
     existingAdvances: false, urgency: 'This week',
@@ -195,7 +193,7 @@ export const mockOffers: Offer[] = [
     id: 'O003', leadId: 'L004', leadName: 'Priya Patel — Patel Family Pharmacy',
     funderName: 'MedFund Capital', fundingAmount: 100000, paybackAmount: 132000,
     factorRate: 1.32, estimatedPayment: 3300, term: '8 months', frequency: 'Weekly',
-    commission: 7000, commissionPct: 7, status: 'Contract Sent', createdAt: '2024-01-03',
+    commission: 7000, commissionPct: 7, status: 'Offer Sent', createdAt: '2024-01-03',
   },
   {
     id: 'O004', leadId: 'L005', leadName: 'James Williams — Williams Auto',
@@ -277,29 +275,20 @@ export const mockCommissions: Commission[] = [
 ];
 
 export const pipelineStatuses: LeadStatus[] = [
-  'New Lead', 'Application Started', 'Documents Needed', 'Submitted',
-  'Under Review', 'Pre-Approved', 'Offer Sent', 'Approved',
-  'Contract Sent', 'Funded', 'Declined', 'Lost / No Response',
+  'New', 'Submitted', 'In Review', 'Underwriting', 'Approved', 'Offer Sent', 'Funded', 'Declined', 'Withdrawn',
 ];
 
-export const statusColors: Record<LeadStatus, string> = {
-  'New Lead': 'bg-slate-100 text-slate-600',
-  'Contacted': 'bg-blue-50 text-blue-700',
-  'Application Started': 'bg-cyan-50 text-cyan-700',
-  'Documents Needed': 'bg-amber-50 text-amber-700',
-  'Docs Requested': 'bg-amber-50 text-amber-700',
-  'Docs Received': 'bg-indigo-50 text-indigo-700',
-  'Submitted': 'bg-blue-50 text-blue-700',
-  'Under Review': 'bg-orange-50 text-orange-700',
-  'Underwriting': 'bg-orange-50 text-orange-700',
-  'Pre-Approved': 'bg-emerald-50 text-emerald-700',
+export const statusColors: Record<string, string> = {
+  New: 'bg-slate-100 text-slate-600',
+  Submitted: 'bg-blue-50 text-blue-700',
+  'In Review': 'bg-orange-50 text-orange-700',
+  Underwriting: 'bg-orange-50 text-orange-700',
+  Approved: 'bg-emerald-50 text-emerald-700',
   'Offer Sent': 'bg-teal-50 text-teal-700',
-  'Offers Available': 'bg-emerald-50 text-emerald-700',
-  'Approved': 'bg-green-50 text-green-700',
-  'Contract Sent': 'bg-violet-50 text-violet-700',
-  'Funded': 'bg-green-50 text-green-700',
+  Funded: 'bg-green-50 text-green-700',
+  Declined: 'bg-red-50 text-red-700',
+  Withdrawn: 'bg-slate-100 text-slate-600',
+  Contacted: 'bg-blue-50 text-blue-700',
   'Renewal Eligible': 'bg-purple-50 text-purple-700',
-  'Declined': 'bg-red-50 text-red-700',
-  'Lost / No Response': 'bg-slate-100 text-slate-600',
-  'Lost': 'bg-slate-100 text-slate-600',
+  Lost: 'bg-slate-100 text-slate-600',
 };

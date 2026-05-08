@@ -17,7 +17,7 @@ The admin CRM is available at `/admin/dashboard` on the main app and should be m
 - Fixed dark navy sidebar with Bypass Solution branding and the tagline “Working Capital. Smarter. Faster.”
 - Global search, notification bell, profile menu, filter action, and new-application action.
 - KPI cards for applications, new leads, underwriting, approvals, funded deals, requested volume, funded volume, and conversion rate.
-- Kanban-style MCA pipeline columns: New Lead, Documents Needed, Under Review, Pre-Approved, Offer Sent, and Funded.
+- Kanban-style MCA lifecycle columns: New, Submitted, In Review, Underwriting, Approved, Offer Sent, Funded, Declined, and Withdrawn.
 - Application cards with business, owner, requested funding, monthly revenue, assigned rep, last activity, status, and progress.
 - Activity feed for submissions, uploads, underwriting review, offers, follow-up tasks, notes, stage changes, and document requests.
 - Recharts funding-volume trend and application-source mix.
@@ -43,7 +43,8 @@ Apply the Supabase migrations in `supabase/migrations` in timestamp order:
 3. `20260507203000_production_admin_roles_and_secure_crm.sql` — profiles, admin roles, RLS, private buckets.
 4. `20260508090000_mca_application_crm_expansion.sql` — normalized MCA application/CRM expansion, status history, communications, partner submissions, underwriting, duplicate detection, private public-intake uploads.
 5. `20260508120000_bypass_solution_crm_seed_data.sql` — realistic sample data for 18 Bypass Solution MCA applications, owners, documents, tasks, notes, offers, partner submissions, underwriting snapshots, activity logs, and commissions.
-6. `20260508123000_add_joel_admin_user.sql` — temporary bootstrap admin user for `joelcarias23@gmail.com`; rotate or remove before production launch if using invite-based account creation.
+6. `20260508123000_add_joel_admin_user.sql` — secure idempotent Joel Carias admin-profile binding after Supabase Auth invite/reset-password account creation. It does not create or store a password.
+7. `20260508133000_production_indexes_triggers_and_rls.sql` — production indexes, updated_at trigger coverage, and legacy broad-policy cleanup.
 
 ## Data model coverage
 
@@ -63,7 +64,6 @@ The CRM schema supports:
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Browser | Supabase project URL. |
 | `VITE_SUPABASE_ANON_KEY` | Browser | Supabase anon key protected by RLS. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Edge Functions and admin jobs. Never expose in Vite. |
 | `EMAIL_PROVIDER_API_KEY` | Server only | Future transactional email delivery for queued templates. |
 | `INTERNAL_APPLICATION_ALERT_EMAIL` | Server only | Internal funding-team notification recipient. |
 | `TWILIO_*` | Server only | Future SMS delivery for opt-in applicants. |
@@ -71,17 +71,21 @@ The CRM schema supports:
 
 ## Admin user setup
 
-1. Create a Supabase Auth user for the CRM operator.
-2. Insert a matching row into `public.profiles`:
+Joel Carias is the permanent production CRM administrator:
 
-```sql
-insert into public.profiles (id, email, full_name, role, status)
-values ('AUTH_USER_UUID', 'admin@bypasssolution.com', 'Bypass Admin', 'admin', 'active');
-```
+- `full_name`: Joel Carias
+- `email`: joelcarias23@gmail.com
+- `role`: admin
+- `status`: active
 
-Allowed roles are `admin`, `underwriter`, `sales_rep`, and `viewer`. CRM access is blocked unless the profile is active and has an authorized role.
+Use Supabase Auth's invite/reset-password flow instead of seed passwords:
 
-The current bootstrap migration creates `joelcarias23@gmail.com` as an active admin with the temporary password `Bypass123!`. This is only for initial access; rotate the password immediately after first login or replace the migration with a Supabase invite flow before production launch.
+1. In Supabase, open **Authentication → Users**.
+2. Invite or create `joelcarias23@gmail.com` and send the invite/reset email.
+3. After Joel accepts the invite or sets his password, apply/rerun `20260508123000_add_joel_admin_user.sql`.
+4. Confirm `public.profiles` has Joel's Auth user ID with `role = 'admin'` and `status = 'active'`.
+
+Allowed roles are `admin`, `underwriter`, `sales_rep`, and `viewer`. CRM access is blocked unless the profile is active and has an authorized role. Never store passwords in frontend code, migrations, Vercel variables, or documentation. See `docs/production-admin-bootstrap.md` for the exact production checklist.
 
 ## Storage setup
 

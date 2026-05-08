@@ -4,16 +4,16 @@ import { Search, Eye } from 'lucide-react';
 import { supabase, type Lead } from '../../lib/supabase';
 import { statusColors } from '../../data/mockData';
 
-const activeStatuses = ['Application Started', 'Docs Requested', 'Docs Received', 'Underwriting', 'Offers Available', 'Contract Sent', 'Funded'];
+const activeStatuses = ['New', 'Submitted', 'In Review', 'Underwriting', 'Approved', 'Offer Sent', 'Funded'];
 
 const progressMap: Record<string, number> = {
-  'Application Started': 20,
-  'Docs Requested': 35,
-  'Docs Received': 55,
-  'Underwriting': 70,
-  'Offers Available': 80,
-  'Contract Sent': 90,
-  'Funded': 100,
+  New: 12,
+  Submitted: 28,
+  'In Review': 45,
+  Underwriting: 65,
+  Approved: 78,
+  'Offer Sent': 88,
+  Funded: 100,
 };
 
 export default function Applications() {
@@ -115,7 +115,7 @@ export default function Applications() {
                   </div>
                 </div>
 
-                {lead.status === 'Docs Requested' && (
+                {lead.status === 'Submitted' && (
                   <div className="mt-3 flex items-center gap-2 text-[12px] text-amber-600 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Waiting on documents from client

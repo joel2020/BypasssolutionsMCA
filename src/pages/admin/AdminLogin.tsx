@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Shield } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { isSupabaseConfigured, missingSupabaseMessage, supabase } from '../../lib/supabase';
 import Logo from '../../components/brand/Logo';
 
 export default function AdminLogin() {
@@ -16,6 +16,12 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (!isSupabaseConfigured) {
+      setError(missingSupabaseMessage);
+      setLoading(false);
+      return;
+    }
 
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -51,7 +57,7 @@ export default function AdminLogin() {
               <input
                 type="email"
                 className="input-field"
-                placeholder="admin@bypasssolution.com"
+                placeholder="joelcarias23@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

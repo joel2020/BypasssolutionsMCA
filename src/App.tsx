@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './lib/supabase';
+import { isSupabaseConfigured, missingSupabaseMessage, supabase } from './lib/supabase';
 import { getCurrentUserRole, type RoleCheckResult } from './lib/auth';
 import type { Session } from '@supabase/supabase-js';
 
@@ -62,6 +62,19 @@ function LoadingScreen() {
   );
 }
 
+function ConfigurationErrorScreen() {
+  return (
+    <div className="min-h-screen bg-[#0B1426] px-6 py-12 text-white flex items-center justify-center">
+      <div className="max-w-lg rounded-2xl border border-red-300/20 bg-white/[0.06] p-8 shadow-2xl shadow-black/30">
+        <p className="text-[12px] font-bold uppercase tracking-[0.25em] text-red-200">Configuration required</p>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight">Supabase is not configured</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-300">{missingSupabaseMessage}</p>
+        <p className="mt-4 text-xs leading-5 text-slate-400">Only the public anon key belongs in Vite/Vercel client environment variables. Never add a service-role key to frontend configuration.</p>
+      </div>
+    </div>
+  );
+}
+
 function AdminGuard({ session, children }: { session: Session | null | undefined; children: React.ReactNode }) {
   const [roleCheck, setRoleCheck] = useState<RoleCheckResult | null>(null);
   const [checkingRole, setCheckingRole] = useState(false);
@@ -115,21 +128,38 @@ function AdminGuard({ session, children }: { session: Session | null | undefined
 }
 
 export default function App() {
+  const onCrmHost = isCrmHost();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
+    if (!isSupabaseConfigured) {
+      setSession(null);
+      return;
+    }
+
+    let active = true;
+
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (active) setSession(data.session);
+      })
+      .catch(() => {
+        if (active) setSession(null);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const onCrmHost = isCrmHost();
+  if (!isSupabaseConfigured && onCrmHost) {
+    return <ConfigurationErrorScreen />;
+  }
 
   return (
     <BrowserRouter>

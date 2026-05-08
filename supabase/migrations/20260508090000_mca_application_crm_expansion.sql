@@ -91,7 +91,7 @@ create table if not exists public.applications (
   lead_id uuid references public.leads(id) on delete set null,
   company_id uuid references public.companies(id) on delete restrict,
   owner_id uuid,
-  status text not null default 'Application Started' check (status in ('Application Started','Documents Needed','Submitted','Under Review','Pre-Approved','Offer Sent','Approved','Contract Sent','Funded','Declined','Lost / No Response')),
+  status text not null default 'New' check (status in ('New','Submitted','In Review','Underwriting','Approved','Offer Sent','Funded','Declined','Withdrawn')),
   source text not null default 'Website',
   requested_amount numeric default 0,
   use_of_funds text,
@@ -121,18 +121,15 @@ create table if not exists public.pipeline_stages (
 );
 
 insert into public.pipeline_stages (name, sort_order, is_terminal) values
-  ('New Lead', 10, false),
-  ('Application Started', 20, false),
-  ('Documents Needed', 30, false),
-  ('Submitted', 40, false),
-  ('Under Review', 50, false),
-  ('Pre-Approved', 60, false),
-  ('Offer Sent', 70, false),
-  ('Approved', 80, false),
-  ('Contract Sent', 90, false),
-  ('Funded', 100, true),
-  ('Declined', 110, true),
-  ('Lost / No Response', 120, true)
+  ('New', 10, false),
+  ('Submitted', 20, false),
+  ('In Review', 30, false),
+  ('Underwriting', 40, false),
+  ('Approved', 50, false),
+  ('Offer Sent', 60, false),
+  ('Funded', 70, true),
+  ('Declined', 80, true),
+  ('Withdrawn', 90, true)
 on conflict (name) do update set sort_order = excluded.sort_order, is_terminal = excluded.is_terminal;
 
 create table if not exists public.funding_partners (
