@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type DependencyList } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface QueryState<T> {
   data: T;
@@ -7,7 +7,7 @@ export interface QueryState<T> {
   refetch: () => Promise<void>;
 }
 
-export function useSupabaseQuery<T>(fetcher: () => Promise<T>, initialData: T, deps: DependencyList): QueryState<T> {
+export function useSupabaseQuery<T>(fetcher: () => Promise<T>, initialData: T): QueryState<T> {
   const [data, setData] = useState<T>(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function useSupabaseQuery<T>(fetcher: () => Promise<T>, initialData: T, d
     } finally {
       setLoading(false);
     }
-  }, deps);
+  }, [fetcher]);
 
   useEffect(() => {
     void refetch();

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { supabase, type Task } from '../lib/supabase';
 import { useSupabaseQuery } from './useSupabaseQuery';
 
@@ -8,7 +9,7 @@ export interface TaskFilters {
 }
 
 export function useTasks(filters: TaskFilters = {}) {
-  return useSupabaseQuery<Task[]>(async () => {
+  const fetchTasks = useCallback(async () => {
     let query = supabase.from('tasks').select('*').order('due_date', { ascending: true });
     if (filters.status && filters.status !== 'All') query = query.eq('status', filters.status);
     if (filters.assignedRep && filters.assignedRep !== 'All') query = query.eq('assigned_rep', filters.assignedRep);
@@ -16,5 +17,7 @@ export function useTasks(filters: TaskFilters = {}) {
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as Task[];
-  }, [], [filters.status, filters.assignedRep, filters.leadId]);
+  }, [filters.status, filters.assignedRep, filters.leadId]);
+
+  return useSupabaseQuery<Task[]>(fetchTasks, []);
 }

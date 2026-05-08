@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -6,8 +6,20 @@ import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, FileText, Kanban, FolderOpen, Tag, Building2, CheckSquare,
   MessageSquare, BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
-  Filter, Plus, ShieldCheck, ClipboardCheck,
+  Filter, Plus, ShieldCheck, ClipboardCheck, Moon, Sun,
 } from 'lucide-react';
+
+const CRM_THEME_STORAGE_KEY = 'bypass-crm-theme';
+type CrmTheme = 'light' | 'dark';
+
+const getPreferredCrmTheme = (): CrmTheme => {
+  if (typeof window === 'undefined') return 'light';
+
+  const savedTheme = window.localStorage.getItem(CRM_THEME_STORAGE_KEY);
+  if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
@@ -30,13 +42,9 @@ function NavItem({ icon: Icon, label, href }: { icon: React.ElementType; label: 
   return (
     <Link
       to={href}
-      className={`group flex items-center gap-3 px-4 py-3 rounded-lg text-[14px] font-semibold transition-all ${
-        active
-          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-950/30'
-          : 'text-slate-300 hover:text-white hover:bg-white/8'
-      }`}
+      className={`crm-nav-item group flex items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-semibold transition-all ${active ? 'is-active' : ''}`}
     >
-      <Icon size={18} className={active ? 'text-white' : 'text-slate-400 group-hover:text-blue-300'} />
+      <Icon size={18} className="crm-nav-icon transition-colors" />
       {label}
     </Link>
   );
@@ -50,6 +58,11 @@ export default function AdminLayout() {
   const initials = (profile?.full_name || profile?.email || 'CU').split(/[ @.]+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<CrmTheme>(getPreferredCrmTheme);
+
+  useEffect(() => {
+    window.localStorage.setItem(CRM_THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -57,20 +70,20 @@ export default function AdminLayout() {
   };
 
   const Sidebar = () => (
-    <aside className="w-[292px] flex-shrink-0 border-r border-white/10 bg-[#07152c]/95 backdrop-blur-xl flex flex-col h-full">
-      <div className="px-8 py-7 border-b border-white/10">
-        <Logo size="lg" inverse />
-        <p className="text-[13px] text-blue-100/90 font-medium mt-3">Working Capital. Smarter. Faster.</p>
+    <aside className="crm-sidebar flex h-full w-[292px] flex-shrink-0 flex-col border-r backdrop-blur-xl">
+      <div className="crm-sidebar-brand border-b px-8 py-7">
+        <Logo size="lg" inverse={theme === 'dark'} />
+        <p className="mt-3 text-[13px] font-medium">Working Capital. Smarter. Faster.</p>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5">
+      <nav className="flex-1 space-y-1.5 overflow-y-auto px-4 py-6">
         {navItems.map((item) => (
           <NavItem key={item.href} {...item} />
         ))}
       </nav>
 
-      <div className="border-t border-white/10 p-5">
-        <button onClick={handleLogout} className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-md text-[13px] text-slate-400 hover:text-red-200 hover:bg-red-500/10 transition-colors">
+      <div className="crm-sidebar-footer border-t p-5">
+        <button onClick={handleLogout} className="crm-sidebar-logout flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] transition-colors">
           <LogOut size={16} /> Sign Out
         </button>
       </div>
@@ -78,63 +91,73 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#020a18] text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.25),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.15),transparent_30%)]" />
-      <div className="hidden lg:flex relative z-10"><Sidebar /></div>
+    <div className={`crm-shell crm-theme-${theme} flex h-screen overflow-hidden`}>
+      <div className="crm-ambient pointer-events-none fixed inset-0" />
+      <div className="relative z-10 hidden lg:flex"><Sidebar /></div>
 
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/70" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 flex"><Sidebar /></div>
+          <div className="absolute bottom-0 left-0 top-0 flex"><Sidebar /></div>
         </div>
       )}
 
-      <div className="relative z-10 flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-[86px] border-b border-white/8 bg-[#061127]/85 backdrop-blur-xl flex items-center px-5 lg:px-9 gap-5 flex-shrink-0">
-          <button className="lg:hidden text-slate-300 hover:text-white" onClick={() => setSidebarOpen(true)}><Menu size={22} /></button>
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="crm-topbar flex h-[86px] flex-shrink-0 items-center gap-5 border-b px-5 backdrop-blur-xl lg:px-9">
+          <button className="crm-icon-button lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={22} /></button>
 
-          <div className="flex-1 max-w-2xl">
+          <div className="min-w-[180px] flex-1 max-w-2xl">
             <div className="relative">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={18} className="crm-search-icon absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search applications, businesses, contacts..."
-                className="h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-12 pr-4 text-[14px] text-slate-100 placeholder:text-slate-400 outline-none transition focus:border-blue-400/70 focus:ring-2 focus:ring-blue-500/20"
+                className="crm-topbar-search h-12 w-full rounded-xl border pl-12 pr-4 text-[14px] outline-none transition focus:ring-2"
               />
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-3 ml-auto">
-            <button className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 text-[14px] font-semibold text-slate-100 hover:bg-white/10">
+          <div className="ml-auto hidden items-center gap-3 md:flex">
+            <button className="crm-secondary-action inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-[14px] font-semibold transition-colors">
               <Filter size={16} /> Filter
             </button>
-            <Link to="/admin/applications" className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-[14px] font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
+            <Link to="/admin/applications" className="crm-primary-action inline-flex h-11 items-center gap-2 rounded-xl px-5 text-[14px] font-semibold text-white shadow-lg transition-colors">
               <Plus size={17} /> New Application
             </Link>
           </div>
 
-          <button className="relative w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <button
+            className="crm-theme-toggle inline-flex h-10 items-center gap-2 rounded-full border px-3 text-[13px] font-semibold transition-all"
+            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
+
+          <button className="crm-icon-button relative" aria-label="Notifications">
             <Bell size={19} />
-            <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-[11px] font-bold text-white">3</span>
+            <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-[11px] font-bold text-white">3</span>
           </button>
 
           <div className="relative">
-            <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">{initials}</div></div>
-              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">{displayName}</p><p className="text-[12px] text-slate-400">{profile?.role === 'admin' ? 'Admin' : 'Rep'} • Production</p></div>
-              <ChevronDown size={15} className="text-slate-400" />
+            <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="crm-user-button flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors">
+              <div className="crm-avatar-ring h-10 w-10 rounded-full p-[2px]"><div className="crm-avatar grid h-full w-full place-items-center rounded-full text-[13px] font-bold">{initials}</div></div>
+              <div className="hidden text-left xl:block"><p className="crm-user-name text-[14px] font-semibold">{displayName}</p><p className="crm-user-meta text-[12px]">{profile?.role === 'admin' ? 'Admin' : 'Rep'} • Production</p></div>
+              <ChevronDown size={15} className="crm-muted-icon" />
             </button>
             {userMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-[#0b1730] shadow-2xl py-2 z-20">
-                <div className="px-4 py-3 border-b border-white/10"><p className="text-[13px] font-semibold text-white">{displayName}</p><p className="text-[12px] text-slate-400">{displayEmail}</p></div>
-                <Link to="/admin/settings" className="flex items-center gap-2 px-4 py-2 text-[13px] text-slate-300 hover:bg-white/10"><ShieldCheck size={14} /> Security settings</Link>
-                <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-[13px] text-red-300 hover:bg-red-500/10">Sign Out</button>
+              <div className="crm-user-menu absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border py-2 shadow-2xl">
+                <div className="border-b px-4 py-3"><p className="text-[13px] font-semibold">{displayName}</p><p className="text-[12px]">{displayEmail}</p></div>
+                <Link to="/admin/settings" className="flex items-center gap-2 px-4 py-2 text-[13px]"><ShieldCheck size={14} /> Security settings</Link>
+                <button onClick={handleLogout} className="block w-full px-4 py-2 text-left text-[13px] text-red-400">Sign Out</button>
               </div>
             )}
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-transparent"><Outlet /></main>
+        <main className="crm-main flex-1 overflow-y-auto"><Outlet /></main>
       </div>
     </div>
   );

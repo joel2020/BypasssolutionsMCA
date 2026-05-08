@@ -104,3 +104,249 @@
     @apply py-20 lg:py-[100px];
   }
 }
+
+@layer components {
+  .crm-shell {
+    color: var(--crm-text);
+    background:
+      radial-gradient(circle at top right, var(--crm-glow-primary), transparent 35%),
+      radial-gradient(circle at 10% 100%, var(--crm-glow-secondary), transparent 30%),
+      var(--crm-bg);
+  }
+
+  .crm-theme-light {
+    --crm-bg: #f3f7fb;
+    --crm-surface: rgba(255, 255, 255, 0.86);
+    --crm-surface-strong: #ffffff;
+    --crm-surface-soft: rgba(241, 245, 249, 0.92);
+    --crm-border: rgba(15, 23, 42, 0.1);
+    --crm-border-strong: rgba(15, 23, 42, 0.16);
+    --crm-text: #0f172a;
+    --crm-text-soft: #475569;
+    --crm-text-muted: #64748b;
+    --crm-accent: #2563eb;
+    --crm-accent-strong: #1d4ed8;
+    --crm-accent-soft: rgba(37, 99, 235, 0.1);
+    --crm-sidebar-bg: rgba(255, 255, 255, 0.88);
+    --crm-topbar-bg: rgba(255, 255, 255, 0.78);
+    --crm-shadow: 0 24px 80px rgba(15, 23, 42, 0.1);
+    --crm-glow-primary: rgba(37, 99, 235, 0.18);
+    --crm-glow-secondary: rgba(14, 165, 233, 0.12);
+  }
+
+  .crm-theme-dark {
+    --crm-bg: #020817;
+    --crm-surface: rgba(8, 19, 42, 0.86);
+    --crm-surface-strong: #0b1730;
+    --crm-surface-soft: rgba(15, 29, 57, 0.78);
+    --crm-border: rgba(255, 255, 255, 0.1);
+    --crm-border-strong: rgba(148, 163, 184, 0.22);
+    --crm-text: #f8fafc;
+    --crm-text-soft: #cbd5e1;
+    --crm-text-muted: #94a3b8;
+    --crm-accent: #3b82f6;
+    --crm-accent-strong: #60a5fa;
+    --crm-accent-soft: rgba(59, 130, 246, 0.14);
+    --crm-sidebar-bg: rgba(5, 15, 35, 0.92);
+    --crm-topbar-bg: rgba(6, 17, 39, 0.82);
+    --crm-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    --crm-glow-primary: rgba(37, 99, 235, 0.28);
+    --crm-glow-secondary: rgba(14, 165, 233, 0.16);
+  }
+
+  .crm-ambient {
+    background:
+      radial-gradient(circle at top right, var(--crm-glow-primary), transparent 36%),
+      radial-gradient(circle at bottom left, var(--crm-glow-secondary), transparent 32%);
+  }
+
+  .crm-sidebar {
+    background: var(--crm-sidebar-bg);
+    border-color: var(--crm-border);
+    box-shadow: var(--crm-shadow);
+  }
+
+  .crm-sidebar-brand,
+  .crm-sidebar-footer,
+  .crm-topbar,
+  .crm-user-menu > div {
+    border-color: var(--crm-border);
+  }
+
+  .crm-sidebar-brand p,
+  .crm-user-meta,
+  .crm-muted-icon,
+  .crm-search-icon {
+    color: var(--crm-text-muted);
+  }
+
+  .crm-nav-item {
+    color: var(--crm-text-soft);
+  }
+
+  .crm-nav-item .crm-nav-icon {
+    color: var(--crm-text-muted);
+  }
+
+  .crm-nav-item:hover {
+    color: var(--crm-text);
+    background: var(--crm-accent-soft);
+  }
+
+  .crm-nav-item:hover .crm-nav-icon {
+    color: var(--crm-accent-strong);
+  }
+
+  .crm-nav-item.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--crm-accent), var(--crm-accent-strong));
+    box-shadow: 0 16px 40px rgba(37, 99, 235, 0.28);
+  }
+
+  .crm-nav-item.is-active .crm-nav-icon {
+    color: #fff;
+  }
+
+  .crm-sidebar-logout {
+    color: var(--crm-text-muted);
+  }
+
+  .crm-sidebar-logout:hover {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .crm-topbar {
+    background: var(--crm-topbar-bg);
+    border-color: var(--crm-border);
+  }
+
+  .crm-main {
+    background: transparent;
+  }
+
+  .crm-topbar-search,
+  .crm-secondary-action,
+  .crm-theme-toggle,
+  .crm-icon-button,
+  .crm-user-button,
+  .crm-user-menu {
+    background: var(--crm-surface);
+    border-color: var(--crm-border);
+    color: var(--crm-text);
+  }
+
+  .crm-topbar-search::placeholder {
+    color: var(--crm-text-muted);
+  }
+
+  .crm-topbar-search:focus {
+    border-color: color-mix(in srgb, var(--crm-accent) 70%, transparent);
+    box-shadow: 0 0 0 4px var(--crm-accent-soft);
+  }
+
+  .crm-secondary-action:hover,
+  .crm-theme-toggle:hover,
+  .crm-icon-button:hover,
+  .crm-user-button:hover,
+  .crm-user-menu a:hover,
+  .crm-user-menu button:hover {
+    background: var(--crm-surface-soft);
+  }
+
+  .crm-primary-action {
+    background: linear-gradient(135deg, var(--crm-accent), var(--crm-accent-strong));
+    box-shadow: 0 16px 35px rgba(37, 99, 235, 0.28);
+  }
+
+  .crm-primary-action:hover {
+    filter: brightness(1.06);
+  }
+
+  .crm-icon-button {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+
+  .crm-avatar-ring {
+    background: linear-gradient(135deg, #e0f2fe, var(--crm-accent));
+  }
+
+  .crm-avatar {
+    background: var(--crm-surface-strong);
+    color: var(--crm-text);
+  }
+
+  .crm-user-name,
+  .crm-user-menu {
+    color: var(--crm-text);
+  }
+
+  .crm-user-menu {
+    background: var(--crm-surface-strong);
+    border-color: var(--crm-border);
+  }
+
+  .crm-shell .card,
+  .crm-shell .card-hover {
+    background: var(--crm-surface);
+    border-color: var(--crm-border);
+    box-shadow: var(--crm-shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .crm-shell .input-field,
+  .crm-shell .select-field,
+  .crm-shell input,
+  .crm-shell select,
+  .crm-shell textarea {
+    background-color: var(--crm-surface-strong);
+    border-color: var(--crm-border-strong);
+    color: var(--crm-text);
+  }
+
+  .crm-shell input::placeholder,
+  .crm-shell textarea::placeholder {
+    color: var(--crm-text-muted);
+  }
+
+  .crm-shell :where(.text-navy-900, .text-slate-900, .text-slate-800, .text-slate-700) {
+    color: var(--crm-text) !important;
+  }
+
+  .crm-shell :where(.text-slate-600, .text-slate-500, .text-slate-400) {
+    color: var(--crm-text-muted) !important;
+  }
+
+  .crm-theme-dark :where(.bg-white, .bg-slate-50) {
+    background-color: var(--crm-surface) !important;
+  }
+
+  .crm-theme-dark :where(.border-slate-100, .border-slate-200, .border-white\/10, .border-white\/8) {
+    border-color: var(--crm-border) !important;
+  }
+
+  .crm-theme-dark :where(thead tr, tr.hover\:bg-slate-50:hover, .hover\:bg-slate-50:hover) {
+    background-color: var(--crm-surface-soft) !important;
+  }
+
+  .crm-theme-dark :where(.btn-secondary) {
+    background-color: var(--crm-surface-strong) !important;
+    border-color: var(--crm-border) !important;
+    color: var(--crm-text) !important;
+  }
+
+  .crm-theme-dark :where(.btn-dark, .bg-navy-900) {
+    background-color: var(--crm-accent) !important;
+  }
+
+  .crm-theme-dark :where(.badge-default, .badge-navy) {
+    background-color: rgba(148, 163, 184, 0.12) !important;
+    color: var(--crm-text-soft) !important;
+  }
+}
