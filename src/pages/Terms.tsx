@@ -2,7 +2,7 @@ export default function Terms() {
   const sections = [
     {
       title: '1. Acceptance of Terms',
-      content: 'By accessing or using the Bypass Solution website (bypasssolution.com) and its services, you agree to be bound by these Terms of Use. If you do not agree to these terms, please do not use our website or services.',
+      content: 'By accessing or using the Bypass Solution website (www.bypasssolution.com) and its services, you agree to be bound by these Terms of Use. If you do not agree to these terms, please do not use our website or services.',
     },
     {
       title: '2. Description of Services',
@@ -46,7 +46,7 @@ export default function Terms() {
     },
     {
       title: '12. Privacy',
-      content: 'Your use of our services is also governed by our Privacy Policy, which is incorporated into these Terms by reference. Please review our Privacy Policy at bypasssolution.com/privacy.',
+      content: 'Your use of our services is also governed by our Privacy Policy, which is incorporated into these Terms by reference. Please review our Privacy Policy at www.www.bypasssolution.com/privacy.',
     },
     {
       title: '13. Governing Law',
