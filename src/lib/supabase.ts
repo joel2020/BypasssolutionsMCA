@@ -49,7 +49,7 @@ export type LeadStatus =
 
 export type ApplicationStatus = 'New' | 'Submitted' | 'In Review' | 'Underwriting' | 'Approved' | 'Offer Sent' | 'Funded' | 'Declined' | 'Withdrawn';
 export type PartnerSubmissionStatus = 'Prepared' | 'Submitted' | 'In Review' | 'Approved' | 'Offer Sent' | 'Declined' | 'Withdrawn' | 'No Response';
-export type DocumentStatus = 'Pending' | 'Uploaded' | 'Reviewed' | 'Approved' | 'Rejected';
+export type DocumentStatus = 'Missing' | 'Pending' | 'Uploaded' | 'Under Review' | 'Reviewed' | 'Approved' | 'Rejected';
 
 export interface Profile {
   id: string;
@@ -237,6 +237,26 @@ export interface Commission {
   commission_amount: number;
   status: 'Paid' | 'Unpaid' | 'Pending';
   funded_date: string;
+}
+
+export interface GmailMessage {
+  id: string;
+  user_id: string;
+  lead_id: string | null;
+  gmail_message_id: string;
+  gmail_thread_id: string | null;
+  direction: 'inbound' | 'outbound';
+  from_email: string | null;
+  to_emails: string[];
+  cc_emails: string[];
+  subject: string | null;
+  snippet: string | null;
+  body_text: string | null;
+  sent_at: string | null;
+  labels: string[];
+  has_attachments: boolean;
+  raw_payload: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface ContactSubmission {

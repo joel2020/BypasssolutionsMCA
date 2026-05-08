@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileText, Mail, Phone, Send, Upload, UserRound } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileText, Mail, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlassCard } from './Dashboard';
 import { useLead } from '../../hooks/useLead';
@@ -10,12 +10,13 @@ import { useDocuments } from '../../hooks/useDocuments';
 import { useNotes } from '../../hooks/useNotes';
 import { useApplicationByLead } from '../../hooks/useApplications';
 import { usePartnerSubmissions } from '../../hooks/usePartnerSubmissions';
+import { sendGmailEmail, syncGmail, useGmailMessages, type GmailMessage } from '../../hooks/useGmail';
 import { DocumentList, PartnerSubmissionList, SubmitToLenderModal, UploadDocumentModal } from '../../components/admin/CrmWorkflowComponents';
 import { ErrorState, NotFoundState, SkeletonLoader } from '../../components/admin/States';
 import { leadStatusColors } from '../../lib/status';
 import { maskAccount, maskEIN, maskSSN } from '../../utils/mask';
 
-const tabs = ['Overview', 'Business Info', 'Owner Info', 'Underwriting', 'Documents', 'Lender Submissions', 'Offers', 'Communications', 'Tasks', 'Notes', 'Activity Timeline'];
+const tabs = ['Overview', 'Business Info', 'Owner Info', 'Underwriting', 'Documents', 'Email Activity', 'Lender Submissions', 'Offers', 'Communications', 'Tasks', 'Notes', 'Activity Timeline'];
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 type ExtendedLead = Record<string, unknown>;
@@ -35,6 +36,8 @@ export default function LeadDetail() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [showUpload, setShowUpload] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [emailActionError, setEmailActionError] = useState<string | null>(null);
   const { data: lead, loading, error, notFound } = useLead(id);
   const { data: application, refetch: refetchApplication } = useApplicationByLead(id);
   const { data: offers } = useOffers(id);
@@ -42,6 +45,7 @@ export default function LeadDetail() {
   const { data: documents, refetch: refetchDocuments } = useDocuments({ leadId: id, applicationId: application?.id });
   const { data: submissions, refetch: refetchSubmissions } = usePartnerSubmissions(application?.id);
   const { data: notes } = useNotes(id);
+  const { data: gmailMessages, refetch: refetchGmailMessages } = useGmailMessages({ leadId: id });
 
   if (loading) return <div className="min-h-screen bg-[#071225] p-6 lg:p-8"><SkeletonLoader label="Loading application..." /></div>;
   if (error) return <div className="min-h-screen bg-[#071225] p-6 lg:p-8"><ErrorState message={error} /></div>;
@@ -62,6 +66,7 @@ export default function LeadDetail() {
             <div className="mt-2 flex flex-wrap gap-4 text-[13px] text-slate-400"><span className="inline-flex items-center gap-1.5"><UserRound size={14} />{ownerName}</span><span className="inline-flex items-center gap-1.5"><Mail size={14} />{lead.email}</span><span className="inline-flex items-center gap-1.5"><Phone size={14} />{lead.phone}</span></div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setShowEmail(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[13px] font-black text-white"><Mail size={15} />Send Email</button>
             <button onClick={() => setShowUpload(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Upload size={15} />Upload Document</button>
             <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-right"><p className="text-[12px] text-slate-400">Requested</p><p className="text-[22px] font-black text-white">{currency.format(lead.funding_amount_requested)}</p></div>
@@ -78,6 +83,7 @@ export default function LeadDetail() {
             {activeTab === 'Owner Info' && <div className="grid gap-5 md:grid-cols-3"><Field label="Owner name" value={ownerName} /><Field label="Title" value={text(extended, 'owner_title')} /><Field label="Ownership" value={lead.ownership_pct} /><Field label="Email" value={lead.email} /><Field label="Phone" value={lead.phone} /><Field label="Masked SSN" value={maskSSN(text(extended, 'ssn_last_four', ''))} /></div>}
             {activeTab === 'Underwriting' && <div className="grid gap-5 md:grid-cols-4"><Field label="Average daily balance" value={currency.format(lead.avg_daily_balance)} /><Field label="Monthly deposits" value={currency.format(lead.monthly_deposits)} /><Field label="NSFs last 90 days" value={String(numberValue(extended, 'nsfs_last_90_days'))} /><Field label="Current MCA balances" value={currency.format(numberValue(extended, 'current_mca_balances'))} /><Field label="Account" value={maskAccount(text(extended, 'account_last_four', ''))} /></div>}
             {activeTab === 'Documents' && <DocumentList documents={documents} />}
+            {activeTab === 'Email Activity' && <EmailActivity messages={gmailMessages} lastContactAt={lead.last_contact_at} onSend={() => setShowEmail(true)} onSync={async () => { setEmailActionError(null); try { await syncGmail(); await refetchGmailMessages(); } catch (err) { setEmailActionError(err instanceof Error ? err.message : 'Unable to sync Gmail.'); } }} error={emailActionError} />}
             {activeTab === 'Lender Submissions' && <PartnerSubmissionList submissions={submissions} leadId={id} onChanged={refetchSubmissions} />}
             {activeTab === 'Offers' && <List items={offers.map((offer) => `${offer.funder_name}: ${currency.format(offer.funding_amount)} • ${offer.status}`)} empty="No offers created." />}
             {activeTab === 'Communications' && <p className="text-[14px] text-slate-400">Communications are loaded from Supabase communication tables in the dedicated Email, SMS, and Calls pages.</p>}
@@ -88,8 +94,57 @@ export default function LeadDetail() {
           <GlassCard className="p-5"><h3 className="text-[16px] font-bold text-white">Quick Facts</h3><div className="mt-4 space-y-4"><Field label="Requested" value={currency.format(lead.funding_amount_requested)} /><Field label="Monthly revenue" value={currency.format(lead.monthly_revenue)} /><Field label="Documents" value={String(documents.length)} /><Field label="Lender submissions" value={String(submissions.length)} /></div></GlassCard>
         </div>
       </div>
+      {showEmail && <LeadEmailModal leadEmail={lead.email} leadId={id} onClose={() => setShowEmail(false)} onSent={() => { void refetchGmailMessages(); }} />}
       {showUpload && <UploadDocumentModal leadId={id} applicationId={currentApplicationId} onClose={() => setShowUpload(false)} onUploaded={() => { void refetchDocuments(); void refetchApplication(); }} />}
       {showSubmit && currentApplicationId && <SubmitToLenderModal leadId={id} applicationId={currentApplicationId} documents={documents} onClose={() => setShowSubmit(false)} onSubmitted={refetchSubmissions} />}
+    </div>
+  );
+}
+
+
+function EmailActivity({ messages, lastContactAt, onSend, onSync, error }: { messages: GmailMessage[]; lastContactAt: string | null; onSend: () => void; onSync: () => Promise<void>; error: string | null }) {
+  const [syncing, setSyncing] = useState(false);
+  async function runSync() {
+    setSyncing(true);
+    try { await onSync(); } finally { setSyncing(false); }
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+        <div><p className="text-[14px] font-bold text-white">Email Activity</p><p className="mt-1 text-[12px] text-slate-400">Last contact: {lastContactAt ? new Date(lastContactAt).toLocaleString() : 'No contact logged yet'}</p></div>
+        <div className="flex gap-2"><button onClick={() => void runSync()} disabled={syncing} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><RefreshCw size={13} />{syncing ? 'Syncing...' : 'Sync Gmail'}</button><button onClick={onSend} className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-[12px] font-bold text-white"><Send size={13} />Send Email</button></div>
+      </div>
+      {error && <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-[13px] text-red-100">{error}</div>}
+      {messages.length === 0 ? <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-[14px] text-slate-400">No Gmail messages matched to this lead yet.</div> : messages.map((message) => <div key={message.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[14px] font-bold text-white">{message.subject || '(No subject)'}</p><p className="mt-1 text-[12px] text-slate-400">{message.direction} • {message.from_email || '—'} → {message.to_emails?.join(', ') || '—'}</p></div><span className="text-[12px] text-slate-400">{message.sent_at ? new Date(message.sent_at).toLocaleString() : '—'}</span></div><p className="mt-3 text-[13px] text-slate-300">{message.snippet || message.body_text?.slice(0, 240)}</p></div>)}
+    </div>
+  );
+}
+
+function LeadEmailModal({ leadEmail, leadId, onClose, onSent }: { leadEmail: string; leadId?: string | null; onClose: () => void; onSent: () => void }) {
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSending(true);
+    setError(null);
+    try {
+      await sendGmailEmail({ to: leadEmail, subject, body, lead_id: leadId });
+      onSent();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to send email.');
+    } finally {
+      setSending(false);
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
+      <form onSubmit={submit} className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0b1730] p-5 text-white shadow-2xl">
+        <div className="mb-5 flex items-center justify-between"><h3 className="text-[18px] font-black tracking-tight">Send Gmail Email</h3><button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button></div>
+        <div className="space-y-4"><label className="block"><span className="text-[12px] font-bold uppercase tracking-wider text-slate-400">To</span><input value={leadEmail} disabled className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[14px] text-slate-300" /></label><label className="block"><span className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Subject</span><input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[14px] text-white outline-none focus:border-blue-400" /></label><label className="block"><span className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Body</span><textarea value={body} onChange={(e) => setBody(e.target.value)} className="mt-2 min-h-44 w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-[14px] text-white outline-none focus:border-blue-400" /></label>{error && <p className="text-[13px] text-red-200">{error}</p>}<button disabled={sending || !subject || !body} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />{sending ? 'Sending...' : 'Send Email'}</button></div>
+      </form>
     </div>
   );
 }

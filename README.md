@@ -22,7 +22,7 @@ The admin CRM is available at `/admin/dashboard` on the main app and should be m
 - Activity feed for submissions, uploads, underwriting review, offers, follow-up tasks, notes, stage changes, and document requests.
 - Recharts funding-volume trend and application-source mix.
 - Underwriting snapshot, secure document checklist, and encrypted-upload indicator.
-- Lead detail profile with tabs for Overview, Business Info, Owner Info, Underwriting, Documents, Offers, Communications, Tasks, Notes, and Activity Timeline.
+- Lead detail profile with tabs for Overview, Business Info, Owner Info, Underwriting, Documents, Email Activity, Offers, Communications, Tasks, Notes, and Activity Timeline.
 
 ## Local setup
 
@@ -45,6 +45,7 @@ Apply the Supabase migrations in `supabase/migrations` in timestamp order:
 5. `20260508120000_bypass_solution_crm_seed_data.sql` — realistic sample data for 18 Bypass Solution MCA applications, owners, documents, tasks, notes, offers, partner submissions, underwriting snapshots, activity logs, and commissions.
 6. `20260508123000_add_joel_admin_user.sql` — secure idempotent Joel Carias admin-profile binding after Supabase Auth invite/reset-password account creation. It does not create or store a password.
 7. `20260508133000_production_indexes_triggers_and_rls.sql` — production indexes, updated_at trigger coverage, and legacy broad-policy cleanup.
+8. `20260508150000_gmail_integration_and_document_hardening.sql` — Gmail connection/message/sync tables, Gmail communication fields, RLS, and document bucket file-type hardening.
 
 ## Data model coverage
 
@@ -60,14 +61,39 @@ The CRM schema supports:
 
 ## Required environment variables
 
+### Frontend
+
 | Variable | Scope | Purpose |
 | --- | --- | --- |
-| `VITE_SUPABASE_URL` | Browser | Supabase project URL. |
+| `VITE_SUPABASE_URL` | Browser | Supabase project URL for `hiweeafewcralneqfosy`. |
 | `VITE_SUPABASE_ANON_KEY` | Browser | Supabase anon key protected by RLS. |
-| `EMAIL_PROVIDER_API_KEY` | Server only | Future transactional email delivery for queued templates. |
-| `INTERNAL_APPLICATION_ALERT_EMAIL` | Server only | Internal funding-team notification recipient. |
-| `TWILIO_*` | Server only | Future SMS delivery for opt-in applicants. |
-| `DATAMERCH_API_KEY` / `CREDIT_PROVIDER_API_KEY` | Server only | Future risk/credit integrations. |
+
+### Supabase Edge Function secrets
+
+Set these with `supabase secrets set ...` for project `hiweeafewcralneqfosy`:
+
+| Secret | Scope | Purpose |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID` | Edge Functions only | Google OAuth web client ID. |
+| `GOOGLE_CLIENT_SECRET` | Edge Functions only | Google OAuth web client secret. Never expose this to frontend code. |
+| `GOOGLE_REDIRECT_URI` | Edge Functions only | Must be `https://hiweeafewcralneqfosy.supabase.co/functions/v1/gmail-oauth-callback`. |
+| `APP_URL` | Edge Functions only | CRM URL, `https://crm.bypasssolution.com`. |
+
+Supabase also provides the Edge Function runtime with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. The Gmail OAuth callback uses the service-role key server-side only to persist OAuth tokens after Google redirects back without a CRM JWT. Do not place service-role keys in Vite, Vercel browser variables, or frontend source.
+
+### Google Cloud setup
+
+Create a Google Cloud OAuth web client with Gmail API enabled and add this authorized redirect URI exactly:
+
+```text
+https://hiweeafewcralneqfosy.supabase.co/functions/v1/gmail-oauth-callback
+```
+
+Production CRM URL:
+
+```text
+https://crm.bypasssolution.com
+```
 
 ## Admin user setup
 
@@ -95,16 +121,19 @@ The migrations create private buckets:
 - `credit-reports`
 - `contracts`
 
-Public applicants can upload only PDF/JPG/PNG documents into `application-documents`; public reads are not permitted. CRM users with active roles can read private files. Keep bucket public access disabled.
+Public applicants and CRM users can upload PDF, DOC, DOCX, JPG, JPEG, and PNG documents into `application-documents`; public reads are not permitted. CRM users view files through signed URLs only. Keep bucket public access disabled.
 
-## Email setup
+## Gmail setup
 
-The application currently logs applicant confirmations, internal alerts, and future templates into `communications` / `email_templates`. To send live email, add a Supabase Edge Function or backend worker that:
+The CRM includes Supabase Edge Functions for full Gmail API integration:
 
-1. Reads queued communications.
-2. Sends via the configured provider.
-3. Updates `communications.status` to `sent` or `failed`.
-4. Writes an `activity_logs` entry.
+- `gmail-oauth-start` starts Google OAuth for an authenticated CRM user.
+- `gmail-oauth-callback` exchanges the Google code, fetches the Gmail profile, and stores server-side tokens.
+- `gmail-sync` syncs the latest inbox and sent messages, matches messages to leads by email, and writes `gmail_messages` plus `communications`.
+- `gmail-send` sends mail through the connected Gmail account and logs the outbound message.
+- `gmail-disconnect` marks the connection disconnected and attempts token revocation without deleting historical CRM messages.
+
+Token security note: Gmail access and refresh tokens are isolated to Edge Functions and never returned to the browser. A TODO remains to replace the current server-side token columns with KMS-backed envelope encryption before regulated production rollout.
 
 ## Deployment checklist
 
