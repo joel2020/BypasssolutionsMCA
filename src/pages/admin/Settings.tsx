@@ -75,9 +75,9 @@ export default function Settings() {
           <div className="flex flex-col gap-4">
             {[
               { label: 'Company Name', value: 'Bypass Solution' },
-              { label: 'Website', value: 'bypasssolution.com' },
+              { label: 'Website', value: 'www.bypasssolution.com' },
               { label: 'Primary Email', value: 'info@bypasssolution.com' },
-              { label: 'Phone', value: '(800) 555-1234' },
+              { label: 'Phone', value: '+1 (813) 648-4272' },
               { label: 'Business Hours', value: 'Mon–Fri 9:00 AM – 6:00 PM EST' },
             ].map((field) => (
               <div key={field.label}>

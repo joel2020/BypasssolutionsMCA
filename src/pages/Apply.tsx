@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Upload, ArrowRight, ArrowLeft, Building2, User, DollarSign, FileText, Shield } from 'lucide-react';
 import { assertSupabaseConfigured, supabase } from '../lib/supabase';
+import { getAttribution, normalizePhone, sanitizeText } from '../lib/tracking';
 
 const steps = [
   { label: 'Business Info', icon: Building2 },
@@ -75,6 +76,7 @@ interface FormData {
   driversLicense: File | null;
   businessDocs: File[];
   consent: boolean;
+  honeypot: string;
 }
 
 const defaultForm: FormData = {
@@ -84,6 +86,7 @@ const defaultForm: FormData = {
   useOfFunds: '', existingAdvances: '', monthlyDeposits: '', avgDailyBalance: '', urgency: '',
   bankStatements: [], voidedCheck: null, driversLicense: null, businessDocs: [],
   consent: false,
+  honeypot: '',
 };
 
 function FieldGroup({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -134,6 +137,7 @@ export default function Apply() {
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<FormData>(defaultForm);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const set = (key: keyof FormData) => (value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -179,22 +183,40 @@ export default function Apply() {
       return;
     }
 
+    if (form.honeypot) {
+      setSubmitted(true);
+      return;
+    }
+
+    setSubmitting(true);
+
     try {
       assertSupabaseConfigured();
+      const attribution = getAttribution();
+      const attributionNote = Object.entries(attribution)
+        .filter(([, value]) => value)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' | ');
+      const uploadedDocumentSummary = [
+        form.bankStatements.length ? `Bank statements selected: ${form.bankStatements.map((file) => file.name).join(', ')}` : '',
+        form.voidedCheck ? `Voided check selected: ${form.voidedCheck.name}` : '',
+        form.driversLicense ? `Driver license selected: ${form.driversLicense.name}` : '',
+        form.businessDocs.length ? `Business docs selected: ${form.businessDocs.map((file) => file.name).join(', ')}` : '',
+      ].filter(Boolean).join(' | ');
 
       const { error } = await supabase.from('leads').insert({
-        business_name: form.businessName.trim(),
-        dba: form.dba.trim(),
+        business_name: sanitizeText(form.businessName, 180),
+        dba: sanitizeText(form.dba, 180),
         industry: form.industry,
-        website: form.website.trim(),
+        website: sanitizeText(form.website, 250),
         state: form.state,
         time_in_business: form.timeInBusiness,
         monthly_revenue: parseMoney(form.monthlyRevenue),
         funding_amount_requested: parseMoney(form.fundingAmount),
-        first_name: form.firstName.trim(),
-        last_name: form.lastName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
+        first_name: sanitizeText(form.firstName, 120),
+        last_name: sanitizeText(form.lastName, 120),
+        email: sanitizeText(form.email, 180).toLowerCase(),
+        phone: normalizePhone(form.phone),
         credit_score_range: form.creditScore,
         ownership_pct: form.ownershipPct,
         use_of_funds: form.useOfFunds,
@@ -204,6 +226,7 @@ export default function Apply() {
         urgency: form.urgency,
         status: 'Application Started',
         source: 'Website',
+        notes: [attributionNote ? `Attribution: ${attributionNote}` : '', uploadedDocumentSummary].filter(Boolean).join('\n'),
         consent: form.consent,
       });
 
@@ -215,6 +238,8 @@ export default function Apply() {
       setSubmitted(true);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Application submission is temporarily unavailable. Please contact info@bypasssolution.com.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -300,7 +325,11 @@ export default function Apply() {
 
       {/* Form */}
       <div className="max-w-[860px] mx-auto px-6 lg:px-8 py-10">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="hidden" aria-hidden="true">
+            <label htmlFor="application-website">Company website</label>
+            <input id="application-website" tabIndex={-1} autoComplete="off" value={form.honeypot} onChange={(e) => set('honeypot')(e.target.value)} />
+          </div>
 
           {/* Step 0: Business Info */}
           {currentStep === 0 && (
@@ -388,7 +417,7 @@ export default function Apply() {
                 </FieldGroup>
 
                 <FieldGroup label="Phone Number" required>
-                  <input className="input-field" type="tel" placeholder="(555) 000-0000" value={form.phone}
+                  <input className="input-field" type="tel" placeholder="+1 (813) 648-4272" value={form.phone}
                     onChange={(e) => set('phone')(e.target.value)} />
                 </FieldGroup>
 
@@ -665,14 +694,16 @@ export default function Apply() {
                 </div>
 
                 <label className="flex items-start gap-3 cursor-pointer group">
-                  <div
-                    onClick={() => set('consent')(!form.consent)}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors cursor-pointer ${
-                      form.consent ? 'bg-accent-600 border-accent-600' : 'bg-white border-slate-300 group-hover:border-accent-400'
-                    }`}
-                  >
-                    {form.consent && <Check size={12} className="text-white" />}
-                  </div>
+                  <span className="relative mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      className="peer h-5 w-5 appearance-none rounded border-2 border-slate-300 bg-white transition-colors checked:border-accent-600 checked:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+                      checked={form.consent}
+                      onChange={(e) => set('consent')(e.target.checked)}
+                      required
+                    />
+                    <Check size={12} className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100" />
+                  </span>
                   <p className="text-[14px] text-slate-700 leading-relaxed">
                     I confirm the information provided is accurate and authorize Bypass Solution and its funding partners to review my application, contact me regarding business funding options, verify business information, review bank statements, and obtain business credit information where permitted. Funding is subject to review and approval. Terms may vary and not all applicants qualify. I have read and agree to the{' '}
                     <a href="/terms" target="_blank" className="text-accent-600 hover:underline">Terms of Use</a> and{' '}
@@ -685,7 +716,7 @@ export default function Apply() {
 
           {/* Submit error */}
           {submitError && (
-            <div className="mt-4 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-md px-4 py-3" role="alert" aria-live="polite">
               <p className="text-[13px] text-red-600">{submitError}</p>
             </div>
           )}
@@ -714,10 +745,10 @@ export default function Apply() {
             ) : (
               <button
                 type="submit"
-                disabled={!form.consent}
+                disabled={!form.consent || submitting}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Application
+                {submitting ? 'Submitting…' : 'Submit Application'}
                 <ArrowRight size={16} />
               </button>
             )}
