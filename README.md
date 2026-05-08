@@ -12,7 +12,7 @@ Bypass Solution is a premium fintech web application for working-capital intake 
 
 ## CRM capabilities
 
-The admin CRM at `/admin/dashboard` includes:
+The admin CRM is available at `/admin/dashboard` on the main app and should be mapped to `https://crm.bypasssolution.com` in production. The CRM subdomain root redirects operators to `/admin` or `/admin/dashboard` based on auth state. It includes:
 
 - Fixed dark navy sidebar with Bypass Solution branding and the tagline “Working Capital. Smarter. Faster.”
 - Global search, notification bell, profile menu, filter action, and new-application action.
@@ -32,7 +32,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:5173`. Populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` before testing application submissions, uploads, CRM login, or database-backed pages.
+Open `http://localhost:5173`. To test the CRM subdomain locally, add `127.0.0.1 crm.bypasssolution.test` to your hosts file and run Vite with an allowed host if needed; production uses `https://crm.bypasssolution.com`. Populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` before testing application submissions, uploads, CRM login, or database-backed pages.
 
 ## Database setup
 
@@ -43,6 +43,7 @@ Apply the Supabase migrations in `supabase/migrations` in timestamp order:
 3. `20260507203000_production_admin_roles_and_secure_crm.sql` — profiles, admin roles, RLS, private buckets.
 4. `20260508090000_mca_application_crm_expansion.sql` — normalized MCA application/CRM expansion, status history, communications, partner submissions, underwriting, duplicate detection, private public-intake uploads.
 5. `20260508120000_bypass_solution_crm_seed_data.sql` — realistic sample data for 18 Bypass Solution MCA applications, owners, documents, tasks, notes, offers, partner submissions, underwriting snapshots, activity logs, and commissions.
+6. `20260508123000_add_joel_admin_user.sql` — temporary bootstrap admin user for `joelcarias23@gmail.com`; rotate or remove before production launch if using invite-based account creation.
 
 ## Data model coverage
 
@@ -80,6 +81,8 @@ values ('AUTH_USER_UUID', 'admin@bypasssolution.com', 'Bypass Admin', 'admin', '
 
 Allowed roles are `admin`, `underwriter`, `sales_rep`, and `viewer`. CRM access is blocked unless the profile is active and has an authorized role.
 
+The current bootstrap migration creates `joelcarias23@gmail.com` as an active admin with the temporary password `Bypass123!`. This is only for initial access; rotate the password immediately after first login or replace the migration with a Supabase invite flow before production launch.
+
 ## Storage setup
 
 The migrations create private buckets:
@@ -104,13 +107,14 @@ The application currently logs applicant confirmations, internal alerts, and fut
 - [ ] Run all migrations in order, including seed data for staging/demo environments only if desired.
 - [ ] Confirm RLS is enabled on CRM, applications, communications, activity, partner, and storage-backed tables.
 - [ ] Create at least one active admin profile.
-- [ ] Configure Supabase Auth redirect URLs for `/admin`.
+- [ ] Add `crm.bypasssolution.com` to the hosting provider project domains and create a DNS `CNAME` from `crm` to the hosting provider target.
+- [ ] Configure Supabase Auth redirect URLs for `https://crm.bypasssolution.com/admin`, `https://crm.bypasssolution.com/admin/dashboard`, and the existing main-domain `/admin` URLs.
 - [ ] Configure private Storage buckets and verify public reads are blocked.
 - [ ] Configure email worker for queued communication records.
-- [ ] Configure DNS and canonical app URL (`https://bypasssolution.com`).
+- [ ] Configure DNS and canonical app URL (`https://bypasssolution.com`) plus CRM app URL (`https://crm.bypasssolution.com`).
 - [ ] Deploy SPA rewrite fallback to `index.html` for React Router routes.
 - [ ] Run `npm run typecheck`, `npm run lint`, and `npm run build` before release.
-- [ ] Verify `/`, `/solutions`, `/industries`, `/about`, `/faq`, `/how-it-works`, `/apply`, `/contact`, `/privacy`, `/terms`, `/disclosure`, `/admin`, `/admin/dashboard`, and `/admin/leads/:id` routes.
+- [ ] Verify `/`, `/solutions`, `/industries`, `/about`, `/faq`, `/how-it-works`, `/apply`, `/contact`, `/privacy`, `/terms`, `/disclosure`, `/admin`, `/admin/dashboard`, `/admin/leads/:id`, and `https://crm.bypasssolution.com` routes.
 - [ ] Perform a test application upload with non-sensitive sample documents.
 - [ ] Confirm no full SSN, full EIN, routing number, or bank account number is stored by the public flow.
 

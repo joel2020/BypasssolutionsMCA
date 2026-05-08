@@ -42,6 +42,18 @@ const Commissions = lazy(() => import('./pages/admin/Commissions'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 
+const crmHosts = new Set(['crm.bypasssolution.com', 'crm.bypasssolution.test']);
+
+function isCrmHost() {
+  if (typeof window === 'undefined') return false;
+  return crmHosts.has(window.location.hostname.toLowerCase());
+}
+
+function CrmHostRedirect({ session }: { session: Session | null | undefined }) {
+  if (session === undefined) return <LoadingScreen />;
+  return <Navigate to={session ? '/admin/dashboard' : '/admin'} replace />;
+}
+
 function LoadingScreen() {
   return (
     <div className="min-h-screen bg-[#0B1426] flex items-center justify-center">
@@ -117,10 +129,30 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const onCrmHost = isCrmHost();
+
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>
       <Routes>
+        {/* CRM subdomain entrypoint */}
+        {onCrmHost && (
+          <>
+            <Route path="/" element={<CrmHostRedirect session={session} />} />
+            <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="/applications" element={<Navigate to="/admin/applications" replace />} />
+            <Route path="/pipeline" element={<Navigate to="/admin/pipeline" replace />} />
+            <Route path="/underwriting" element={<Navigate to="/admin/leads" replace />} />
+            <Route path="/offers" element={<Navigate to="/admin/offers" replace />} />
+            <Route path="/documents" element={<Navigate to="/admin/documents" replace />} />
+            <Route path="/funding-partners" element={<Navigate to="/admin/funders" replace />} />
+            <Route path="/communications" element={<Navigate to="/admin/email" replace />} />
+            <Route path="/tasks" element={<Navigate to="/admin/tasks" replace />} />
+            <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
+            <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+          </>
+        )}
+
         {/* SEO aliases */}
         <Route path="/funding-solutions" element={<Navigate to="/solutions" replace />} />
         <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
@@ -133,7 +165,7 @@ export default function App() {
 
         {/* Public site */}
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<Home />} />
+          {!onCrmHost && <Route path="/" element={<Home />} />}
           <Route path="/solutions" element={<Solutions />} />
           <Route path="/about" element={<About />} />
           <Route path="/faq" element={<FAQ />} />
