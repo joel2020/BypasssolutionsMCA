@@ -1,7 +1,9 @@
 export type LeadStatus =
-  | 'New Lead' | 'Contacted' | 'Application Started' | 'Docs Requested'
-  | 'Docs Received' | 'Underwriting' | 'Offers Available' | 'Contract Sent'
-  | 'Funded' | 'Renewal Eligible' | 'Declined' | 'Lost';
+  | 'New Lead' | 'Contacted' | 'Application Started' | 'Documents Needed'
+  | 'Docs Requested' | 'Docs Received' | 'Submitted' | 'Under Review'
+  | 'Underwriting' | 'Pre-Approved' | 'Offer Sent' | 'Offers Available'
+  | 'Approved' | 'Contract Sent' | 'Funded' | 'Renewal Eligible'
+  | 'Declined' | 'Lost / No Response' | 'Lost';
 
 export interface Lead {
   id: string;
@@ -275,22 +277,29 @@ export const mockCommissions: Commission[] = [
 ];
 
 export const pipelineStatuses: LeadStatus[] = [
-  'New Lead', 'Contacted', 'Application Started', 'Docs Requested',
-  'Docs Received', 'Underwriting', 'Offers Available', 'Contract Sent',
-  'Funded', 'Renewal Eligible', 'Declined', 'Lost',
+  'New Lead', 'Application Started', 'Documents Needed', 'Submitted',
+  'Under Review', 'Pre-Approved', 'Offer Sent', 'Approved',
+  'Contract Sent', 'Funded', 'Declined', 'Lost / No Response',
 ];
 
 export const statusColors: Record<LeadStatus, string> = {
   'New Lead': 'bg-slate-100 text-slate-600',
   'Contacted': 'bg-blue-50 text-blue-700',
   'Application Started': 'bg-cyan-50 text-cyan-700',
+  'Documents Needed': 'bg-amber-50 text-amber-700',
   'Docs Requested': 'bg-amber-50 text-amber-700',
-  'Docs Received': 'bg-yellow-50 text-yellow-700',
+  'Docs Received': 'bg-indigo-50 text-indigo-700',
+  'Submitted': 'bg-blue-50 text-blue-700',
+  'Under Review': 'bg-orange-50 text-orange-700',
   'Underwriting': 'bg-orange-50 text-orange-700',
+  'Pre-Approved': 'bg-emerald-50 text-emerald-700',
+  'Offer Sent': 'bg-teal-50 text-teal-700',
   'Offers Available': 'bg-emerald-50 text-emerald-700',
-  'Contract Sent': 'bg-teal-50 text-teal-700',
+  'Approved': 'bg-green-50 text-green-700',
+  'Contract Sent': 'bg-violet-50 text-violet-700',
   'Funded': 'bg-green-50 text-green-700',
   'Renewal Eligible': 'bg-purple-50 text-purple-700',
   'Declined': 'bg-red-50 text-red-700',
-  'Lost': 'bg-slate-100 text-slate-500',
+  'Lost / No Response': 'bg-slate-100 text-slate-600',
+  'Lost': 'bg-slate-100 text-slate-600',
 };

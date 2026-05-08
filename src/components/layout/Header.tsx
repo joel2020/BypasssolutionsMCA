@@ -17,6 +17,8 @@ const navLinks = [
   },
   { label: 'Industries', href: '/industries' },
   { label: 'How It Works', href: '/how-it-works' },
+  { label: 'About', href: '/about' },
+  { label: 'FAQ', href: '/faq' },
 ];
 
 export default function Header() {

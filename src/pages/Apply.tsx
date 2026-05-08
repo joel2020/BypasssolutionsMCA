@@ -1,764 +1,483 @@
-import { useState } from 'react';
-import { Check, Upload, ArrowRight, ArrowLeft, Building2, User, DollarSign, FileText, Shield } from 'lucide-react';
-import { assertSupabaseConfigured, supabase } from '../lib/supabase';
-import { getAttribution, normalizePhone, sanitizeText } from '../lib/tracking';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, FileText, LockKeyhole, Shield, Upload, User, WalletCards } from 'lucide-react';
+import { assertSupabaseConfigured, isSupabaseConfigured, supabase } from '../lib/supabase';
+
+const APPLICATION_DRAFT_KEY = 'bypass-funding-application-draft-v2';
+const MAX_FILE_SIZE = 15 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']);
+const CONSENT_TEXT = 'By submitting this application, you authorize Bypass Solution and its funding partners to review the information provided, contact you regarding funding options, and request additional documentation as needed. Submission does not guarantee approval or funding.';
 
 const steps = [
-  { label: 'Business Info', icon: Building2 },
-  { label: 'Owner Info', icon: User },
-  { label: 'Funding Details', icon: DollarSign },
+  { label: 'Business', icon: Building2 },
+  { label: 'Funding', icon: WalletCards },
+  { label: 'Owner', icon: User },
   { label: 'Documents', icon: FileText },
-  { label: 'Review & Submit', icon: Shield },
+  { label: 'Review', icon: Shield },
 ];
 
-const industries = [
-  'Restaurants & Food Service', 'Trucking & Transportation', 'Construction & Contractors',
-  'Retail & Wholesale', 'Medical & Healthcare', 'E-commerce', 'Auto Repair',
-  'Beauty & Wellness', 'Professional Services', 'Manufacturing', 'Real Estate',
-  'Other',
-];
+const industries = ['Restaurants', 'Retail', 'Construction', 'Healthcare', 'Transportation', 'Automotive', 'Professional Services', 'E-commerce', 'Beauty and Wellness', 'Home Services', 'Manufacturing', 'Other'];
+const entityTypes = ['LLC', 'Corporation', 'S-Corp', 'Partnership', 'Sole Proprietorship', 'Nonprofit', 'Other'];
+const useOfFunds = ['Cash flow gaps', 'Payroll', 'Inventory', 'Equipment', 'Expansion', 'Marketing', 'Emergency business expenses', 'Seasonal working capital', 'Debt consolidation', 'Other'];
+const yesNo = ['Yes', 'No'];
+const documentRequirements = [
+  { key: 'bankStatements', label: '3 to 6 months business bank statements', type: 'bank_statement', required: true, multiple: true },
+  { key: 'governmentId', label: 'Government-issued ID', type: 'government_id', required: true, multiple: false },
+  { key: 'voidedCheck', label: 'Voided check', type: 'voided_check', required: true, multiple: false },
+  { key: 'merchantStatements', label: 'Merchant statements, if applicable', type: 'merchant_statement', required: false, multiple: true },
+  { key: 'existingStatements', label: 'Existing MCA / loan statements, if applicable', type: 'existing_advance_statement', required: false, multiple: true },
+] as const;
 
-const states = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
-  'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
-  'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
-  'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma',
-  'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee',
-  'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
-];
-
-const timeInBusiness = [
-  '0–3 months', '3–6 months', '6–12 months', '1–2 years', '2–5 years', '5+ years',
-];
-
-const creditRanges = [
-  '500–549', '550–599', '600–649', '650–699', '700–749', '750+', 'Unsure',
-];
-
-const fundingAmounts = [
-  '$5,000 – $25,000', '$25,001 – $50,000', '$50,001 – $100,000',
-  '$100,001 – $250,000', '$250,001 – $500,000', '$500,001 – $1,000,000', '$1,000,000+',
-];
-
-const useOfFunds = [
-  'Working Capital', 'Inventory Purchase', 'Equipment', 'Payroll',
-  'Marketing & Advertising', 'Expansion', 'Renovation', 'Debt Consolidation',
-  'Tax Obligations', 'Other',
-];
-
-const urgencyOptions = [
-  'Within 24–48 hours', 'This week', 'Within 2 weeks', 'This month', 'Just exploring options',
-];
+type DocumentKey = (typeof documentRequirements)[number]['key'];
+type FileState = Record<DocumentKey, File[]>;
 
 interface FormData {
-  businessName: string;
+  legalName: string;
   dba: string;
-  industry: string;
+  businessAddress: string;
+  businessPhone: string;
+  businessEmail: string;
   website: string;
-  state: string;
-  timeInBusiness: string;
-  monthlyRevenue: string;
-  fundingAmount: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  creditScore: string;
-  ownershipPct: string;
+  ein: string;
+  startDate: string;
+  entityType: string;
+  industry: string;
+  requestedAmount: string;
   useOfFunds: string;
-  existingAdvances: string;
-  monthlyDeposits: string;
-  avgDailyBalance: string;
-  urgency: string;
-  bankStatements: File[];
-  voidedCheck: File | null;
-  driversLicense: File | null;
-  businessDocs: File[];
+  monthlyRevenue: string;
+  annualRevenue: string;
+  averageDailyBalance: string;
+  currentAdvances: string;
+  currentBank: string;
+  nsfsLast90Days: string;
+  negativeDays: string;
+  currentMcaBalances: string;
+  currentDailyPayments: string;
+  currentWeeklyPayments: string;
+  grossMonthlyRevenue: string;
+  netMonthlyDeposits: string;
+  numberOfDeposits: string;
+  endingBalances: string;
+  ownerName: string;
+  ownerTitle: string;
+  ownershipPercentage: string;
+  dateOfBirth: string;
+  ssn: string;
+  ownerPhone: string;
+  ownerEmail: string;
+  homeAddress: string;
+  acceptsCards: string;
+  paymentProcessor: string;
+  monthlyCardVolume: string;
+  depositsPerMonth: string;
+  routingLastFour: string;
+  accountLastFour: string;
+  smsOptIn: boolean;
   consent: boolean;
   honeypot: string;
 }
 
-const defaultForm: FormData = {
-  businessName: '', dba: '', industry: '', website: '', state: '',
-  timeInBusiness: '', monthlyRevenue: '', fundingAmount: '',
-  firstName: '', lastName: '', email: '', phone: '', creditScore: '', ownershipPct: '',
-  useOfFunds: '', existingAdvances: '', monthlyDeposits: '', avgDailyBalance: '', urgency: '',
-  bankStatements: [], voidedCheck: null, driversLicense: null, businessDocs: [],
-  consent: false,
-  honeypot: '',
+const defaultFiles: FileState = {
+  bankStatements: [],
+  governmentId: [],
+  voidedCheck: [],
+  merchantStatements: [],
+  existingStatements: [],
 };
 
-function FieldGroup({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+const defaultForm: FormData = {
+  legalName: '', dba: '', businessAddress: '', businessPhone: '', businessEmail: '', website: '', ein: '', startDate: '', entityType: '', industry: '',
+  requestedAmount: '', useOfFunds: '', monthlyRevenue: '', annualRevenue: '', averageDailyBalance: '', currentAdvances: '', currentBank: '', nsfsLast90Days: '', negativeDays: '', currentMcaBalances: '', currentDailyPayments: '', currentWeeklyPayments: '', grossMonthlyRevenue: '', netMonthlyDeposits: '', numberOfDeposits: '', endingBalances: '',
+  ownerName: '', ownerTitle: '', ownershipPercentage: '', dateOfBirth: '', ssn: '', ownerPhone: '', ownerEmail: '', homeAddress: '',
+  acceptsCards: '', paymentProcessor: '', monthlyCardVolume: '', depositsPerMonth: '', routingLastFour: '', accountLastFour: '',
+  smsOptIn: false, consent: false, honeypot: '',
+};
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function lastFour(value: string) {
+  return onlyDigits(value).slice(-4);
+}
+
+function parseMoney(value: string) {
+  return Number(onlyDigits(value)) || 0;
+}
+
+function formatMoneyInput(value: string) {
+  const amount = onlyDigits(value);
+  return amount ? Number(amount).toLocaleString() : '';
+}
+
+function splitOwnerName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/);
+  return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '' };
+}
+
+function Field({ label, required, children, hint }: { label: string; required?: boolean; children: React.ReactNode; hint?: string }) {
   return (
-    <div>
-      <label className="block text-[14px] font-medium text-slate-700 mb-1.5">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
+    <label className="block">
+      <span className="block text-[13px] font-semibold text-slate-700 mb-1.5">{label} {required && <span className="text-red-500">*</span>}</span>
       {children}
-    </div>
+      {hint && <span className="mt-1.5 block text-[12px] text-slate-500">{hint}</span>}
+    </label>
   );
 }
 
-function SelectField({ value, onChange, options, placeholder }: {
-  value: string; onChange: (v: string) => void; options: string[]; placeholder?: string;
-}) {
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`input-field ${props.className || ''}`} />;
+}
+
+function Select({ value, onChange, options, placeholder = 'Select an option' }: { value: string; onChange: (value: string) => void; options: string[]; placeholder?: string }) {
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="select-field pr-10 cursor-pointer"
-      >
-        <option value="">{placeholder || 'Select an option'}</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M3 5L7 9L11 5" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+    <select className="select-field" value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="">{placeholder}</option>
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, eyebrow }: { icon: typeof Building2; title: string; eyebrow: string }) {
+  return (
+    <div className="flex items-start gap-4 mb-8">
+      <div className="w-11 h-11 rounded-xl bg-navy-900 flex items-center justify-center shadow-lg shadow-navy-900/10"><Icon size={19} className="text-accent-300" /></div>
+      <div>
+        <p className="section-label mb-1">{eyebrow}</p>
+        <h2 className="text-[24px] font-bold tracking-[-0.02em] text-navy-900">{title}</h2>
       </div>
     </div>
   );
 }
 
-function parseMoney(value: string) {
-  const numbers = value.match(/[0-9,]+/g);
-  if (!numbers?.length) return 0;
-  return parseFloat(numbers[numbers.length - 1].replace(/,/g, '')) || 0;
-}
-
-function validateRequired(values: Array<[string, string | boolean]>) {
-  const missing = values.find(([, value]) => value === '' || value === false);
-  return missing?.[0] || '';
+async function uploadDocument(leadId: string, docType: string, file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 96);
+  const path = `${leadId}/${docType}/${crypto.randomUUID()}.${extension}`;
+  const { error: uploadError } = await supabase.storage.from('application-documents').upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) throw uploadError;
+  await supabase.from('documents').insert({
+    lead_id: leadId,
+    file_name: safeName,
+    doc_type: docType,
+    document_type: docType,
+    storage_path: path,
+    file_path: path,
+    file_size: file.size,
+    mime_type: file.type,
+    status: 'Pending',
+  });
 }
 
 export default function Apply() {
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<FormData>(defaultForm);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const set = (key: keyof FormData) => (value: string | boolean) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-  const handleFileUpload = (key: 'bankStatements' | 'businessDocs', files: FileList | null) => {
-    if (!files) return;
-    setForm((prev) => ({ ...prev, [key]: Array.from(files) }));
-  };
-
-  const handleSingleFile = (key: 'voidedCheck' | 'driversLicense', files: FileList | null) => {
-    if (!files) return;
-    setForm((prev) => ({ ...prev, [key]: files[0] }));
-  };
-
+  const [files, setFiles] = useState<FileState>(defaultFiles);
+  const [errors, setErrors] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [confirmationId, setConfirmationId] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const saved = localStorage.getItem(APPLICATION_DRAFT_KEY);
+    if (saved) setForm((prev) => ({ ...prev, ...JSON.parse(saved), ssn: '', ein: '', routingLastFour: '', accountLastFour: '' }));
+  }, []);
+
+  useEffect(() => {
+    const safeDraft = { ...form, ssn: '', ein: '', routingLastFour: '', accountLastFour: '' };
+    localStorage.setItem(APPLICATION_DRAFT_KEY, JSON.stringify(safeDraft));
+  }, [form]);
+
+  const set = (key: keyof FormData) => (value: string | boolean) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const selectedFileCount = useMemo(() => Object.values(files).reduce((total, group) => total + group.length, 0), [files]);
+
+  function validateStep(step = currentStep) {
+    const nextErrors: string[] = [];
+    const requiredByStep: Record<number, Array<[string, string | boolean]>> = {
+      0: [['Legal business name', form.legalName], ['Business address', form.businessAddress], ['Business phone', form.businessPhone], ['Business email', form.businessEmail], ['Business start date', form.startDate], ['Entity type', form.entityType], ['Industry', form.industry]],
+      1: [['Requested funding amount', form.requestedAmount], ['Use of funds', form.useOfFunds], ['Average monthly revenue', form.monthlyRevenue], ['Annual revenue', form.annualRevenue], ['Average daily bank balance', form.averageDailyBalance], ['Current outstanding advances', form.currentAdvances], ['Current bank', form.currentBank], ['NSFs in last 90 days', form.nsfsLast90Days]],
+      2: [['Owner name', form.ownerName], ['Owner title', form.ownerTitle], ['Ownership percentage', form.ownershipPercentage], ['Date of birth', form.dateOfBirth], ['Owner phone', form.ownerPhone], ['Owner email', form.ownerEmail], ['Home address', form.homeAddress]],
+      3: [],
+      4: [['Consent authorization', form.consent]],
+    };
+
+    requiredByStep[step].forEach(([label, value]) => {
+      if (value === '' || value === false) nextErrors.push(`${label} is required.`);
+    });
+
+    if (step === 0 && form.ein && lastFour(form.ein).length !== 4) nextErrors.push('Enter the EIN last four digits only.');
+    if (step === 1 && Number(form.nsfsLast90Days) < 0) nextErrors.push('NSFs cannot be negative.');
+    if (step === 2 && form.ssn && lastFour(form.ssn).length !== 4) nextErrors.push('Enter the SSN last four digits only.');
+    if (step === 2 && Number(form.ownershipPercentage) <= 0) nextErrors.push('Ownership percentage must be greater than 0.');
+    if (step === 3) {
+      documentRequirements.filter((doc) => doc.required).forEach((doc) => {
+        if (files[doc.key].length === 0) nextErrors.push(`${doc.label} is required.`);
+      });
+    }
+    if (step === 4 && form.honeypot) nextErrors.push('Application could not be submitted.');
+
+    setErrors(nextErrors);
+    return nextErrors.length === 0;
+  }
+
+  function chooseFiles(key: DocumentKey, fileList: FileList | null, multiple: boolean) {
+    if (!fileList) return;
+    const incoming = Array.from(fileList);
+    const rejected = incoming.filter((file) => file.size > MAX_FILE_SIZE || !ALLOWED_MIME_TYPES.has(file.type));
+    if (rejected.length) {
+      setErrors([`Files must be PDF, JPG, or PNG and 15MB or smaller. Rejected: ${rejected.map((file) => file.name).join(', ')}`]);
+      return;
+    }
+    setFiles((prev) => ({ ...prev, [key]: multiple ? incoming : incoming.slice(0, 1) }));
+    setErrors([]);
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setSubmitError('');
-
-    const missing = validateRequired([
-      ['Business legal name', form.businessName],
-      ['Industry', form.industry],
-      ['State', form.state],
-      ['Time in business', form.timeInBusiness],
-      ['Average monthly revenue', form.monthlyRevenue],
-      ['Funding amount requested', form.fundingAmount],
-      ['First name', form.firstName],
-      ['Last name', form.lastName],
-      ['Email address', form.email],
-      ['Phone number', form.phone],
-      ['Credit score range', form.creditScore],
-      ['Ownership percentage', form.ownershipPct],
-      ['Use of funds', form.useOfFunds],
-      ['Existing advances or loans', form.existingAdvances],
-      ['Current monthly bank deposits', form.monthlyDeposits],
-      ['Funding timeline', form.urgency],
-      ['Consent authorization', form.consent],
-    ]);
-
-    if (missing) {
-      setSubmitError(`${missing} is required before submitting your application.`);
-      return;
-    }
-
-    if (form.honeypot) {
-      setSubmitted(true);
-      return;
-    }
+    if (![0, 1, 2, 3, 4].every((step) => validateStep(step))) return;
 
     setSubmitting(true);
-
     try {
       assertSupabaseConfigured();
-      const attribution = getAttribution();
-      const attributionNote = Object.entries(attribution)
-        .filter(([, value]) => value)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(' | ');
-      const uploadedDocumentSummary = [
-        form.bankStatements.length ? `Bank statements selected: ${form.bankStatements.map((file) => file.name).join(', ')}` : '',
-        form.voidedCheck ? `Voided check selected: ${form.voidedCheck.name}` : '',
-        form.driversLicense ? `Driver license selected: ${form.driversLicense.name}` : '',
-        form.businessDocs.length ? `Business docs selected: ${form.businessDocs.map((file) => file.name).join(', ')}` : '',
-      ].filter(Boolean).join(' | ');
-
-      const { error } = await supabase.from('leads').insert({
-        business_name: sanitizeText(form.businessName, 180),
-        dba: sanitizeText(form.dba, 180),
+      const { firstName, lastName } = splitOwnerName(form.ownerName);
+      const { data, error } = await supabase.from('leads').insert({
+        business_name: form.legalName.trim(),
+        legal_name: form.legalName.trim(),
+        dba: form.dba.trim(),
+        business_address: form.businessAddress.trim(),
+        business_phone: form.businessPhone.trim(),
+        business_email: form.businessEmail.trim(),
+        website: form.website.trim(),
+        ein_last_four: lastFour(form.ein),
+        start_date: form.startDate,
+        entity_type: form.entityType,
         industry: form.industry,
-        website: sanitizeText(form.website, 250),
-        state: form.state,
-        time_in_business: form.timeInBusiness,
+        state: '',
+        time_in_business: '',
         monthly_revenue: parseMoney(form.monthlyRevenue),
-        funding_amount_requested: parseMoney(form.fundingAmount),
-        first_name: sanitizeText(form.firstName, 120),
-        last_name: sanitizeText(form.lastName, 120),
-        email: sanitizeText(form.email, 180).toLowerCase(),
-        phone: normalizePhone(form.phone),
-        credit_score_range: form.creditScore,
-        ownership_pct: form.ownershipPct,
+        gross_monthly_revenue: parseMoney(form.grossMonthlyRevenue || form.monthlyRevenue),
+        net_monthly_deposits: parseMoney(form.netMonthlyDeposits),
+        annual_revenue: parseMoney(form.annualRevenue),
+        funding_amount_requested: parseMoney(form.requestedAmount),
+        requested_amount: parseMoney(form.requestedAmount),
+        first_name: firstName,
+        last_name: lastName,
+        owner_full_name: form.ownerName.trim(),
+        owner_title: form.ownerTitle.trim(),
+        owner_dob: form.dateOfBirth,
+        ssn_last_four: lastFour(form.ssn),
+        owner_home_address: form.homeAddress.trim(),
+        email: form.ownerEmail.trim(),
+        phone: form.ownerPhone.trim(),
+        ownership_pct: form.ownershipPercentage,
         use_of_funds: form.useOfFunds,
-        existing_advances: form.existingAdvances === 'Yes',
-        monthly_deposits: parseMoney(form.monthlyDeposits),
-        avg_daily_balance: parseMoney(form.avgDailyBalance),
-        urgency: form.urgency,
-        status: 'Application Started',
+        existing_advances: form.currentAdvances === 'Yes',
+        current_advances: form.currentAdvances,
+        current_bank: form.currentBank.trim(),
+        nsfs_last_90_days: Number(form.nsfsLast90Days) || 0,
+        negative_days: Number(form.negativeDays) || 0,
+        current_mca_balances: parseMoney(form.currentMcaBalances),
+        current_daily_payments: parseMoney(form.currentDailyPayments),
+        current_weekly_payments: parseMoney(form.currentWeeklyPayments),
+        monthly_deposits: parseMoney(form.netMonthlyDeposits || form.monthlyRevenue),
+        avg_daily_balance: parseMoney(form.averageDailyBalance),
+        number_of_deposits: Number(form.numberOfDeposits || form.depositsPerMonth) || 0,
+        ending_balances: form.endingBalances,
+        accepts_credit_cards: form.acceptsCards === 'Yes',
+        payment_processor: form.paymentProcessor.trim(),
+        monthly_card_volume: parseMoney(form.monthlyCardVolume),
+        deposits_per_month: Number(form.depositsPerMonth) || 0,
+        routing_last_four: lastFour(form.routingLastFour),
+        account_last_four: lastFour(form.accountLastFour),
+        sms_opt_in: form.smsOptIn,
+        status: 'Submitted',
         source: 'Website',
-        notes: [attributionNote ? `Attribution: ${attributionNote}` : '', uploadedDocumentSummary].filter(Boolean).join('\n'),
-        consent: form.consent,
-      });
+        consent: true,
+        consent_text: CONSENT_TEXT,
+        submitted_at: new Date().toISOString(),
+      }).select('id').single();
 
-      if (error) {
-        setSubmitError('There was a problem submitting your application. Please try again or contact info@bypasssolution.com.');
-        return;
+      if (error) throw error;
+      const leadId = data.id as string;
+
+      for (const requirement of documentRequirements) {
+        for (const file of files[requirement.key]) {
+          await uploadDocument(leadId, requirement.type, file);
+        }
       }
 
+      await supabase.from('communications').insert([
+        { lead_id: leadId, application_id: leadId, channel: 'Email', direction: 'outbound', subject: 'Application received', body: 'Applicant confirmation queued: Bypass Solution received the funding application and documents for review.', recipient: form.ownerEmail, sender: 'info@bypasssolution.com', status: 'queued', related_template: 'applicant_confirmation' },
+        { lead_id: leadId, application_id: leadId, channel: 'Email', direction: 'outbound', subject: `New funding application: ${form.legalName}`, body: `Internal alert queued for ${form.legalName}. Requested amount: ${form.requestedAmount}.`, recipient: 'funding@bypasssolution.com', sender: 'system@bypasssolution.com', status: 'queued', related_template: 'internal_admin_alert' },
+      ]);
+      await supabase.from('activity_logs').insert({ lead_id: leadId, application_id: leadId, action: 'application_submitted', metadata: { source: 'website', documents: selectedFileCount } });
+
+      localStorage.removeItem(APPLICATION_DRAFT_KEY);
+      setConfirmationId(leadId.slice(0, 8).toUpperCase());
       setSubmitted(true);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Application submission is temporarily unavailable. Please contact info@bypasssolution.com.');
     } finally {
       setSubmitting(false);
     }
-  };
+  }
+
+  function nextStep() {
+    if (validateStep()) setCurrentStep((step) => Math.min(step + 1, steps.length - 1));
+  }
 
   if (submitted) {
     return (
-      <div className="pt-16 lg:pt-[72px] min-h-screen bg-slate-50 flex items-center justify-center px-6">
-        <div className="max-w-md w-full text-center">
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-            <Check size={28} className="text-green-600" />
-          </div>
-          <h1 className="text-[28px] font-bold text-navy-900 mb-3">Application Received</h1>
-          <p className="text-[16px] text-slate-500 leading-relaxed mb-6">
-            Thank you, {form.firstName}. We've received your application for {form.businessName}. A funding specialist will review your information and contact you within 1–2 business days.
-          </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-md px-5 py-4 text-left mb-8">
-            <p className="text-[13px] text-amber-700">
-              <strong>Important:</strong> This is not an approval. Your application will be reviewed and a specialist will discuss available options with you. Subject to review and approval. Not all applicants qualify.
-            </p>
-          </div>
-          <a href="/" className="btn-primary w-full justify-center">
-            Return to Homepage
-          </a>
-        </div>
-      </div>
+      <main className="pt-16 lg:pt-[72px] min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center px-6">
+        <section className="max-w-xl w-full card p-8 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center mx-auto mb-6"><Check size={30} className="text-green-600" /></div>
+          <p className="section-label mb-2">Confirmation {confirmationId}</p>
+          <h1 className="text-[32px] font-bold tracking-[-0.03em] text-navy-900 mb-3">Application received securely</h1>
+          <p className="text-slate-600 leading-relaxed mb-6">Thank you, {form.ownerName || 'there'}. Your Bypass Solution funding application has been submitted for private review. A funding specialist will contact you after your application and documents are reviewed.</p>
+          <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-left text-[13px] text-blue-800 mb-7"><strong>Next step:</strong> Monitor your email and phone for document requests or available funding options. Submission does not guarantee approval or funding.</div>
+          <Link to="/" className="btn-primary w-full">Return home</Link>
+        </section>
+      </main>
     );
   }
 
   return (
-    <div className="pt-16 lg:pt-[72px] min-h-screen bg-slate-50">
-      {/* Progress header */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-[860px] mx-auto px-6 lg:px-8 py-5">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-[18px] font-bold text-navy-900">Business Funding Application</h1>
-            <span className="text-[13px] text-slate-500">Step {currentStep + 1} of {steps.length}</span>
-          </div>
-
-          {/* Step indicators */}
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {steps.map((step, i) => (
-              <div key={step.label} className="flex items-center min-w-0">
-                <button
-                  onClick={() => i < currentStep && setCurrentStep(i)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors ${
-                    i === currentStep
-                      ? 'bg-accent-50 text-accent-700'
-                      : i < currentStep
-                      ? 'text-green-600 hover:bg-green-50 cursor-pointer'
-                      : 'text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    i < currentStep
-                      ? 'bg-green-500'
-                      : i === currentStep
-                      ? 'bg-accent-600'
-                      : 'bg-slate-200'
-                  }`}>
-                    {i < currentStep ? (
-                      <Check size={11} className="text-white" />
-                    ) : (
-                      <span className="text-[10px] font-bold text-white">{i + 1}</span>
-                    )}
-                  </div>
-                  <span className="hidden sm:inline">{step.label}</span>
-                </button>
-                {i < steps.length - 1 && (
-                  <div className={`w-6 h-px mx-1 flex-shrink-0 ${i < currentStep ? 'bg-green-300' : 'bg-slate-200'}`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-3 h-1 bg-slate-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent-600 rounded-full transition-all duration-300"
-              style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-            />
+    <main className="pt-16 lg:pt-[72px] min-h-screen bg-slate-50">
+      <section className="bg-[#07152B] text-white overflow-hidden relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(47,140,255,0.28),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_30%)]" />
+        <div className="relative max-w-[1100px] mx-auto px-6 lg:px-8 py-12 lg:py-16">
+          <div className="max-w-3xl">
+            <p className="text-accent-300 text-[12px] font-bold uppercase tracking-[0.18em] mb-4">Secure funding intake</p>
+            <h1 className="text-[38px] lg:text-[58px] leading-[1.05] font-extrabold tracking-[-0.045em] mb-5">Apply for working capital with confidence.</h1>
+            <p className="text-slate-300 text-[17px] leading-relaxed max-w-2xl">A polished, encrypted application designed for established business owners. We collect only masked sensitive identifiers until deeper compliance controls are configured.</p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Form */}
-      <div className="max-w-[860px] mx-auto px-6 lg:px-8 py-10">
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="hidden" aria-hidden="true">
-            <label htmlFor="application-website">Company website</label>
-            <input id="application-website" tabIndex={-1} autoComplete="off" value={form.honeypot} onChange={(e) => set('honeypot')(e.target.value)} />
+      <section className="max-w-[980px] mx-auto px-6 lg:px-8 -mt-7 relative z-10 pb-14">
+        <div className="card p-4 mb-6">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {steps.map((step, index) => (
+              <button key={step.label} type="button" onClick={() => index < currentStep && setCurrentStep(index)} className={`flex items-center gap-2 min-w-max px-3 py-2 rounded-lg text-[13px] font-semibold ${index === currentStep ? 'bg-accent-50 text-accent-700' : index < currentStep ? 'bg-green-50 text-green-700' : 'text-slate-400'}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${index < currentStep ? 'bg-green-500 text-white' : index === currentStep ? 'bg-accent-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{index < currentStep ? <Check size={13} /> : index + 1}</span>
+                {step.label}
+              </button>
+            ))}
           </div>
+          <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-accent-600 transition-all" style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }} /></div>
+        </div>
 
-          {/* Step 0: Business Info */}
+        <form onSubmit={handleSubmit} className="card p-6 lg:p-8">
+          {errors.length > 0 && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-700"><div className="flex gap-2 font-semibold mb-1"><AlertCircle size={16} /> Please review</div><ul className="list-disc pl-5 space-y-1">{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
+
           {currentStep === 0 && (
-            <div className="card p-8">
-              <div className="flex items-center gap-3 mb-7">
-                <div className="w-10 h-10 rounded-md bg-navy-900 flex items-center justify-center">
-                  <Building2 size={18} className="text-accent-400" />
-                </div>
-                <div>
-                  <h2 className="text-[20px] font-bold text-navy-900">Business Information</h2>
-                  <p className="text-[13px] text-slate-500">Tell us about your business</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <FieldGroup label="Business Legal Name" required>
-                  <input className="input-field" placeholder="ABC Company LLC" value={form.businessName}
-                    onChange={(e) => set('businessName')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="DBA (Doing Business As)">
-                  <input className="input-field" placeholder="If different from legal name" value={form.dba}
-                    onChange={(e) => set('dba')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="Industry" required>
-                  <SelectField value={form.industry} onChange={set('industry')} options={industries} placeholder="Select industry" />
-                </FieldGroup>
-
-                <FieldGroup label="Business Website">
-                  <input className="input-field" placeholder="https://yourbusiness.com" value={form.website}
-                    onChange={(e) => set('website')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="State" required>
-                  <SelectField value={form.state} onChange={set('state')} options={states} placeholder="Select state" />
-                </FieldGroup>
-
-                <FieldGroup label="Time in Business" required>
-                  <SelectField value={form.timeInBusiness} onChange={set('timeInBusiness')} options={timeInBusiness} />
-                </FieldGroup>
-
-                <FieldGroup label="Average Monthly Revenue" required>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-                    <input className="input-field pl-7" placeholder="50,000" value={form.monthlyRevenue}
-                      onChange={(e) => set('monthlyRevenue')(e.target.value)} />
-                  </div>
-                </FieldGroup>
-
-                <FieldGroup label="Funding Amount Requested" required>
-                  <SelectField value={form.fundingAmount} onChange={set('fundingAmount')} options={fundingAmounts} />
-                </FieldGroup>
+            <div>
+              <SectionHeader icon={Building2} eyebrow="Business profile" title="Tell us about the business" />
+              <div className="grid md:grid-cols-2 gap-5">
+                <Field label="Legal business name" required><Input value={form.legalName} onChange={(e) => set('legalName')(e.target.value)} placeholder="Bypass Holdings LLC" /></Field>
+                <Field label="DBA"><Input value={form.dba} onChange={(e) => set('dba')(e.target.value)} placeholder="Operating name" /></Field>
+                <Field label="Business address" required><Input value={form.businessAddress} onChange={(e) => set('businessAddress')(e.target.value)} placeholder="Street, city, state, ZIP" /></Field>
+                <Field label="Business phone" required><Input type="tel" value={form.businessPhone} onChange={(e) => set('businessPhone')(e.target.value)} placeholder="(555) 000-0000" /></Field>
+                <Field label="Business email" required><Input type="email" value={form.businessEmail} onChange={(e) => set('businessEmail')(e.target.value)} placeholder="ops@company.com" /></Field>
+                <Field label="Website"><Input value={form.website} onChange={(e) => set('website')(e.target.value)} placeholder="https://company.com" /></Field>
+                <Field label="EIN last four" hint="Full EIN is not stored in this intake."><Input inputMode="numeric" maxLength={4} value={form.ein} onChange={(e) => set('ein')(onlyDigits(e.target.value).slice(0, 4))} placeholder="1234" /></Field>
+                <Field label="Business start date" required><Input type="date" value={form.startDate} onChange={(e) => set('startDate')(e.target.value)} /></Field>
+                <Field label="Entity type" required><Select value={form.entityType} onChange={set('entityType')} options={entityTypes} /></Field>
+                <Field label="Industry" required><Select value={form.industry} onChange={set('industry')} options={industries} /></Field>
               </div>
             </div>
           )}
 
-          {/* Step 1: Owner Info */}
           {currentStep === 1 && (
-            <div className="card p-8">
-              <div className="flex items-center gap-3 mb-7">
-                <div className="w-10 h-10 rounded-md bg-navy-900 flex items-center justify-center">
-                  <User size={18} className="text-accent-400" />
-                </div>
-                <div>
-                  <h2 className="text-[20px] font-bold text-navy-900">Owner Information</h2>
-                  <p className="text-[13px] text-slate-500">Tell us about the primary owner</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <FieldGroup label="First Name" required>
-                  <input className="input-field" placeholder="John" value={form.firstName}
-                    onChange={(e) => set('firstName')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="Last Name" required>
-                  <input className="input-field" placeholder="Smith" value={form.lastName}
-                    onChange={(e) => set('lastName')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="Email Address" required>
-                  <input className="input-field" type="email" placeholder="john@yourbusiness.com" value={form.email}
-                    onChange={(e) => set('email')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="Phone Number" required>
-                  <input className="input-field" type="tel" placeholder="+1 (813) 648-4272" value={form.phone}
-                    onChange={(e) => set('phone')(e.target.value)} />
-                </FieldGroup>
-
-                <FieldGroup label="Credit Score Range" required>
-                  <SelectField value={form.creditScore} onChange={set('creditScore')} options={creditRanges} />
-                </FieldGroup>
-
-                <FieldGroup label="Ownership Percentage" required>
-                  <div className="relative">
-                    <input className="input-field pr-8" placeholder="100" value={form.ownershipPct}
-                      onChange={(e) => set('ownershipPct')(e.target.value)} />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
-                  </div>
-                </FieldGroup>
-              </div>
-
-              <div className="mt-5 bg-slate-50 border border-slate-200 rounded-md px-4 py-3">
-                <p className="text-[13px] text-slate-500">
-                  Your personal information is handled with strict confidentiality. A soft credit inquiry may be performed during review, which does not affect your credit score.
-                </p>
+            <div>
+              <SectionHeader icon={WalletCards} eyebrow="Funding request" title="Revenue profile and capital needs" />
+              <div className="grid md:grid-cols-2 gap-5">
+                <Field label="Requested funding amount" required><Input inputMode="numeric" value={form.requestedAmount} onChange={(e) => set('requestedAmount')(formatMoneyInput(e.target.value))} placeholder="125,000" /></Field>
+                <Field label="Use of funds" required><Select value={form.useOfFunds} onChange={set('useOfFunds')} options={useOfFunds} /></Field>
+                <Field label="Average monthly revenue" required><Input inputMode="numeric" value={form.monthlyRevenue} onChange={(e) => set('monthlyRevenue')(formatMoneyInput(e.target.value))} placeholder="85,000" /></Field>
+                <Field label="Annual revenue" required><Input inputMode="numeric" value={form.annualRevenue} onChange={(e) => set('annualRevenue')(formatMoneyInput(e.target.value))} placeholder="1,020,000" /></Field>
+                <Field label="Average daily bank balance" required><Input inputMode="numeric" value={form.averageDailyBalance} onChange={(e) => set('averageDailyBalance')(formatMoneyInput(e.target.value))} placeholder="9,500" /></Field>
+                <Field label="Current outstanding loans / advances" required><Select value={form.currentAdvances} onChange={set('currentAdvances')} options={yesNo} /></Field>
+                <Field label="Current bank" required><Input value={form.currentBank} onChange={(e) => set('currentBank')(e.target.value)} placeholder="Bank name" /></Field>
+                <Field label="NSFs in last 90 days" required><Input type="number" min={0} value={form.nsfsLast90Days} onChange={(e) => set('nsfsLast90Days')(e.target.value)} placeholder="0" /></Field>
+                <Field label="Negative days"><Input type="number" min={0} value={form.negativeDays} onChange={(e) => set('negativeDays')(e.target.value)} placeholder="0" /></Field>
+                <Field label="Current MCA balances"><Input inputMode="numeric" value={form.currentMcaBalances} onChange={(e) => set('currentMcaBalances')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
+                <Field label="Current daily payments"><Input inputMode="numeric" value={form.currentDailyPayments} onChange={(e) => set('currentDailyPayments')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
+                <Field label="Current weekly payments"><Input inputMode="numeric" value={form.currentWeeklyPayments} onChange={(e) => set('currentWeeklyPayments')(formatMoneyInput(e.target.value))} placeholder="0" /></Field>
+                <Field label="Gross monthly revenue"><Input inputMode="numeric" value={form.grossMonthlyRevenue} onChange={(e) => set('grossMonthlyRevenue')(formatMoneyInput(e.target.value))} placeholder="85,000" /></Field>
+                <Field label="Net monthly deposits"><Input inputMode="numeric" value={form.netMonthlyDeposits} onChange={(e) => set('netMonthlyDeposits')(formatMoneyInput(e.target.value))} placeholder="76,000" /></Field>
+                <Field label="Number of deposits"><Input type="number" min={0} value={form.numberOfDeposits} onChange={(e) => set('numberOfDeposits')(e.target.value)} placeholder="38" /></Field>
+                <Field label="Ending balances"><Input value={form.endingBalances} onChange={(e) => set('endingBalances')(e.target.value)} placeholder="Example: 8k, 11k, 9k" /></Field>
               </div>
             </div>
           )}
 
-          {/* Step 2: Funding Details */}
           {currentStep === 2 && (
-            <div className="card p-8">
-              <div className="flex items-center gap-3 mb-7">
-                <div className="w-10 h-10 rounded-md bg-navy-900 flex items-center justify-center">
-                  <DollarSign size={18} className="text-accent-400" />
-                </div>
-                <div>
-                  <h2 className="text-[20px] font-bold text-navy-900">Funding Details</h2>
-                  <p className="text-[13px] text-slate-500">Help us understand your funding needs</p>
-                </div>
+            <div>
+              <SectionHeader icon={User} eyebrow="Owner profile" title="Primary ownership information" />
+              <div className="grid md:grid-cols-2 gap-5">
+                <Field label="Owner name" required><Input value={form.ownerName} onChange={(e) => set('ownerName')(e.target.value)} placeholder="Alex Morgan" /></Field>
+                <Field label="Title" required><Input value={form.ownerTitle} onChange={(e) => set('ownerTitle')(e.target.value)} placeholder="Managing Member" /></Field>
+                <Field label="Ownership percentage" required><Input type="number" min={1} max={100} value={form.ownershipPercentage} onChange={(e) => set('ownershipPercentage')(e.target.value)} placeholder="100" /></Field>
+                <Field label="Date of birth" required><Input type="date" value={form.dateOfBirth} onChange={(e) => set('dateOfBirth')(e.target.value)} /></Field>
+                <Field label="SSN last four" hint="Full SSN is intentionally not stored."><Input inputMode="numeric" maxLength={4} value={form.ssn} onChange={(e) => set('ssn')(onlyDigits(e.target.value).slice(0, 4))} placeholder="1234" /></Field>
+                <Field label="Owner phone" required><Input type="tel" value={form.ownerPhone} onChange={(e) => set('ownerPhone')(e.target.value)} placeholder="(555) 000-0000" /></Field>
+                <Field label="Owner email" required><Input type="email" value={form.ownerEmail} onChange={(e) => set('ownerEmail')(e.target.value)} placeholder="owner@company.com" /></Field>
+                <Field label="Home address" required><Input value={form.homeAddress} onChange={(e) => set('homeAddress')(e.target.value)} placeholder="Street, city, state, ZIP" /></Field>
+                <Field label="Accepts credit cards"><Select value={form.acceptsCards} onChange={set('acceptsCards')} options={yesNo} /></Field>
+                <Field label="Payment processor"><Input value={form.paymentProcessor} onChange={(e) => set('paymentProcessor')(e.target.value)} placeholder="Stripe, Square, Fiserv…" /></Field>
+                <Field label="Monthly card volume"><Input inputMode="numeric" value={form.monthlyCardVolume} onChange={(e) => set('monthlyCardVolume')(formatMoneyInput(e.target.value))} placeholder="25,000" /></Field>
+                <Field label="Deposits per month"><Input type="number" min={0} value={form.depositsPerMonth} onChange={(e) => set('depositsPerMonth')(e.target.value)} placeholder="42" /></Field>
+                <Field label="Routing number last four" hint="Full routing data is not stored."><Input inputMode="numeric" maxLength={4} value={form.routingLastFour} onChange={(e) => set('routingLastFour')(onlyDigits(e.target.value).slice(0, 4))} placeholder="1234" /></Field>
+                <Field label="Account number last four" hint="Full account data is not stored."><Input inputMode="numeric" maxLength={4} value={form.accountLastFour} onChange={(e) => set('accountLastFour')(onlyDigits(e.target.value).slice(0, 4))} placeholder="6789" /></Field>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <FieldGroup label="Primary Use of Funds" required>
-                  <SelectField value={form.useOfFunds} onChange={set('useOfFunds')} options={useOfFunds} />
-                </FieldGroup>
-
-                <FieldGroup label="Do you have existing advances or loans?" required>
-                  <div className="flex gap-3">
-                    {['Yes', 'No'].map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => set('existingAdvances')(opt)}
-                        className={`flex-1 h-11 border rounded-md text-[15px] font-medium transition-colors ${
-                          form.existingAdvances === opt
-                            ? 'border-accent-500 bg-accent-50 text-accent-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </FieldGroup>
-
-                <FieldGroup label="Current Monthly Bank Deposits" required>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-                    <input className="input-field pl-7" placeholder="45,000" value={form.monthlyDeposits}
-                      onChange={(e) => set('monthlyDeposits')(e.target.value)} />
-                  </div>
-                </FieldGroup>
-
-                <FieldGroup label="Average Daily Bank Balance">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-                    <input className="input-field pl-7" placeholder="5,000" value={form.avgDailyBalance}
-                      onChange={(e) => set('avgDailyBalance')(e.target.value)} />
-                  </div>
-                </FieldGroup>
-
-                <div className="md:col-span-2">
-                  <FieldGroup label="How Quickly Do You Need Funding?" required>
-                    <div className="flex flex-wrap gap-2">
-                      {urgencyOptions.map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => set('urgency')(opt)}
-                          className={`px-4 py-2.5 border rounded-md text-[14px] font-medium transition-colors ${
-                            form.urgency === opt
-                              ? 'border-accent-500 bg-accent-50 text-accent-700'
-                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </FieldGroup>
-                </div>
-              </div>
+              <label className="mt-5 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-[13px] text-slate-600"><input type="checkbox" checked={form.smsOptIn} onChange={(e) => set('smsOptIn')(e.target.checked)} className="mt-1" /> I agree to receive SMS updates about my funding application. Message and data rates may apply. Reply STOP to opt out.</label>
             </div>
           )}
 
-          {/* Step 3: Documents */}
           {currentStep === 3 && (
-            <div className="card p-8">
-              <div className="flex items-center gap-3 mb-7">
-                <div className="w-10 h-10 rounded-md bg-navy-900 flex items-center justify-center">
-                  <FileText size={18} className="text-accent-400" />
-                </div>
-                <div>
-                  <h2 className="text-[20px] font-bold text-navy-900">Document Upload</h2>
-                  <p className="text-[13px] text-slate-500">Securely upload your documents — all files are encrypted</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-5">
-                {[
-                  {
-                    label: 'Business Bank Statements',
-                    sub: '3–6 months required — PDF or image files accepted',
-                    required: true,
-                    multiple: true,
-                    key: 'bankStatements' as const,
-                    accept: '.pdf,.jpg,.jpeg,.png',
-                  },
-                  {
-                    label: 'Voided Business Check',
-                    sub: 'Used to verify bank account information',
-                    required: true,
-                    multiple: false,
-                    key: 'voidedCheck' as const,
-                    accept: '.pdf,.jpg,.jpeg,.png',
-                  },
-                  {
-                    label: "Owner's Driver's License",
-                    sub: 'Government-issued photo ID required',
-                    required: true,
-                    multiple: false,
-                    key: 'driversLicense' as const,
-                    accept: '.pdf,.jpg,.jpeg,.png',
-                  },
-                  {
-                    label: 'Business Documents',
-                    sub: 'Business license, articles of incorporation, EIN letter (optional but recommended)',
-                    required: false,
-                    multiple: true,
-                    key: 'businessDocs' as const,
-                    accept: '.pdf,.jpg,.jpeg,.png,.doc,.docx',
-                  },
-                ].map((doc) => (
-                  <div key={doc.label} className="border border-slate-200 rounded-lg p-5 hover:border-accent-300 transition-colors">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <p className="text-[15px] font-semibold text-navy-900">
-                          {doc.label}
-                          {doc.required && <span className="text-red-500 ml-1">*</span>}
-                        </p>
-                        <p className="text-[13px] text-slate-500 mt-0.5">{doc.sub}</p>
-                      </div>
-                      {(doc.multiple
-                        ? (form[doc.key] as File[]).length > 0
-                        : form[doc.key] !== null) && (
-                        <span className="badge-success flex-shrink-0">Uploaded</span>
-                      )}
+            <div>
+              <SectionHeader icon={FileText} eyebrow="Secure documents" title="Upload underwriting documents" />
+              {!isSupabaseConfigured && <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-800">Supabase environment variables are required before production uploads can be accepted.</div>}
+              <div className="space-y-4">
+                {documentRequirements.map((doc) => (
+                  <div key={doc.key} className="rounded-2xl border border-slate-200 p-5 hover:border-accent-300 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div><p className="font-semibold text-navy-900">{doc.label} {doc.required && <span className="text-red-500">*</span>}</p><p className="text-[13px] text-slate-500 mt-1">PDF, JPG, or PNG. 15MB maximum per file. Stored in a private bucket.</p></div>
+                      <label className="btn-secondary cursor-pointer h-10"><Upload size={15} /> Choose file<input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple={doc.multiple} className="hidden" onChange={(e) => chooseFiles(doc.key, e.target.files, doc.multiple)} /></label>
                     </div>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="flex items-center justify-center gap-2 h-10 px-4 bg-slate-50 border border-slate-200 rounded-md text-[14px] font-medium text-slate-600 group-hover:border-accent-300 group-hover:text-accent-700 transition-colors">
-                        <Upload size={15} />
-                        {doc.multiple ? 'Choose Files' : 'Choose File'}
-                      </div>
-                      <input
-                        type="file"
-                        accept={doc.accept}
-                        multiple={doc.multiple}
-                        className="hidden"
-                        onChange={(e) => {
-                          if (doc.multiple) {
-                            handleFileUpload(doc.key as 'bankStatements' | 'businessDocs', e.target.files);
-                          } else {
-                            handleSingleFile(doc.key as 'voidedCheck' | 'driversLicense', e.target.files);
-                          }
-                        }}
-                      />
-                      <span className="text-[13px] text-slate-400">
-                        {doc.multiple
-                          ? `${(form[doc.key] as File[]).length} file(s) selected`
-                          : form[doc.key]
-                          ? (form[doc.key] as File).name
-                          : 'No file chosen'}
-                      </span>
-                    </label>
+                    {files[doc.key].length > 0 && <div className="mt-4 flex flex-wrap gap-2">{files[doc.key].map((file) => <span key={`${doc.key}-${file.name}`} className="badge-brand normal-case tracking-normal">{file.name}</span>)}</div>}
                   </div>
                 ))}
               </div>
-
-              <div className="mt-5 flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-md px-4 py-3">
-                <Shield size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[13px] text-blue-700">
-                  All uploaded documents are encrypted with 256-bit SSL encryption and stored securely. Your information is handled with strict confidentiality.
-                </p>
-              </div>
+              <div className="mt-5 flex gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-[13px] text-blue-800"><LockKeyhole size={17} className="mt-0.5 flex-shrink-0" /> Uploaded files are private. CRM users must have an active authorized role before viewing applicant documents.</div>
             </div>
           )}
 
-          {/* Step 4: Review & Consent */}
           {currentStep === 4 && (
-            <div className="flex flex-col gap-5">
-              {/* Summary */}
-              <div className="card p-8">
-                <h2 className="text-[20px] font-bold text-navy-900 mb-6">Application Summary</h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Business</p>
-                    <div className="flex flex-col gap-2">
-                      {[
-                        { label: 'Business Name', value: form.businessName || '—' },
-                        { label: 'Industry', value: form.industry || '—' },
-                        { label: 'State', value: form.state || '—' },
-                        { label: 'Monthly Revenue', value: form.monthlyRevenue ? `$${form.monthlyRevenue}` : '—' },
-                        { label: 'Time in Business', value: form.timeInBusiness || '—' },
-                        { label: 'Funding Requested', value: form.fundingAmount || '—' },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-none">
-                          <span className="text-[13px] text-slate-500">{item.label}</span>
-                          <span className="text-[13px] font-medium text-slate-800">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Owner</p>
-                    <div className="flex flex-col gap-2">
-                      {[
-                        { label: 'Name', value: `${form.firstName} ${form.lastName}`.trim() || '—' },
-                        { label: 'Email', value: form.email || '—' },
-                        { label: 'Phone', value: form.phone || '—' },
-                        { label: 'Credit Score', value: form.creditScore || '—' },
-                        { label: 'Ownership', value: form.ownershipPct ? `${form.ownershipPct}%` : '—' },
-                        { label: 'Use of Funds', value: form.useOfFunds || '—' },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-none">
-                          <span className="text-[13px] text-slate-500">{item.label}</span>
-                          <span className="text-[13px] font-medium text-slate-800">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <div>
+              <SectionHeader icon={Shield} eyebrow="Final review" title="Confirm and submit" />
+              <div className="grid md:grid-cols-2 gap-5 mb-6">
+                {[['Business', form.legalName], ['Owner', form.ownerName], ['Requested', form.requestedAmount ? `$${form.requestedAmount}` : '—'], ['Monthly revenue', form.monthlyRevenue ? `$${form.monthlyRevenue}` : '—'], ['Use of funds', form.useOfFunds], ['Documents selected', String(selectedFileCount)]].map(([label, value]) => <div key={label} className="rounded-xl bg-slate-50 border border-slate-200 p-4"><p className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">{label}</p><p className="mt-1 font-semibold text-slate-800">{value}</p></div>)}
               </div>
-
-              {/* Consent */}
-              <div className="card p-8">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-md bg-navy-900 flex items-center justify-center">
-                    <Shield size={18} className="text-accent-400" />
-                  </div>
-                  <h2 className="text-[18px] font-bold text-navy-900">Authorization & Consent</h2>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-md p-5 mb-5 text-[14px] text-slate-600 leading-relaxed">
-                  <p>
-                    By submitting this application, you acknowledge and agree that:
-                  </p>
-                  <ul className="list-disc pl-5 mt-3 flex flex-col gap-1.5">
-                    <li>All information provided is accurate and complete to the best of your knowledge.</li>
-                    <li>Bypass Solution and its funding partners may contact you regarding business funding options.</li>
-                    <li>A soft credit inquiry may be performed, which does not affect your credit score.</li>
-                    <li>This application is not an offer or guarantee of funding.</li>
-                    <li>All funding is subject to review and approval by individual funding partners.</li>
-                    <li>Not all applicants will qualify for funding options.</li>
-                    <li>You agree to review all funding terms carefully before accepting any offer.</li>
-                  </ul>
-                </div>
-
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <span className="relative mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center">
-                    <input
-                      type="checkbox"
-                      className="peer h-5 w-5 appearance-none rounded border-2 border-slate-300 bg-white transition-colors checked:border-accent-600 checked:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-                      checked={form.consent}
-                      onChange={(e) => set('consent')(e.target.checked)}
-                      required
-                    />
-                    <Check size={12} className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100" />
-                  </span>
-                  <p className="text-[14px] text-slate-700 leading-relaxed">
-                    I confirm the information provided is accurate and authorize Bypass Solution and its funding partners to review my application, contact me regarding business funding options, verify business information, review bank statements, and obtain business credit information where permitted. Funding is subject to review and approval. Terms may vary and not all applicants qualify. I have read and agree to the{' '}
-                    <a href="/terms" target="_blank" className="text-accent-600 hover:underline">Terms of Use</a> and{' '}
-                    <a href="/privacy" target="_blank" className="text-accent-600 hover:underline">Privacy Policy</a>.
-                  </p>
-                </label>
-              </div>
+              <input className="hidden" tabIndex={-1} autoComplete="off" value={form.honeypot} onChange={(e) => set('honeypot')(e.target.value)} aria-hidden="true" />
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-[14px] text-slate-600 leading-relaxed mb-5"><p>{CONSENT_TEXT}</p><p className="mt-3">Sensitive identifiers and bank details are masked to last four digits in this intake. Full SSN and full bank account numbers are not stored by this form.</p></div>
+              <label className="flex items-start gap-3 text-[14px] text-slate-700"><input type="checkbox" checked={form.consent} onChange={(e) => set('consent')(e.target.checked)} className="mt-1" /> I certify the information provided is accurate and agree to the authorization above, the <Link className="text-accent-700 hover:underline" to="/terms" target="_blank">Terms of Use</Link>, and the <Link className="text-accent-700 hover:underline" to="/privacy" target="_blank">Privacy Policy</Link>.</label>
             </div>
           )}
 
-          {/* Submit error */}
-          {submitError && (
-            <div className="mt-4 bg-red-50 border border-red-200 rounded-md px-4 py-3" role="alert" aria-live="polite">
-              <p className="text-[13px] text-red-600">{submitError}</p>
-            </div>
-          )}
+          {submitError && <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-700">{submitError}</div>}
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between mt-6">
-            <button
-              type="button"
-              onClick={() => setCurrentStep((s) => s - 1)}
-              disabled={currentStep === 0}
-              className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ArrowLeft size={16} />
-              Previous
-            </button>
-
-            {currentStep < steps.length - 1 ? (
-              <button
-                type="button"
-                onClick={() => setCurrentStep((s) => s + 1)}
-                className="btn-primary"
-              >
-                Continue
-                <ArrowRight size={16} />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!form.consent || submitting}
-                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? 'Submitting…' : 'Submit Application'}
-                <ArrowRight size={16} />
-              </button>
-            )}
+          <div className="mt-8 flex items-center justify-between gap-3">
+            <button type="button" onClick={() => setCurrentStep((step) => Math.max(step - 1, 0))} disabled={currentStep === 0 || submitting} className="btn-secondary disabled:opacity-40"><ArrowLeft size={16} /> Previous</button>
+            {currentStep < steps.length - 1 ? <button type="button" onClick={nextStep} className="btn-primary">Continue <ArrowRight size={16} /></button> : <button type="submit" disabled={submitting || !form.consent} className="btn-primary disabled:opacity-50">{submitting ? 'Submitting…' : 'Submit application'} <ArrowRight size={16} /></button>}
           </div>
-
-          <p className="text-[12px] text-slate-400 text-center mt-4">
-            Subject to review and approval. Not all applicants qualify. This is not an offer to lend.
-          </p>
+          <p className="mt-5 text-center text-[12px] text-slate-400">Working Capital. Smarter. Faster. Subject to review and approval.</p>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

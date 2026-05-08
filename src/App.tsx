@@ -13,6 +13,8 @@ import Home from './pages/Home';
 import Solutions from './pages/Solutions';
 import Industries from './pages/Industries';
 import HowItWorks from './pages/HowItWorks';
+import About from './pages/About';
+import FAQ from './pages/FAQ';
 import Apply from './pages/Apply';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
@@ -132,6 +134,8 @@ export default function App() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/solutions" element={<Solutions />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/faq" element={<FAQ />} />
           <Route path="/industries" element={<Industries />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/apply" element={<Apply />} />
