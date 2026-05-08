@@ -47,6 +47,9 @@ export type LeadStatus =
   | 'Under Review' | 'Pre-Approved' | 'Offer Sent' | 'Funded'
   | 'Declined' | 'Lost';
 
+export type ApplicationStatus = 'New' | 'Submitted' | 'In Review' | 'Underwriting' | 'Approved' | 'Offer Sent' | 'Funded' | 'Declined' | 'Withdrawn';
+export type PartnerSubmissionStatus = 'Prepared' | 'Submitted' | 'In Review' | 'Approved' | 'Offer Sent' | 'Declined' | 'Withdrawn' | 'No Response';
+export type DocumentStatus = 'Pending' | 'Uploaded' | 'Reviewed' | 'Approved' | 'Rejected';
 
 export interface Profile {
   id: string;
@@ -101,7 +104,9 @@ export interface Task {
   created_at: string;
   updated_at: string;
   lead_id: string | null;
+  application_id?: string | null;
   title: string;
+  description?: string | null;
   task_type: string;
   assigned_rep: string;
   due_date: string | null;
@@ -112,12 +117,19 @@ export interface Task {
 export interface Document {
   id: string;
   created_at: string;
-  lead_id: string;
+  lead_id: string | null;
+  application_id?: string | null;
   file_name: string;
   doc_type: string;
+  document_type?: string | null;
   storage_path: string;
-  status: 'Pending' | 'Reviewed' | 'Approved' | 'Rejected';
-  review_notes: string;
+  file_path?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  status: DocumentStatus;
+  review_notes: string | null;
+  uploaded_at?: string | null;
+  uploaded_by?: string | null;
 }
 
 export interface Offer {
@@ -125,6 +137,8 @@ export interface Offer {
   created_at: string;
   updated_at: string;
   lead_id: string;
+  application_id?: string | null;
+  funding_partner_id?: string | null;
   funder_name: string;
   funding_amount: number;
   payback_amount: number;
@@ -154,10 +168,66 @@ export interface Funder {
   status: 'Active' | 'Inactive';
 }
 
+export interface FundingPartner {
+  id: string;
+  created_at: string;
+  updated_at?: string;
+  name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  min_revenue: number | null;
+  max_funding: number | null;
+  industries_accepted: string[] | null;
+  status: 'Active' | 'Inactive' | string;
+  notes: string | null;
+}
+
+export interface PartnerSubmission {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  application_id: string | null;
+  funding_partner_id: string | null;
+  submitted_by: string | null;
+  status: PartnerSubmissionStatus;
+  submitted_at: string | null;
+  response_at: string | null;
+  response_status?: string | null;
+  notes: string | null;
+  denial_reason?: string | null;
+  denial_notes?: string | null;
+  denied_at?: string | null;
+  denied_by?: string | null;
+  included_document_ids?: string[] | null;
+  funding_partners?: Pick<FundingPartner, 'name' | 'email' | 'contact_name'> | null;
+}
+
+export interface ApplicationRecord {
+  id: string;
+  lead_id: string | null;
+  status: ApplicationStatus;
+  requested_amount: number | null;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string | null;
+}
+
+export interface ActivityLog {
+  id: string;
+  application_id: string | null;
+  lead_id: string | null;
+  user_id: string | null;
+  action: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface Commission {
   id: string;
   created_at: string;
   lead_id: string | null;
+  application_id?: string | null;
   lead_name: string;
   business_name: string;
   funder_name: string;
