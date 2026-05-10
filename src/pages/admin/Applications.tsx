@@ -221,8 +221,8 @@ export default function Applications() {
                       </div>
                       <p className="text-[13px] text-slate-500">{lead.first_name} {lead.last_name} · {lead.industry || 'No industry listed'}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-4 text-[12px] text-slate-400">
-                        <span>Requested: <strong className="text-slate-700">{money(lead.funding_amount_requested || lead.requested_amount || 0)}</strong></span>
-                        <span>Revenue: <strong className="text-slate-700">{money(lead.monthly_revenue || lead.gross_monthly_revenue || 0)}/mo</strong></span>
+                        <span>Requested: <strong className="text-slate-700">{money(lead.funding_amount_requested || 0)}</strong></span>
+                        <span>Revenue: <strong className="text-slate-700">{money(lead.monthly_revenue || 0)}/mo</strong></span>
                         <span>Rep: <strong className="text-slate-700">{lead.assigned_rep || 'Unassigned'}</strong></span>
                         <span>{new Date(lead.created_at).toLocaleDateString()}</span>
                       </div>
