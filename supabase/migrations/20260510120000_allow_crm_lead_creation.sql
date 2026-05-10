@@ -4,7 +4,9 @@
   manual CRM-created applicants such as source = 'CRM'.
 */
 
-create policy if not exists "CRM users can create leads"
+drop policy if exists "CRM users can create leads" on public.leads;
+
+create policy "CRM users can create leads"
   on public.leads for insert
   to authenticated
   with check (
