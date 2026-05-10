@@ -29,6 +29,49 @@ export function usePartnerSubmissions(applicationId?: string) {
   }, [], [applicationId]);
 }
 
+export function useCreateFundingPartner() {
+  const [loading, setLoading] = useState(false);
+
+  async function createFundingPartner(payload: {
+    name: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+    minRevenue?: number;
+    maxFunding?: number;
+    industriesAccepted?: string[];
+    notes?: string;
+    status?: 'Active' | 'Inactive';
+  }) {
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('funding_partners')
+        .insert({
+          name: payload.name.trim(),
+          contact_name: payload.contactName?.trim() || null,
+          email: payload.email?.trim() || null,
+          phone: payload.phone?.trim() || null,
+          min_revenue: payload.minRevenue ?? 0,
+          max_funding: payload.maxFunding ?? 0,
+          industries_accepted: payload.industriesAccepted ?? [],
+          status: payload.status ?? 'Active',
+          notes: payload.notes?.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as FundingPartner;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { createFundingPartner, loading };
+}
+
 export function useCreatePartnerSubmission() {
   const [loading, setLoading] = useState(false);
 
