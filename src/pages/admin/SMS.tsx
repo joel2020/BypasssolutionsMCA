@@ -32,11 +32,20 @@ const threads = [
 ];
 
 export default function SMS() {
-  const [activeThread, setActiveThread] = useState(threads[0]);
+  const [threadList, setThreadList] = useState(threads);
+  const [activeThreadId, setActiveThreadId] = useState(threads[0].id);
   const [message, setMessage] = useState('');
+  const activeThread = threadList.find((thread) => thread.id === activeThreadId) ?? threadList[0];
 
   const send = () => {
     if (!message.trim()) return;
+    const nextMessage = { from: 'rep', text: message.trim(), time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) };
+    setThreadList((current) => current.map((thread) => thread.id === activeThread.id ? {
+      ...thread,
+      messages: [...thread.messages, nextMessage],
+      lastMessage: nextMessage.text,
+      time: nextMessage.time,
+    } : thread));
     setMessage('');
   };
 
@@ -57,12 +66,12 @@ export default function SMS() {
       <div className="card overflow-hidden flex h-[600px]">
         {/* Thread list */}
         <div className="w-[280px] flex-shrink-0 border-r border-slate-200 overflow-y-auto">
-          {threads.map((thread) => (
+          {threadList.map((thread) => (
             <button
               key={thread.id}
-              onClick={() => setActiveThread(thread)}
+              onClick={() => setActiveThreadId(thread.id)}
               className={`w-full text-left p-4 border-b border-slate-100 last:border-none transition-colors ${
-                activeThread.id === thread.id ? 'bg-accent-50' : 'hover:bg-slate-50'
+                activeThreadId === thread.id ? 'bg-accent-50' : 'hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center justify-between mb-0.5">
@@ -116,7 +125,7 @@ export default function SMS() {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && send()}
               />
-              <button onClick={send} className="btn-primary h-10 px-4 text-[13px]">
+              <button onClick={send} disabled={!message.trim()} className="btn-primary h-10 px-4 text-[13px] disabled:cursor-not-allowed disabled:opacity-50">
                 <Send size={15} />
               </button>
             </div>

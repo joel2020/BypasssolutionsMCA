@@ -50,6 +50,7 @@ export default function AdminLayout() {
   const initials = (profile?.full_name || profile?.email || 'CU').split(/[ @.]+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -105,7 +106,7 @@ export default function AdminLayout() {
           </div>
 
           <div className="hidden md:flex items-center gap-3 ml-auto">
-            <button className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 text-[14px] font-semibold text-slate-100 hover:bg-white/10">
+            <button onClick={() => navigate('/admin/applications')} className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 text-[14px] font-semibold text-slate-100 hover:bg-white/10">
               <Filter size={16} /> Filter
             </button>
             <Link to="/admin/applications?new=1" className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-[14px] font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
@@ -113,10 +114,26 @@ export default function AdminLayout() {
             </Link>
           </div>
 
-          <button className="relative w-10 h-10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-            <Bell size={19} />
-            <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-[11px] font-bold text-white">3</span>
-          </button>
+          <div className="relative">
+            <button onClick={() => setNotificationsOpen((v) => !v)} className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white">
+              <Bell size={19} />
+              <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-[11px] font-bold text-white">3</span>
+            </button>
+            {notificationsOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-white/10 bg-[#0b1730] p-2 shadow-2xl">
+                {[
+                  ['New leads', 'Review today\'s new CRM leads.', '/admin/leads'],
+                  ['Open tasks', 'See pending follow-ups.', '/admin/tasks'],
+                  ['Documents', 'Review uploaded files.', '/admin/documents'],
+                ].map(([title, body, href]) => (
+                  <button key={title} onClick={() => { setNotificationsOpen(false); navigate(href); }} className="block w-full rounded-lg px-3 py-3 text-left hover:bg-white/10">
+                    <p className="text-[13px] font-semibold text-white">{title}</p>
+                    <p className="mt-0.5 text-[12px] text-slate-400">{body}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="relative">
             <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors">
