@@ -52,8 +52,8 @@ export interface Profile {
   id: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'rep';
-  status: 'active' | 'inactive';
+  role: 'admin' | 'underwriter' | 'sales_rep' | 'viewer';
+  status: 'active' | 'pending' | 'disabled';
 }
 
 export interface Lead {

@@ -47,6 +47,12 @@ Apply the Supabase migrations in `supabase/migrations` in timestamp order:
 7. `20260508133000_production_indexes_triggers_and_rls.sql` — production indexes, updated_at trigger coverage, and legacy broad-policy cleanup.
 8. `20260508150000_gmail_integration_and_document_hardening.sql` — Gmail connection/message/sync tables, Gmail communication fields, RLS, and document bucket file-type hardening.
 
+9. `20260510120000_allow_crm_lead_creation.sql` - internal CRM lead creation policy.
+10. `20260511120000_production_crm_profile_bootstrap.sql` - service-role-only helper for binding an existing Supabase Auth user to an active CRM profile.
+11. `20260511183000_fix_crm_create_flow_rls.sql` - create-flow RLS hardening for CRM leads, applications, and funding partners.
+12. `20260511184500_lock_down_bootstrap_profile_rpc.sql` - revokes browser-role RPC execution from the profile bootstrap helper.
+13. `20260511185000_restrict_public_authz_helper_execute.sql` - removes anonymous direct execute access from public RLS helper functions while keeping authenticated policy checks working.
+
 ## Data model coverage
 
 The CRM schema supports:
@@ -181,3 +187,13 @@ Important CRM access behavior:
 - Protected `/admin/*` routes require a valid Supabase session plus an active profile in `public.profiles`.
 - A signed-in Auth user without a CRM profile is shown an unauthorized state with a working sign-out action, so users cannot get stuck in a redirect loop.
 - First admin/profile setup should use Supabase Auth invite/reset flow, then run the service-role/admin SQL helper from `20260511120000_production_crm_profile_bootstrap.sql`.
+
+## CRM create-flow verification
+
+After applying migrations and deploying the app, verify the production create paths with a real active CRM profile:
+
+1. Sign in at `https://crm.bypasssolution.com/admin` as a user with `role` `admin`, `underwriter`, or `sales_rep` and `status` `active` in `public.profiles`.
+2. Open Leads, select Add Lead, choose Lead only, submit non-sensitive test data, and confirm a row appears in `public.leads`.
+3. Open Applications, select New Application, choose Full submission, submit non-sensitive test data, and confirm rows appear in both `public.leads` and `public.applications`.
+4. Open Funding Partners, add a partner, and confirm the row appears in `public.funding_partners`.
+5. Sign in with an Auth user that has no active CRM profile and confirm the unauthorized screen has a working sign-out button.

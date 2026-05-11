@@ -4,6 +4,7 @@ import { Search, Plus, Upload, Download, ChevronDown } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import { canonicalLeadStatuses, leadStatusColors } from '../../lib/status';
+import NewApplicationModal from '../../components/admin/NewApplicationModal';
 
 const reps = ['All', 'Sarah K.', 'Mike T.', 'Tom R.', 'Unassigned'];
 const sources = ['All', 'Website', 'Google Ads', 'Referral', 'Facebook', 'Instagram'];
@@ -13,7 +14,8 @@ export default function Leads() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterRep, setFilterRep] = useState('All');
   const [filterSource, setFilterSource] = useState('All');
-  const { data: leads, loading, error } = useLeads({ status: filterStatus === 'All' ? 'All' : filterStatus as never, assignedRep: filterRep, source: filterSource });
+  const [showAddLead, setShowAddLead] = useState(false);
+  const { data: leads, loading, error, refetch } = useLeads({ status: filterStatus === 'All' ? 'All' : filterStatus as never, assignedRep: filterRep, source: filterSource });
 
   const filtered = leads.filter((l) => {
     const q = search.toLowerCase();
@@ -26,6 +28,34 @@ export default function Leads() {
     );
   });
 
+  const exportLeads = () => {
+    if (filtered.length === 0) return;
+
+    const headers = ['First Name', 'Last Name', 'Business', 'Email', 'Phone', 'Industry', 'Requested Amount', 'Monthly Revenue', 'Status', 'Rep', 'Source'];
+    const rows = filtered.map((lead) => [
+      lead.first_name,
+      lead.last_name,
+      lead.business_name,
+      lead.email,
+      lead.phone,
+      lead.industry,
+      lead.funding_amount_requested ?? '',
+      lead.monthly_revenue ?? '',
+      lead.status,
+      lead.assigned_rep,
+      lead.source,
+    ]);
+    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `crm-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
@@ -37,13 +67,24 @@ export default function Leads() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-secondary h-9 text-[13px] px-4 gap-2">
+          <button
+            type="button"
+            className="btn-secondary h-9 text-[13px] px-4 gap-2 opacity-60 cursor-not-allowed"
+            title="Lead import is not configured yet."
+            disabled
+          >
             <Upload size={14} /> Import
           </button>
-          <button className="btn-secondary h-9 text-[13px] px-4 gap-2">
+          <button
+            type="button"
+            onClick={exportLeads}
+            disabled={filtered.length === 0}
+            className="btn-secondary h-9 text-[13px] px-4 gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            title={filtered.length === 0 ? 'No leads to export.' : 'Export visible leads as CSV.'}
+          >
             <Download size={14} /> Export
           </button>
-          <button className="btn-primary h-9 text-[13px] px-4 gap-2">
+          <button onClick={() => setShowAddLead(true)} className="btn-primary h-9 text-[13px] px-4 gap-2">
             <Plus size={14} /> Add Lead
           </button>
         </div>
@@ -165,6 +206,7 @@ export default function Leads() {
           </div>
         )}
       </div>
+      {showAddLead && <NewApplicationModal initialMode="lead" onClose={() => setShowAddLead(false)} onCreated={() => void refetch()} />}
     </div>
   );
 }
