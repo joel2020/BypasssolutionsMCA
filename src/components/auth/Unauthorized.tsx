@@ -14,10 +14,11 @@ export default function Unauthorized({ message = 'Unauthorized access', detail }
   const handleSignOut = async () => {
     try {
       if (isSupabaseConfigured) {
-        await supabase.auth.signOut({ scope: 'local' });
+        await supabase.auth.signOut();
       }
     } finally {
       navigate('/admin', { replace: true });
+      window.location.reload();
     }
   };
 

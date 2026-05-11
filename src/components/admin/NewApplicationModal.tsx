@@ -1,0 +1,164 @@
+import { useState } from 'react';
+import { CheckCircle2, X } from 'lucide-react';
+import { supabase, type LeadStatus } from '../../lib/supabase';
+
+type ApplicationCreateMode = 'lead' | 'submission';
+
+interface NewApplicationModalProps {
+  initialMode?: ApplicationCreateMode;
+  onClose: () => void;
+  onCreated: () => void | Promise<void>;
+}
+
+export default function NewApplicationModal({ initialMode = 'lead', onClose, onCreated }: NewApplicationModalProps) {
+  const [form, setForm] = useState({
+    businessName: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    industry: '',
+    requestedAmount: '',
+    monthlyRevenue: '',
+    assignedRep: 'Christopher Roman',
+    source: 'CRM',
+    type: initialMode,
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const isSubmission = form.type === 'submission';
+      const requestedAmount = Number(form.requestedAmount || 0);
+      const monthlyRevenue = Number(form.monthlyRevenue || 0);
+      const now = new Date().toISOString();
+
+      if (!form.businessName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.phone.trim()) {
+        throw new Error('Business name, owner name, email, and phone are required.');
+      }
+
+      if (requestedAmount <= 0) {
+        throw new Error('Requested funding amount must be greater than zero.');
+      }
+
+      if (monthlyRevenue < 0) {
+        throw new Error('Monthly revenue cannot be negative.');
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error('Your CRM session expired. Sign in again and retry.');
+      }
+
+      const leadStatus: LeadStatus = isSubmission ? 'Under Review' : 'New Lead';
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .insert({
+          business_name: form.businessName.trim(),
+          first_name: form.firstName.trim(),
+          last_name: form.lastName.trim(),
+          email: form.email.trim().toLowerCase(),
+          phone: form.phone.trim(),
+          industry: form.industry.trim() || 'Not specified',
+          funding_amount_requested: requestedAmount,
+          requested_amount: requestedAmount,
+          monthly_revenue: monthlyRevenue,
+          gross_monthly_revenue: monthlyRevenue,
+          status: leadStatus,
+          assigned_rep: form.assignedRep.trim() || 'Unassigned',
+          assigned_to: authData.user.id,
+          created_by: authData.user.id,
+          source: form.source.trim() || 'CRM',
+          notes: form.notes.trim(),
+          consent: true,
+          submitted_at: isSubmission ? now : null,
+        })
+        .select('id')
+        .single();
+
+      if (leadError) throw leadError;
+
+      if (isSubmission) {
+        const { error: appError } = await supabase.from('applications').insert({
+          lead_id: lead.id,
+          status: 'Submitted',
+          source: form.source.trim() || 'CRM',
+          requested_amount: requestedAmount,
+          monthly_revenue: monthlyRevenue,
+          assigned_to: authData.user.id,
+          submitted_at: now,
+        });
+
+        if (appError) throw appError;
+      }
+
+      setSuccess(isSubmission ? 'Full submission created.' : 'Lead created.');
+      await onCreated();
+      window.setTimeout(onClose, 650);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create applicant.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[20px] font-bold text-navy-900">Create New Applicant</h2>
+            <p className="text-[13px] text-slate-500">Add a lead-only record or create a full submission.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button type="button" onClick={() => update('type', 'lead')} className={`rounded-lg border p-4 text-left ${form.type === 'lead' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+              <p className="text-[14px] font-bold text-navy-900">Lead only</p>
+              <p className="mt-1 text-[12px] text-slate-500">Creates a CRM lead record in Supabase.</p>
+            </button>
+            <button type="button" onClick={() => update('type', 'submission')} className={`rounded-lg border p-4 text-left ${form.type === 'submission' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+              <p className="text-[14px] font-bold text-navy-900">Full submission</p>
+              <p className="mt-1 text-[12px] text-slate-500">Creates both a lead and an application record.</p>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business name</span><input required className="input-field mt-1.5" value={form.businessName} onChange={(e) => update('businessName', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Industry</span><input className="input-field mt-1.5" value={form.industry} onChange={(e) => update('industry', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">First name</span><input required className="input-field mt-1.5" value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Last name</span><input required className="input-field mt-1.5" value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input required type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input required className="input-field mt-1.5" value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Requested amount</span><input required type="number" min="1" className="input-field mt-1.5" value={form.requestedAmount} onChange={(e) => update('requestedAmount', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Monthly revenue</span><input type="number" min="0" className="input-field mt-1.5" value={form.monthlyRevenue} onChange={(e) => update('monthlyRevenue', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Assigned rep</span><input className="input-field mt-1.5" value={form.assignedRep} onChange={(e) => update('assignedRep', e.target.value)} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Source</span><input className="input-field mt-1.5" value={form.source} onChange={(e) => update('source', e.target.value)} /></label>
+          </div>
+
+          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Internal notes</span><textarea className="input-field mt-1.5 min-h-24" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
+          {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
+          {success && <div className="flex items-center gap-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-[13px] text-green-700"><CheckCircle2 size={15} /> {success}</div>}
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Creating...' : 'Create Applicant'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

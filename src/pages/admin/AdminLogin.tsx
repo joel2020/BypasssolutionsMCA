@@ -31,7 +31,7 @@ export default function AdminLogin() {
       return;
     }
 
-    navigate('/admin/dashboard');
+    navigate('/admin/dashboard', { replace: true });
   };
 
   return (
