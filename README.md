@@ -168,3 +168,16 @@ npm run lint       # ESLint
 npm run build      # production build
 npm run preview    # preview production build
 ```
+
+## 2026 production hardening update
+
+This repo now includes explicit production runbooks:
+
+- `SUPABASE_SETUP.md` — migration order, first-admin bootstrap, Auth redirects, RLS/storage expectations, and CRM table map.
+- `PRODUCTION_CHECKLIST.md` — Vercel, Supabase, build, and smoke-test checklist.
+
+Important CRM access behavior:
+
+- Protected `/admin/*` routes require a valid Supabase session plus an active profile in `public.profiles`.
+- A signed-in Auth user without a CRM profile is shown an unauthorized state with a working sign-out action, so users cannot get stuck in a redirect loop.
+- First admin/profile setup should use Supabase Auth invite/reset flow, then run the service-role/admin SQL helper from `20260511120000_production_crm_profile_bootstrap.sql`.

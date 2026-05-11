@@ -18,9 +18,6 @@ function isValidSupabaseUrl(value: string | undefined) {
 
 export const isSupabaseConfigured = Boolean(isValidSupabaseUrl(supabaseUrl) && supabaseAnonKey && supabaseAnonKey.length > 20);
 
-if (!isSupabaseConfigured) {
-  console.error(missingSupabaseMessage);
-}
 
 export function assertSupabaseConfigured() {
   if (!isSupabaseConfigured) {

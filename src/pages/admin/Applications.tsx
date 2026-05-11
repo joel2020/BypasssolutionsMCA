@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Eye, Plus, X } from 'lucide-react';
 import { supabase, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
@@ -47,6 +47,14 @@ function NewApplicationModal({ onClose, onCreated }: { onClose: () => void; onCr
       const requestedAmount = Number(form.requestedAmount || 0);
       const monthlyRevenue = Number(form.monthlyRevenue || 0);
       const now = new Date().toISOString();
+
+      if (!form.businessName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.phone.trim()) {
+        throw new Error('Business name, owner name, email, and phone are required.');
+      }
+
+      if (requestedAmount <= 0) {
+        throw new Error('Requested funding amount must be greater than zero.');
+      }
 
       const { data: lead, error: leadError } = await supabase
         .from('leads')
@@ -146,7 +154,8 @@ function NewApplicationModal({ onClose, onCreated }: { onClose: () => void; onCr
 export default function Applications() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<ApplicationTab>('leads');
-  const [showCreate, setShowCreate] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showCreate, setShowCreate] = useState(searchParams.get('new') === '1');
   const { data: allLeads, loading, error, refetch } = useLeads();
 
   const tabLeads = allLeads.filter((lead) => activeTab === 'leads'
@@ -171,7 +180,7 @@ export default function Applications() {
             {loading ? 'Loading...' : `${leadOnlyCount} leads · ${submissionCount} full submissions`}
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary h-9 px-4 text-[13px]">
+        <button onClick={() => { setShowCreate(true); setSearchParams({ new: '1' }); }} className="btn-primary h-9 px-4 text-[13px]">
           <Plus size={14} /> New Application
         </button>
       </div>
@@ -248,7 +257,7 @@ export default function Applications() {
         </div>
       )}
 
-      {showCreate && <NewApplicationModal onClose={() => setShowCreate(false)} onCreated={() => void refetch()} />}
+      {showCreate && <NewApplicationModal onClose={() => { setShowCreate(false); setSearchParams({}); }} onCreated={() => void refetch()} />}
     </div>
   );
 }

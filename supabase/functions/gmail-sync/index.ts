@@ -1,6 +1,9 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { corsHeaders, ensureAccessToken, extractBodyText, findLeadId, gmailFetch, headerValue, json, parseEmails, requireUser, upsertCommunication } from '../_shared/gmail.ts';
 
-async function syncLabel(supabase: any, userId: string, accessToken: string, gmailEmail: string, label: 'INBOX' | 'SENT') {
+type SupabaseClient = ReturnType<typeof createClient>;
+
+async function syncLabel(supabase: SupabaseClient, userId: string, accessToken: string, gmailEmail: string, label: 'INBOX' | 'SENT') {
   const list = await gmailFetch(accessToken, `messages?maxResults=50&labelIds=${label}`);
   const rows = [];
   for (const item of list.messages ?? []) {

@@ -69,7 +69,12 @@ export async function refreshAccessToken(refreshToken: string) {
   return data;
 }
 
-export async function ensureAccessToken(supabase: ReturnType<typeof createClient>, connection: any) {
+type GmailConnection = { id: string; access_token_encrypted?: string | null; refresh_token_encrypted?: string | null; token_expires_at?: string | null };
+type GmailHeader = { name?: string; value?: string };
+type GmailPayload = { mimeType?: string; body?: { data?: string }; parts?: GmailPayload[] };
+type GmailCommunicationMessage = { lead_id?: string | null; direction?: 'inbound' | 'outbound'; subject?: string | null; body_text?: string | null; to_emails?: string[]; from_email?: string | null; user_id?: string | null; gmail_message_id?: string | null; gmail_thread_id?: string | null; sent_at?: string | null; raw_payload?: Record<string, unknown> | null };
+
+export async function ensureAccessToken(supabase: ReturnType<typeof createClient>, connection: GmailConnection) {
   const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at).getTime() : 0;
   if (connection.access_token_encrypted && expiresAt > Date.now() + 60_000) return connection.access_token_encrypted;
   if (!connection.refresh_token_encrypted) throw new Error('Gmail refresh token is missing. Reconnect Gmail.');
@@ -93,7 +98,7 @@ export async function gmailFetch(accessToken: string, path: string, init?: Reque
   return data;
 }
 
-export function headerValue(headers: any[] | undefined, name: string) {
+export function headerValue(headers: GmailHeader[] | undefined, name: string) {
   return headers?.find((h) => String(h.name).toLowerCase() === name.toLowerCase())?.value ?? '';
 }
 
@@ -108,7 +113,7 @@ function decodeBase64Url(value = '') {
   } catch { return ''; }
 }
 
-export function extractBodyText(payload: any): string {
+export function extractBodyText(payload: GmailPayload | undefined): string {
   if (!payload) return '';
   if (payload.mimeType === 'text/plain' && payload.body?.data) return decodeBase64Url(payload.body.data);
   for (const part of payload.parts ?? []) {
@@ -126,7 +131,7 @@ export async function findLeadId(supabase: ReturnType<typeof createClient>, emai
   return data?.[0]?.id ?? null;
 }
 
-export async function upsertCommunication(supabase: ReturnType<typeof createClient>, message: any) {
+export async function upsertCommunication(supabase: ReturnType<typeof createClient>, message: GmailCommunicationMessage) {
   await supabase.from('communications').upsert({
     lead_id: message.lead_id,
     direction: message.direction,

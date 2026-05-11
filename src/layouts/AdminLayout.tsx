@@ -108,7 +108,7 @@ export default function AdminLayout() {
             <button className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 text-[14px] font-semibold text-slate-100 hover:bg-white/10">
               <Filter size={16} /> Filter
             </button>
-            <Link to="/admin/applications" className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-[14px] font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
+            <Link to="/admin/applications?new=1" className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-[14px] font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
               <Plus size={17} /> New Application
             </Link>
           </div>
