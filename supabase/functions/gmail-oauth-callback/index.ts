@@ -1,4 +1,4 @@
-import { adminClient, corsHeaders, env, exchangeCode, gmailScopes, json } from '../_shared/gmail.ts';
+import { adminClient, corsHeaders, env, exchangeCode, gmailScopes } from '../_shared/gmail.ts';
 
 async function verifyState(state: string) {
   const [encodedPayload, encodedSignature] = state.split('.');

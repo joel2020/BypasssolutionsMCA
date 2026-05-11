@@ -4,9 +4,9 @@ import { createDocumentSignedUrl, REQUIRED_DOCUMENT_TYPES, useUploadDocument } f
 import { useCreatePartnerSubmission, useFundingPartners } from '../../hooks/usePartnerSubmissions';
 import type { Document, FundingPartner, PartnerSubmission } from '../../lib/supabase';
 
-export const documentTypes = [...REQUIRED_DOCUMENT_TYPES, 'Other'];
+const documentTypes = [...REQUIRED_DOCUMENT_TYPES, 'Other'];
 
-export const denialReasons = [
+const denialReasons = [
   'Low revenue',
   'Negative balances',
   'Too many NSFs',

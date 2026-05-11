@@ -22,6 +22,7 @@ export function useSupabaseQuery<T>(fetcher: () => Promise<T>, initialData: T, d
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- callers provide a focused dependency list for each Supabase query.
   }, deps);
 
   useEffect(() => {
