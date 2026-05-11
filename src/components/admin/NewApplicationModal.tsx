@@ -115,9 +115,9 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
-        <div className="mb-5 flex items-start justify-between gap-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4 lg:items-center">
+      <div className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)]">
+        <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-6">
           <div>
             <h2 className="text-[20px] font-bold text-navy-900">Create New Applicant</h2>
             <p className="text-[13px] text-slate-500">Add a lead-only record or create a full submission.</p>
@@ -125,35 +125,37 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => update('type', 'lead')} className={`rounded-lg border p-4 text-left ${form.type === 'lead' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-              <p className="text-[14px] font-bold text-navy-900">Lead only</p>
-              <p className="mt-1 text-[12px] text-slate-500">Creates a CRM lead record in Supabase.</p>
-            </button>
-            <button type="button" onClick={() => update('type', 'submission')} className={`rounded-lg border p-4 text-left ${form.type === 'submission' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-              <p className="text-[14px] font-bold text-navy-900">Full submission</p>
-              <p className="mt-1 text-[12px] text-slate-500">Creates both a lead and an application record.</p>
-            </button>
-          </div>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button type="button" onClick={() => update('type', 'lead')} className={`rounded-lg border p-3 text-left sm:p-4 ${form.type === 'lead' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                <p className="text-[14px] font-bold text-navy-900">Lead only</p>
+                <p className="mt-1 text-[12px] text-slate-500">Creates a CRM lead record in Supabase.</p>
+              </button>
+              <button type="button" onClick={() => update('type', 'submission')} className={`rounded-lg border p-3 text-left sm:p-4 ${form.type === 'submission' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                <p className="text-[14px] font-bold text-navy-900">Full submission</p>
+                <p className="mt-1 text-[12px] text-slate-500">Creates both a lead and an application record.</p>
+              </button>
+            </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business name</span><input required className="input-field mt-1.5" value={form.businessName} onChange={(e) => update('businessName', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Industry</span><input className="input-field mt-1.5" value={form.industry} onChange={(e) => update('industry', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">First name</span><input required className="input-field mt-1.5" value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Last name</span><input required className="input-field mt-1.5" value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input required type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input required className="input-field mt-1.5" value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Requested amount</span><input required type="number" min="1" className="input-field mt-1.5" value={form.requestedAmount} onChange={(e) => update('requestedAmount', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Monthly revenue</span><input type="number" min="0" className="input-field mt-1.5" value={form.monthlyRevenue} onChange={(e) => update('monthlyRevenue', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Assigned rep</span><input className="input-field mt-1.5" value={form.assignedRep} onChange={(e) => update('assignedRep', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Source</span><input className="input-field mt-1.5" value={form.source} onChange={(e) => update('source', e.target.value)} /></label>
-          </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business name</span><input required className="input-field mt-1.5" value={form.businessName} onChange={(e) => update('businessName', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Industry</span><input className="input-field mt-1.5" value={form.industry} onChange={(e) => update('industry', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">First name</span><input required className="input-field mt-1.5" value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Last name</span><input required className="input-field mt-1.5" value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input required type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input required className="input-field mt-1.5" value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Requested amount</span><input required type="number" min="1" className="input-field mt-1.5" value={form.requestedAmount} onChange={(e) => update('requestedAmount', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Monthly revenue</span><input type="number" min="0" className="input-field mt-1.5" value={form.monthlyRevenue} onChange={(e) => update('monthlyRevenue', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Assigned rep</span><input className="input-field mt-1.5" value={form.assignedRep} onChange={(e) => update('assignedRep', e.target.value)} /></label>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Source</span><input className="input-field mt-1.5" value={form.source} onChange={(e) => update('source', e.target.value)} /></label>
+            </div>
 
-          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Internal notes</span><textarea className="input-field mt-1.5 min-h-24" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
-          {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
-          {success && <div className="flex items-center gap-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-[13px] text-green-700"><CheckCircle2 size={15} /> {success}</div>}
-          <div className="flex justify-end gap-3">
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Internal notes</span><textarea className="input-field mt-1.5 min-h-20 resize-y" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
+            {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
+            {success && <div className="flex items-center gap-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-[13px] text-green-700"><CheckCircle2 size={15} /> {success}</div>}
+          </div>
+          <div className="flex flex-shrink-0 justify-end gap-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
             <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Creating...' : 'Create Applicant'}</button>
           </div>
