@@ -4,9 +4,84 @@ import { supabase, type Task } from '../../lib/supabase';
 import { useTasks } from '../../hooks/useTasks';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
+function AddTaskModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    taskType: 'Follow-up',
+    assignedRep: 'Unassigned',
+    dueDate: new Date().toISOString().split('T')[0],
+    priority: 'Medium' as Task['priority'],
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (!form.title.trim()) throw new Error('Task title is required.');
+
+      const { error: insertError } = await supabase.from('tasks').insert({
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        task_type: form.taskType,
+        assigned_rep: form.assignedRep.trim() || 'Unassigned',
+        due_date: form.dueDate || null,
+        priority: form.priority,
+        status: 'Open',
+      });
+
+      if (insertError) throw insertError;
+      onCreated();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create task.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="mb-5">
+          <h2 className="text-[18px] font-bold text-navy-900">Add Task</h2>
+          <p className="text-[13px] text-slate-500">Create an internal CRM task.</p>
+        </div>
+        <form onSubmit={submit} className="space-y-4">
+          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Title</span><input required className="input-field mt-1.5" value={form.title} onChange={(e) => setForm((current) => ({ ...current, title: e.target.value }))} /></label>
+          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Description</span><textarea className="input-field mt-1.5 min-h-20" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} /></label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Type</span><input className="input-field mt-1.5" value={form.taskType} onChange={(e) => setForm((current) => ({ ...current, taskType: e.target.value }))} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Assigned rep</span><input className="input-field mt-1.5" value={form.assignedRep} onChange={(e) => setForm((current) => ({ ...current, assignedRep: e.target.value }))} /></label>
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Due date</span><input type="date" className="input-field mt-1.5" value={form.dueDate} onChange={(e) => setForm((current) => ({ ...current, dueDate: e.target.value }))} /></label>
+            <label className="block">
+              <span className="text-[12px] font-semibold text-slate-600">Priority</span>
+              <select className="select-field mt-1.5" value={form.priority} onChange={(e) => setForm((current) => ({ ...current, priority: e.target.value as Task['priority'] }))}>
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+            </label>
+          </div>
+          {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Saving...' : 'Add Task'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Tasks() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
   const { data: tasks, loading, error, refetch } = useTasks();
 
   const toggle = async (task: Task) => {
@@ -33,7 +108,7 @@ export default function Tasks() {
             {loading ? 'Loading...' : `${filtered.filter(t => t.status !== 'Completed').length} open tasks`}
           </p>
         </div>
-        <button className="btn-primary h-9 text-[13px] px-4">
+        <button onClick={() => setShowAdd(true)} className="btn-primary h-9 px-4 text-[13px]">
           <Plus size={14} /> Add Task
         </button>
       </div>
@@ -117,6 +192,7 @@ export default function Tasks() {
           </table>
         </div>
       )}
+      {showAdd && <AddTaskModal onClose={() => setShowAdd(false)} onCreated={() => { setFeedback('Task created successfully.'); void refetch(); }} />}
     </div>
   );
 }

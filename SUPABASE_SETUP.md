@@ -37,6 +37,12 @@ select public.bootstrap_crm_profile('admin@example.com', 'Admin Name', 'admin');
 
 Allowed CRM roles are `admin`, `underwriter`, `sales_rep`, and `viewer`.
 
+## Team member invites
+
+The Settings Team Members tab calls the Supabase Edge Function `invite-team-member`. Deploy it with JWT verification enabled. The function requires the built-in Supabase Edge runtime variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; do not put the service-role key in Vercel or frontend code.
+
+Only active `admin` profiles can invite users. The function sends the Supabase Auth invite email and creates the matching `public.profiles` row with the selected CRM role.
+
 ## Auth redirect URLs
 
 Configure Supabase Auth redirect URLs for:

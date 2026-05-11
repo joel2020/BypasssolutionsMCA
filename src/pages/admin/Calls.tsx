@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Phone, PhoneMissed, PhoneCall, Plus } from 'lucide-react';
 
 const callQueue = [
@@ -6,7 +7,7 @@ const callQueue = [
   { id: 'Q3', name: 'Robert Davis', business: 'Davis Concrete', phone: '(555) 012-3456', priority: 'Low', reason: 'Client requested call back Fri' },
 ];
 
-const callHistory = [
+const initialCallHistory = [
   { id: 'C1', name: 'Marcus Johnson', business: 'Johnson Trucking', phone: '(555) 234-5678', rep: 'Sarah K.', date: '2024-01-05 2:14 PM', duration: '4:32', disposition: 'Connected', notes: 'Discussed bank statement upload. Client will submit by EOD.' },
   { id: 'C2', name: 'Elena Ramirez', business: 'Casa Elena Restaurant', phone: '(555) 345-6789', rep: 'Mike T.', date: '2024-01-05 11:30 AM', duration: '7:15', disposition: 'Connected', notes: 'Walked through offer options. Client is reviewing. Follow up tomorrow.' },
   { id: 'C3', name: 'Marcus Johnson', business: 'Johnson Trucking', phone: '(555) 234-5678', rep: 'Sarah K.', date: '2024-01-04 10:00 AM', duration: '0:00', disposition: 'No Answer', notes: 'Left voicemail. Will try again tomorrow.' },
@@ -28,6 +29,41 @@ const dispositionBadge = (d: string) => {
 };
 
 export default function Calls() {
+  const [callHistory, setCallHistory] = useState(initialCallHistory);
+  const [showLog, setShowLog] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    business: '',
+    phone: '',
+    rep: 'Unassigned',
+    duration: '0:00',
+    disposition: 'Connected',
+    notes: '',
+  });
+
+  const logCall = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.phone.trim()) {
+      setFeedback('Name and phone are required to log a call.');
+      return;
+    }
+    setCallHistory((current) => [{
+      id: crypto.randomUUID(),
+      name: form.name.trim(),
+      business: form.business.trim() || 'Unknown business',
+      phone: form.phone.trim(),
+      rep: form.rep.trim() || 'Unassigned',
+      date: new Date().toLocaleString(),
+      duration: form.duration.trim() || '0:00',
+      disposition: form.disposition,
+      notes: form.notes.trim() || 'No notes recorded.',
+    }, ...current]);
+    setForm({ name: '', business: '', phone: '', rep: 'Unassigned', duration: '0:00', disposition: 'Connected', notes: '' });
+    setShowLog(false);
+    setFeedback('Call logged in this CRM session.');
+  };
+
   return (
     <div className="p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
@@ -35,10 +71,11 @@ export default function Calls() {
           <h1 className="text-[20px] font-bold text-navy-900">Calls</h1>
           <p className="text-[13px] text-slate-400">Dialer-ready interface — Twilio/JustCall integration pending</p>
         </div>
-        <button className="btn-primary h-9 text-[13px] px-4">
+        <button onClick={() => setShowLog(true)} className="btn-primary h-9 px-4 text-[13px]">
           <Plus size={14} /> Log Call
         </button>
       </div>
+      {feedback && <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] text-blue-700">{feedback}</div>}
 
       {/* Integration notice */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-5 py-4 mb-6 flex items-start gap-3">
@@ -70,10 +107,10 @@ export default function Calls() {
                 </div>
                 <p className="text-[12px] text-slate-500 mb-3">{call.reason}</p>
                 <div className="flex gap-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-md text-[12px] font-medium hover:bg-green-600 transition-colors">
+                  <a href={`tel:${call.phone}`} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-md text-[12px] font-medium hover:bg-green-600 transition-colors">
                     <Phone size={12} /> Call Now
-                  </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md text-[12px] font-medium hover:bg-slate-200 transition-colors">
+                  </a>
+                  <button onClick={() => setFeedback(`Reschedule task noted for ${call.name}. Create a dated task from Tasks if ownership is needed.`)} className="flex items-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200">
                     Reschedule
                   </button>
                 </div>
@@ -131,6 +168,29 @@ export default function Calls() {
           </div>
         </div>
       </div>
+      {showLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
+            <h2 className="text-[18px] font-bold text-navy-900">Log Call</h2>
+            <p className="mb-5 text-[13px] text-slate-500">Record a call note for this CRM session.</p>
+            <form onSubmit={logCall} className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Name</span><input required className="input-field mt-1.5" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} /></label>
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business</span><input className="input-field mt-1.5" value={form.business} onChange={(e) => setForm((current) => ({ ...current, business: e.target.value }))} /></label>
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input required className="input-field mt-1.5" value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} /></label>
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Rep</span><input className="input-field mt-1.5" value={form.rep} onChange={(e) => setForm((current) => ({ ...current, rep: e.target.value }))} /></label>
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Duration</span><input className="input-field mt-1.5" value={form.duration} onChange={(e) => setForm((current) => ({ ...current, duration: e.target.value }))} /></label>
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Disposition</span><select className="select-field mt-1.5" value={form.disposition} onChange={(e) => setForm((current) => ({ ...current, disposition: e.target.value }))}><option>Connected</option><option>No Answer</option><option>Voicemail</option></select></label>
+              </div>
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Notes</span><textarea className="input-field mt-1.5 min-h-20" value={form.notes} onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))} /></label>
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setShowLog(false)} className="btn-secondary">Cancel</button>
+                <button className="btn-primary">Save Call</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
