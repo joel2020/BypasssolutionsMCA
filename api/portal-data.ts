@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 type Payload = Record<string, unknown>;
+type ApiRequest = { method?: string; body?: unknown };
+type ApiResponse = {
+  setHeader: (name: string, value: string) => void;
+  status: (code: number) => { json: (body: unknown) => unknown };
+};
+type LeadRow = { id: string } & Record<string, unknown>;
 
 function asString(payload: Payload, key: string) {
   const value = payload[key];
@@ -14,7 +20,7 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -38,7 +44,7 @@ export default async function handler(req: any, res: any) {
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const lead = (leads || []).find((item: any) => String(item.id).replace(/-/g, '').slice(0, 8).toLowerCase() === confirmationId);
+    const lead = ((leads || []) as LeadRow[]).find((item) => String(item.id).replace(/-/g, '').slice(0, 8).toLowerCase() === confirmationId);
     if (!lead) return res.status(404).json({ error: 'No application found for that confirmation ID and email.' });
 
     const { data: docs } = await supabase

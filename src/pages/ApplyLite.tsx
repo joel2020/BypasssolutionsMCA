@@ -16,7 +16,7 @@ type FormState = {
   businessPhone: string;
   businessEmail: string;
   website: string;
-  einLastFour: string;
+  einFull: string;
   startDate: string;
   entityType: string;
   industry: string;
@@ -32,7 +32,7 @@ type FormState = {
   ownerTitle: string;
   ownershipPercentage: string;
   dateOfBirth: string;
-  ssnLastFour: string;
+  ssnFull: string;
   ownerPhone: string;
   ownerEmail: string;
   homeAddress: string;
@@ -48,7 +48,7 @@ const defaultForm: FormState = {
   businessPhone: '',
   businessEmail: '',
   website: '',
-  einLastFour: '',
+  einFull: '',
   startDate: '',
   entityType: '',
   industry: '',
@@ -64,7 +64,7 @@ const defaultForm: FormState = {
   ownerTitle: '',
   ownershipPercentage: '',
   dateOfBirth: '',
-  ssnLastFour: '',
+  ssnFull: '',
   ownerPhone: '',
   ownerEmail: '',
   homeAddress: '',
@@ -111,14 +111,14 @@ export default function ApplyLite() {
     if (!saved) return;
     try {
       const parsed = JSON.parse(saved) as Partial<FormState>;
-      setForm((current) => ({ ...current, ...parsed, ssnLastFour: '', einLastFour: '' }));
+      setForm((current) => ({ ...current, ...parsed, ssnFull: '', einFull: '' }));
     } catch {
       localStorage.removeItem(DRAFT_KEY);
     }
   }, []);
 
   useEffect(() => {
-    const safeDraft = { ...form, ssnLastFour: '', einLastFour: '' };
+    const safeDraft = { ...form, ssnFull: '', einFull: '' };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(safeDraft));
   }, [form]);
 
@@ -131,6 +131,7 @@ export default function ApplyLite() {
       ['Business address', form.businessAddress],
       ['Business phone', form.businessPhone],
       ['Business email', form.businessEmail],
+      ['Federal Tax ID (EIN)', form.einFull],
       ['Business start date', form.startDate],
       ['Entity type', form.entityType],
       ['Industry', form.industry],
@@ -146,7 +147,7 @@ export default function ApplyLite() {
       ['Owner title', form.ownerTitle],
       ['Ownership percentage', form.ownershipPercentage],
       ['Date of birth', form.dateOfBirth],
-      ['SSN last four', form.ssnLastFour],
+      ['Social Security Number', form.ssnFull],
       ['Owner phone', form.ownerPhone],
       ['Owner email', form.ownerEmail],
       ['Home address', form.homeAddress],
@@ -157,8 +158,8 @@ export default function ApplyLite() {
       if (value === '' || value === false) nextErrors.push(`${label} is required.`);
     });
 
-    if (form.ssnLastFour && digitsOnly(form.ssnLastFour).length !== 4) nextErrors.push('SSN last four must be exactly 4 digits.');
-    if (form.einLastFour && digitsOnly(form.einLastFour).length !== 4) nextErrors.push('EIN last four must be exactly 4 digits.');
+    if (form.ssnFull && digitsOnly(form.ssnFull).length !== 9) nextErrors.push('Social Security Number must be exactly 9 digits.');
+    if (form.einFull && digitsOnly(form.einFull).length !== 9) nextErrors.push('Federal Tax ID (EIN) must be exactly 9 digits.');
     if (Number(form.ownershipPercentage) <= 0 || Number(form.ownershipPercentage) > 100) nextErrors.push('Ownership percentage must be between 1 and 100.');
     if (Number(form.nsfsLast90Days) < 0) nextErrors.push('NSFs cannot be negative.');
     if (form.honeypot) nextErrors.push('Application could not be submitted.');
@@ -177,7 +178,11 @@ export default function ApplyLite() {
       const response = await fetch('/api/submit-application', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          einFull: digitsOnly(form.einFull),
+          ssnFull: digitsOnly(form.ssnFull),
+        }),
       });
 
       const result = await response.json().catch(() => ({}));
@@ -187,6 +192,7 @@ export default function ApplyLite() {
 
       localStorage.removeItem(DRAFT_KEY);
       setConfirmationId(result.confirmationId || 'RECEIVED');
+      setForm((current) => ({ ...current, einFull: '', ssnFull: '' }));
       setSubmitted(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Application submission is temporarily unavailable.';
@@ -251,7 +257,7 @@ export default function ApplyLite() {
             <Field label="Business phone" required><input className={fieldClass()} value={form.businessPhone} onChange={(event) => set('businessPhone')(event.target.value)} /></Field>
             <Field label="Business email" required><input type="email" className={fieldClass()} value={form.businessEmail} onChange={(event) => set('businessEmail')(event.target.value)} /></Field>
             <Field label="Website"><input className={fieldClass()} value={form.website} onChange={(event) => set('website')(event.target.value)} /></Field>
-            <Field label="EIN last four"><input className={fieldClass()} value={form.einLastFour} maxLength={4} inputMode="numeric" onChange={(event) => set('einLastFour')(digitsOnly(event.target.value).slice(0, 4))} /></Field>
+            <Field label="Federal Tax ID (EIN)" required hint="Enter 9 digits. We encrypt the full EIN and store only the last four for display."><input className={fieldClass()} value={form.einFull} maxLength={9} inputMode="numeric" autoComplete="off" onChange={(event) => set('einFull')(digitsOnly(event.target.value).slice(0, 9))} /></Field>
             <Field label="Business start date" required><input type="date" className={fieldClass()} value={form.startDate} onChange={(event) => set('startDate')(event.target.value)} /></Field>
             <Field label="Entity type" required><select className={fieldClass()} value={form.entityType} onChange={(event) => set('entityType')(event.target.value)}><option value="">Select</option>{entityTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
             <Field label="Industry" required><select className={fieldClass()} value={form.industry} onChange={(event) => set('industry')(event.target.value)}><option value="">Select</option>{industries.map((item) => <option key={item}>{item}</option>)}</select></Field>
@@ -267,7 +273,7 @@ export default function ApplyLite() {
             <Field label="Owner title" required><input className={fieldClass()} value={form.ownerTitle} onChange={(event) => set('ownerTitle')(event.target.value)} /></Field>
             <Field label="Ownership percentage" required><input type="number" min={1} max={100} className={fieldClass()} value={form.ownershipPercentage} onChange={(event) => set('ownershipPercentage')(event.target.value)} /></Field>
             <Field label="Date of birth" required><input type="date" className={fieldClass()} value={form.dateOfBirth} onChange={(event) => set('dateOfBirth')(event.target.value)} /></Field>
-            <Field label="SSN last four" required hint="Only last four digits are stored."><input className={fieldClass()} value={form.ssnLastFour} maxLength={4} inputMode="numeric" onChange={(event) => set('ssnLastFour')(digitsOnly(event.target.value).slice(0, 4))} /></Field>
+            <Field label="Social Security Number" required hint="Enter 9 digits. We encrypt the full SSN and store only the last four for display."><input type="password" className={fieldClass()} value={form.ssnFull} maxLength={9} inputMode="numeric" autoComplete="off" onChange={(event) => set('ssnFull')(digitsOnly(event.target.value).slice(0, 9))} /></Field>
             <Field label="Owner phone" required><input className={fieldClass()} value={form.ownerPhone} onChange={(event) => set('ownerPhone')(event.target.value)} /></Field>
             <Field label="Owner email" required><input type="email" className={fieldClass()} value={form.ownerEmail} onChange={(event) => set('ownerEmail')(event.target.value)} /></Field>
             <Field label="Home address" required><input className={fieldClass()} value={form.homeAddress} onChange={(event) => set('homeAddress')(event.target.value)} /></Field>
