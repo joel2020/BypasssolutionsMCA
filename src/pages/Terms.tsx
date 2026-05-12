@@ -58,7 +58,7 @@ export default function Terms() {
     },
     {
       title: '15. Contact',
-      content: 'Questions about these Terms of Use should be directed to: info@bypasssolution.com',
+      content: 'Questions about these Terms of Use should be directed to: info@bypasssolution.com, phone +1 (813) 324-6359, or fax +1 (813) 324-6360',
     },
   ];
 
