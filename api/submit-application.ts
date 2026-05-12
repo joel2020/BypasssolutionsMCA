@@ -1,8 +1,14 @@
+import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
 const CONSENT_TEXT = 'By submitting this application, you authorize Bypass Solution and its funding partners to review the information provided, contact you regarding funding options, and request additional documentation as needed. Submission does not guarantee approval or funding.';
 
 type Payload = Record<string, unknown>;
+type ApiRequest = { method?: string; body?: unknown };
+type ApiResponse = {
+  setHeader: (name: string, value: string) => void;
+  status: (code: number) => { json: (body: unknown) => unknown };
+};
 
 function asString(payload: Payload, key: string) {
   const value = payload[key];
@@ -22,7 +28,21 @@ function splitName(value: string) {
   return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || parts[0] || '' };
 }
 
-export default async function handler(req: any, res: any) {
+function encryptionKey() {
+  const secret = process.env.ENCRYPTION_KEY || process.env.SUPABASE_JWT_SECRET || '';
+  return secret ? createHash('sha256').update(secret).digest() : null;
+}
+
+function encryptSensitiveValue(value: string, key: Buffer) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return ['v1', iv.toString('base64'), ciphertext.toString('base64'), tag.toString('base64')].join(':');
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -30,8 +50,9 @@ export default async function handler(req: any, res: any) {
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = encryptionKey();
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !serviceRoleKey || !key) {
     return res.status(500).json({ error: 'Server submission is not configured.' });
   }
 
@@ -40,15 +61,25 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Application could not be submitted.' });
   }
 
-  const required = ['legalName','businessAddress','businessPhone','businessEmail','startDate','entityType','industry','requestedAmount','useOfFunds','monthlyRevenue','annualRevenue','averageDailyBalance','currentAdvances','currentBank','nsfsLast90Days','ownerName','ownerTitle','ownershipPercentage','dateOfBirth','ssnLastFour','ownerPhone','ownerEmail','homeAddress'];
+  const required = ['legalName','businessAddress','businessPhone','businessEmail','einFull','startDate','entityType','industry','requestedAmount','useOfFunds','monthlyRevenue','annualRevenue','averageDailyBalance','currentAdvances','currentBank','nsfsLast90Days','ownerName','ownerTitle','ownershipPercentage','dateOfBirth','ssnFull','ownerPhone','ownerEmail','homeAddress'];
   const missing = required.filter((key) => !asString(payload, key));
   if (missing.length) {
     return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
   }
 
-  if (digitsOnly(asString(payload, 'ssnLastFour')).length !== 4) {
-    return res.status(400).json({ error: 'SSN last four must be exactly 4 digits.' });
+  const einFull = digitsOnly(asString(payload, 'einFull'));
+  const ssnFull = digitsOnly(asString(payload, 'ssnFull'));
+
+  if (einFull.length !== 9) {
+    return res.status(400).json({ error: 'Federal Tax ID (EIN) must be exactly 9 digits.' });
   }
+
+  if (ssnFull.length !== 9) {
+    return res.status(400).json({ error: 'Social Security Number must be exactly 9 digits.' });
+  }
+
+  const btiEnc = encryptSensitiveValue(einFull, key);
+  const otiEnc = encryptSensitiveValue(ssnFull, key);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -66,7 +97,8 @@ export default async function handler(req: any, res: any) {
       business_phone: asString(payload, 'businessPhone'),
       business_email: asString(payload, 'businessEmail'),
       website: asString(payload, 'website'),
-      ein_last_four: digitsOnly(asString(payload, 'einLastFour')).slice(0, 4),
+      ein_last_four: einFull.slice(-4),
+      bti_enc: btiEnc,
       start_date: asString(payload, 'startDate'),
       entity_type: asString(payload, 'entityType'),
       industry: asString(payload, 'industry'),
@@ -83,7 +115,8 @@ export default async function handler(req: any, res: any) {
       owner_full_name: asString(payload, 'ownerName'),
       owner_title: asString(payload, 'ownerTitle'),
       owner_dob: asString(payload, 'dateOfBirth'),
-      ssn_last_four: digitsOnly(asString(payload, 'ssnLastFour')).slice(0, 4),
+      ssn_last_four: ssnFull.slice(-4),
+      oti_enc: otiEnc,
       owner_home_address: asString(payload, 'homeAddress'),
       email: asString(payload, 'ownerEmail'),
       phone: asString(payload, 'ownerPhone'),
@@ -134,7 +167,9 @@ export default async function handler(req: any, res: any) {
       sender: 'info@bypasssolution.com',
       status: 'queued',
     });
-  } catch {}
+  } catch (error) {
+    console.error('Failed to queue application confirmation communication.', error);
+  }
 
   try {
     await supabase.from('audit_logs').insert({
@@ -142,7 +177,9 @@ export default async function handler(req: any, res: any) {
       action: 'application_submitted',
       metadata: { source: 'website', submitted_via: 'serverless_api' },
     });
-  } catch {}
+  } catch (error) {
+    console.error('Failed to write application submission audit log.', error);
+  }
 
   return res.status(200).json({
     id: leadId,
