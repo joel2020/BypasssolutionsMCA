@@ -15,7 +15,7 @@ import Industries from './pages/Industries';
 import HowItWorks from './pages/HowItWorks';
 import About from './pages/About';
 import FAQ from './pages/FAQ';
-import Apply from './pages/Apply';
+import Apply from './pages/ApplyLite';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
