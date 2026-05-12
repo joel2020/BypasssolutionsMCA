@@ -1,18 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertCircle, Check, FileText, LockKeyhole, Shield } from 'lucide-react';
-import { assertSupabaseConfigured, isSupabaseConfigured, supabase } from '../lib/supabase';
 
-const DRAFT_KEY = 'bypass-application-lite-draft-v1';
+const DRAFT_KEY = 'bypass-application-lite-draft-v2';
 const CONSENT_TEXT = 'By submitting this application, you authorize Bypass Solution and its funding partners to review the information provided, contact you regarding funding options, and request additional documentation as needed. Submission does not guarantee approval or funding.';
-const MAX_FILE_SIZE = 15 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']);
 
 const industries = ['Restaurants', 'Retail', 'Construction', 'Healthcare', 'Transportation', 'Automotive', 'Professional Services', 'E-commerce', 'Beauty and Wellness', 'Home Services', 'Manufacturing', 'Other'];
 const entityTypes = ['LLC', 'Corporation', 'S-Corp', 'Partnership', 'Sole Proprietorship', 'Nonprofit', 'Other'];
 const useOfFundsOptions = ['Cash flow gaps', 'Payroll', 'Inventory', 'Equipment', 'Expansion', 'Marketing', 'Emergency business expenses', 'Seasonal working capital', 'Debt consolidation', 'Other'];
 const yesNo = ['Yes', 'No'];
-
-type FileBucket = 'bankStatements' | 'governmentId' | 'voidedCheck' | 'merchantStatements' | 'existingStatements';
 
 type FormState = {
   legalName: string;
@@ -78,30 +73,13 @@ const defaultForm: FormState = {
   honeypot: '',
 };
 
-const defaultFiles: Record<FileBucket, File[]> = {
-  bankStatements: [],
-  governmentId: [],
-  voidedCheck: [],
-  merchantStatements: [],
-  existingStatements: [],
-};
-
 function digitsOnly(value: string) {
   return value.replace(/\D/g, '');
-}
-
-function moneyToNumber(value: string) {
-  return Number(digitsOnly(value)) || 0;
 }
 
 function formatMoney(value: string) {
   const digits = digitsOnly(value);
   return digits ? Number(digits).toLocaleString() : '';
-}
-
-function splitName(value: string) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || parts[0] || '' };
 }
 
 function fieldClass(extra = '') {
@@ -120,41 +98,13 @@ function Field({ label, required, children, hint }: { label: string; required?: 
   );
 }
 
-async function tryUploadDocument(leadId: string, docType: string, file: File) {
-  const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 96);
-  const storagePath = `${leadId}/${docType}/${crypto.randomUUID()}.${extension}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('application-documents')
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-  if (uploadError) return false;
-
-  await supabase.from('documents').insert({
-    lead_id: leadId,
-    file_name: safeName,
-    doc_type: docType,
-    document_type: docType,
-    storage_path: storagePath,
-    file_path: storagePath,
-    file_size: file.size,
-    mime_type: file.type,
-    status: 'Pending',
-  });
-
-  return true;
-}
-
 export default function ApplyLite() {
   const [form, setForm] = useState<FormState>(defaultForm);
-  const [files, setFiles] = useState<Record<FileBucket, File[]>>(defaultFiles);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [confirmationId, setConfirmationId] = useState('');
-  const [uploadWarning, setUploadWarning] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem(DRAFT_KEY);
@@ -173,7 +123,6 @@ export default function ApplyLite() {
   }, [form]);
 
   const set = (key: keyof FormState) => (value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
-  const selectedFileCount = useMemo(() => Object.values(files).reduce((total, group) => total + group.length, 0), [files]);
 
   function validate() {
     const nextErrors: string[] = [];
@@ -218,131 +167,26 @@ export default function ApplyLite() {
     return nextErrors.length === 0;
   }
 
-  function chooseFiles(key: FileBucket, fileList: FileList | null, multiple = false) {
-    if (!fileList) return;
-    const incoming = Array.from(fileList);
-    const rejected = incoming.filter((file) => file.size > MAX_FILE_SIZE || !ALLOWED_FILE_TYPES.has(file.type));
-    if (rejected.length) {
-      setErrors([`Files must be PDF, JPG, or PNG and 15MB or smaller. Rejected: ${rejected.map((file) => file.name).join(', ')}`]);
-      return;
-    }
-    setFiles((current) => ({ ...current, [key]: multiple ? incoming : incoming.slice(0, 1) }));
-  }
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitError('');
-    setUploadWarning('');
     if (!validate()) return;
 
     setSubmitting(true);
     try {
-      assertSupabaseConfigured();
-      const { firstName, lastName } = splitName(form.ownerName);
-
-      const { data, error } = await supabase.from('leads').insert({
-        business_name: form.legalName.trim(),
-        legal_name: form.legalName.trim(),
-        dba: form.dba.trim(),
-        business_address: form.businessAddress.trim(),
-        business_phone: form.businessPhone.trim(),
-        business_email: form.businessEmail.trim(),
-        website: form.website.trim(),
-        ein_last_four: digitsOnly(form.einLastFour),
-        start_date: form.startDate,
-        entity_type: form.entityType,
-        industry: form.industry,
-        state: '',
-        time_in_business: '',
-        monthly_revenue: moneyToNumber(form.monthlyRevenue),
-        gross_monthly_revenue: moneyToNumber(form.monthlyRevenue),
-        net_monthly_deposits: moneyToNumber(form.monthlyRevenue),
-        annual_revenue: moneyToNumber(form.annualRevenue),
-        funding_amount_requested: moneyToNumber(form.requestedAmount),
-        requested_amount: moneyToNumber(form.requestedAmount),
-        first_name: firstName,
-        last_name: lastName,
-        owner_full_name: form.ownerName.trim(),
-        owner_title: form.ownerTitle.trim(),
-        owner_dob: form.dateOfBirth,
-        ssn_last_four: digitsOnly(form.ssnLastFour),
-        owner_home_address: form.homeAddress.trim(),
-        email: form.ownerEmail.trim(),
-        phone: form.ownerPhone.trim(),
-        ownership_pct: form.ownershipPercentage,
-        use_of_funds: form.useOfFunds,
-        existing_advances: form.currentAdvances === 'Yes',
-        current_advances: form.currentAdvances,
-        current_bank: form.currentBank.trim(),
-        nsfs_last_90_days: Number(form.nsfsLast90Days) || 0,
-        negative_days: 0,
-        current_mca_balances: 0,
-        current_daily_payments: 0,
-        current_weekly_payments: 0,
-        monthly_deposits: moneyToNumber(form.monthlyRevenue),
-        avg_daily_balance: moneyToNumber(form.averageDailyBalance),
-        number_of_deposits: 0,
-        ending_balances: '',
-        accepts_credit_cards: false,
-        payment_processor: '',
-        monthly_card_volume: 0,
-        deposits_per_month: 0,
-        routing_last_four: '',
-        account_last_four: '',
-        sms_opt_in: form.smsOptIn,
-        status: 'Application Started',
-        source: 'Website',
-        consent: true,
-        consent_text: CONSENT_TEXT,
-        submitted_at: new Date().toISOString(),
-      }).select('id').single();
-
-      if (error) throw error;
-      const leadId = data.id as string;
-
-      let uploaded = 0;
-      const uploadMap: Array<[FileBucket, string]> = [
-        ['bankStatements', 'bank_statement'],
-        ['governmentId', 'government_id'],
-        ['voidedCheck', 'voided_check'],
-        ['merchantStatements', 'merchant_statement'],
-        ['existingStatements', 'existing_advance_statement'],
-      ];
-
-      for (const [key, docType] of uploadMap) {
-        for (const file of files[key]) {
-          try {
-            if (await tryUploadDocument(leadId, docType, file)) uploaded += 1;
-          } catch {
-            // Do not block a valid lead submission because storage or document metadata policies need adjustment.
-          }
-        }
-      }
-
-      if (selectedFileCount > 0 && uploaded < selectedFileCount) {
-        setUploadWarning('Your application was received, but one or more documents could not be uploaded. A funding specialist will request them directly.');
-      }
-
-      await supabase.from('communications').insert({
-        lead_id: leadId,
-        channel: 'Email',
-        direction: 'outbound',
-        subject: 'Application received',
-        body: 'Applicant confirmation queued: Bypass Solution received the funding application for review.',
-        recipient: form.ownerEmail,
-        sender: 'info@bypasssolution.com',
-        status: 'queued',
-        related_template: 'applicant_confirmation',
+      const response = await fetch('/api/submit-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
 
-      await supabase.from('activity_logs').insert({
-        lead_id: leadId,
-        action: 'application_submitted',
-        metadata: { source: 'website', selected_documents: selectedFileCount, uploaded_documents: uploaded },
-      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Application submission is temporarily unavailable.');
+      }
 
       localStorage.removeItem(DRAFT_KEY);
-      setConfirmationId(leadId.slice(0, 8).toUpperCase());
+      setConfirmationId(result.confirmationId || 'RECEIVED');
       setSubmitted(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Application submission is temporarily unavailable.';
@@ -362,7 +206,7 @@ export default function ApplyLite() {
           <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.2em] text-blue-700">Confirmation {confirmationId}</p>
           <h1 className="mb-3 text-[32px] font-bold tracking-[-0.03em] text-slate-950">Application received securely</h1>
           <p className="mb-5 leading-relaxed text-slate-600">Thank you, {form.ownerName || 'there'}. Your Bypass Solution funding application has been submitted for review.</p>
-          {uploadWarning && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-[13px] text-amber-800">{uploadWarning}</div>}
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-left text-[13px] text-blue-800">A funding specialist will follow up if additional documents are needed.</div>
         </section>
       </main>
     );
@@ -375,7 +219,7 @@ export default function ApplyLite() {
         <div className="relative mx-auto max-w-[1100px]">
           <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.18em] text-blue-200">Secure funding intake</p>
           <h1 className="mb-5 max-w-3xl text-[38px] font-extrabold leading-[1.05] tracking-[-0.045em] lg:text-[58px]">Apply for working capital with confidence.</h1>
-          <p className="max-w-2xl text-[17px] leading-relaxed text-slate-300">Submit your business funding request. Documents can be attached now or requested by a funding specialist after review.</p>
+          <p className="max-w-2xl text-[17px] leading-relaxed text-slate-300">Submit your business funding request. Bypass Solution will request documents after reviewing the application.</p>
         </div>
       </section>
 
@@ -398,8 +242,6 @@ export default function ApplyLite() {
           )}
 
           {submitError && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-700">{submitError}</div>}
-          {!isSupabaseConfigured && <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-800">Supabase environment variables are required before submissions can be accepted.</div>}
-
           <input type="text" value={form.honeypot} onChange={(event) => set('honeypot')(event.target.value)} className="hidden" tabIndex={-1} autoComplete="off" />
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -432,14 +274,8 @@ export default function ApplyLite() {
           </div>
 
           <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900"><FileText size={18} /> Optional document uploads</div>
-            <p className="mb-4 text-sm text-slate-500">Attach documents now, or Bypass Solution can request them after reviewing the application.</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Bank statements"><input className={fieldClass('bg-white')} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => chooseFiles('bankStatements', event.target.files, true)} /></Field>
-              <Field label="Government ID"><input className={fieldClass('bg-white')} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => chooseFiles('governmentId', event.target.files)} /></Field>
-              <Field label="Voided check"><input className={fieldClass('bg-white')} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => chooseFiles('voidedCheck', event.target.files)} /></Field>
-              <Field label="Existing funding statements"><input className={fieldClass('bg-white')} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => chooseFiles('existingStatements', event.target.files, true)} /></Field>
-            </div>
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900"><FileText size={18} /> Documents</div>
+            <p className="text-sm text-slate-500">After you submit, Bypass Solution will request bank statements, ID, and other documents needed for underwriting.</p>
           </div>
 
           <label className="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-[13px] text-slate-600">
