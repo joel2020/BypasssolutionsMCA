@@ -99,6 +99,8 @@ To exercise any of these rights, please contact us at info@bypasssolution.com.`,
       content: `If you have questions or concerns about this Privacy Policy or our data practices, please contact us:
 
 Email: info@bypasssolution.com
+Phone: +1 (813) 324-6359
+Fax: +1 (813) 324-6360
 Website: www.bypasssolution.com
 
 We will respond to your inquiry within a reasonable timeframe.`,

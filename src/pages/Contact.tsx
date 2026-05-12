@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Mail, Phone, Clock, MapPin, Check } from 'lucide-react';
+import { ArrowRight, Mail, Phone, Clock, MapPin, Check, Printer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { assertSupabaseConfigured, supabase } from '../lib/supabase';
 import { getAttribution, normalizePhone, sanitizeText } from '../lib/tracking';
@@ -56,13 +56,13 @@ export default function Contact() {
       });
 
       if (error) {
-        setSubmitError('There was a problem sending your message. Please try again or call +1 (813) 648-4272.');
+        setSubmitError('There was a problem sending your message. Please try again or call +1 (813) 324-6359.');
         return;
       }
 
       setSubmitted(true);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Message submission is temporarily unavailable. Please call +1 (813) 648-4272.');
+      setSubmitError(error instanceof Error ? error.message : 'Message submission is temporarily unavailable. Please call +1 (813) 324-6359.');
     } finally {
       setSubmitting(false);
     }
@@ -97,10 +97,21 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-[14px] font-semibold text-navy-900">Phone</p>
-                    <a href="tel:+18136484272" className="text-[15px] text-accent-600 hover:text-accent-700 transition-colors">
-                      +1 (813) 648-4272
+                    <a href="tel:+18133246359" className="text-[15px] text-accent-600 hover:text-accent-700 transition-colors">
+                      +1 (813) 324-6359
                     </a>
                     <p className="text-[13px] text-slate-400 mt-0.5">Direct line</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-md bg-accent-50 flex items-center justify-center flex-shrink-0">
+                    <Printer size={18} className="text-accent-600" />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-semibold text-navy-900">Fax</p>
+                    <p className="text-[15px] text-slate-600">+1 (813) 324-6360</p>
+                    <p className="text-[13px] text-slate-400 mt-0.5">Secure document fax</p>
                   </div>
                 </div>
 
@@ -188,7 +199,7 @@ export default function Contact() {
                       </div>
                       <div>
                         <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Phone Number</label>
-                        <input id="contact-phone" className="input-field" type="tel" placeholder="+1 (813) 648-4272" value={form.phone} onChange={set('phone')} autoComplete="tel" />
+                        <input id="contact-phone" className="input-field" type="tel" placeholder="+1 (813) 324-6359" value={form.phone} onChange={set('phone')} autoComplete="tel" />
                       </div>
                     </div>
 

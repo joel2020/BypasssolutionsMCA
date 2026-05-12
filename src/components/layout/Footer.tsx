@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import Logo from '../brand/Logo';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin, Printer } from 'lucide-react';
 
 const footerLinks = {
   solutions: [
@@ -50,10 +50,14 @@ export default function Footer() {
                 <Mail size={15} className="text-accent-400" />
                 info@bypasssolution.com
               </a>
-              <a href="tel:+18136484272" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
+              <a href="tel:+18133246359" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
                 <Phone size={15} className="text-accent-400" />
-                +1 (813) 648-4272
+                +1 (813) 324-6359
               </a>
+              <div className="flex items-center gap-2.5 text-slate-400 text-[14px]">
+                <Printer size={15} className="text-accent-400" />
+                Fax: +1 (813) 324-6360
+              </div>
               <div className="flex items-center gap-2.5 text-slate-400 text-[14px]">
                 <MapPin size={15} className="text-accent-400" />
                 United States

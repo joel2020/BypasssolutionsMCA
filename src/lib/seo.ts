@@ -26,7 +26,7 @@ export const ROUTE_META: Record<string, { title: string; description: string; ke
   },
   '/contact': {
     title: 'Contact Bypass Solution | Speak With a Funding Specialist',
-    description: 'Contact Bypass Solution at +1 (813) 648-4272 or info@bypasssolution.com to discuss business funding options and application questions.',
+    description: 'Contact Bypass Solution at +1 (813) 324-6359, fax +1 (813) 324-6360, or info@bypasssolution.com to discuss business funding options and application questions.',
   },
   '/privacy': {
     title: 'Privacy Policy | Bypass Solution',

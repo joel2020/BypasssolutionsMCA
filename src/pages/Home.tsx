@@ -9,6 +9,15 @@ import {
   Zap,
   Star,
   Building2,
+  Briefcase,
+  ClipboardCheck,
+  CreditCard,
+  Factory,
+  Landmark,
+  PackageCheck,
+  ReceiptText,
+  ShieldCheck,
+  ShoppingCart,
   Truck,
   Wrench,
   ShoppingBag,
@@ -58,28 +67,54 @@ const howItWorks = [
 
 const solutions = [
   {
-    icon: Zap,
-    title: 'Working Capital',
-    desc: 'Business funding built around cash flow for inventory, payroll, supplier payments, or seasonal timing gaps.',
-    tag: 'Cash Flow',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Revenue-Based Funding',
-    desc: 'Flexible capital options reviewed around business performance, deposits, and revenue trends.',
-    tag: 'Flexible Capital',
+    icon: ShieldCheck,
+    title: 'SBA Loan Guidance',
+    desc: 'Guidance for owners exploring longer-term, government-backed business funding options.',
   },
   {
     icon: Building2,
-    title: 'Business Funding',
-    desc: 'Funding options for operators, owners, and growing companies that need capital to move decisively.',
-    tag: 'Growth Ready',
+    title: 'Commercial Real Estate',
+    desc: 'Support for purchasing, improving, or refinancing business properties.',
   },
   {
-    icon: Shield,
-    title: 'Equipment & Expansion Capital',
-    desc: 'Capital for equipment, buildouts, new locations, and expansion needs without a slow bank process.',
-    tag: 'Expansion',
+    icon: ClipboardCheck,
+    title: 'Term Funding',
+    desc: 'Fixed-term capital options for planned growth, larger purchases, and expansion needs.',
+  },
+  {
+    icon: Factory,
+    title: 'Equipment Financing',
+    desc: 'Capital options for purchasing, leasing, or upgrading essential business equipment.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Business Line of Credit',
+    desc: 'Revolving access to capital for ongoing expenses, projects, and unexpected needs.',
+  },
+  {
+    icon: ReceiptText,
+    title: 'Invoice Factoring',
+    desc: 'Convert eligible unpaid invoices into working capital to help stabilize cash flow.',
+  },
+  {
+    icon: Briefcase,
+    title: 'Working Capital',
+    desc: 'Fast, flexible funding for payroll, inventory, suppliers, marketing, and daily operations.',
+  },
+  {
+    icon: ShoppingCart,
+    title: 'Ecommerce Funding',
+    desc: 'Capital solutions for online sellers, digital brands, and retail operators scaling sales.',
+  },
+  {
+    icon: PackageCheck,
+    title: 'Contractor & Gig Funding',
+    desc: 'Funding options for contractors, independent operators, and project-based businesses.',
+  },
+  {
+    icon: Landmark,
+    title: 'View All Solutions',
+    desc: 'Transparent, guided funding reviews to help you compare available business capital options.',
   },
 ];
 
@@ -324,40 +359,61 @@ export default function Home() {
       {/* Funding Solutions */}
       <section className="section-gap bg-slate-50">
         <div className="page-container">
-          <div className="text-center mb-14">
-            <p className="section-label mb-3">Funding Options</p>
-            <h2 className="text-h2 text-navy-900 mb-4">
-              Flexible Funding Solutions
-            </h2>
-            <p className="text-[17px] text-slate-500 max-w-xl mx-auto">
-              Every business has different needs. We work with multiple funding partners to explore options that may fit your situation. Funding is subject to review and approval.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {solutions.map((s) => (
-              <div key={s.title} className="card-hover p-7 cursor-pointer">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-md bg-navy-900 flex items-center justify-center flex-shrink-0">
-                    <s.icon size={20} className="text-accent-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <h3 className="text-[17px] font-semibold text-navy-900">{s.title}</h3>
-                      <span className="badge-brand text-[11px]">{s.tag}</span>
-                    </div>
-                    <p className="text-[14px] text-slate-500 leading-relaxed">{s.desc}</p>
-                  </div>
+          <div className="mx-auto max-w-[1040px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+            <div className="border-b border-slate-200 bg-gradient-to-r from-white via-slate-50 to-accent-50/60 px-6 py-7 lg:px-9">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="section-label mb-3">Funding Solutions</p>
+                  <h2 className="text-h2 text-navy-900 mb-3">
+                    Funding Options Built for Bypass Solution Clients
+                  </h2>
+                  <p className="max-w-[680px] text-[16px] leading-relaxed text-slate-500">
+                    Compare practical capital options for growth, cash flow, equipment, invoices, and online sales with guidance from a Bypass Solution funding specialist.
+                  </p>
                 </div>
+                <Link to="/apply" className="btn-primary w-fit flex-shrink-0">
+                  Start Funding Review
+                  <ArrowRight size={16} />
+                </Link>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="flex justify-center mt-10">
-            <Link to="/solutions" className="btn-primary">
-              View All Funding Options
-              <ArrowRight size={16} />
-            </Link>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-2 p-5 md:grid-cols-2 lg:p-8">
+              {solutions.map((solution) => {
+                const Icon = solution.icon;
+
+                return (
+                  <Link
+                    key={solution.title}
+                    to="/solutions"
+                    className="group flex gap-4 rounded-2xl border border-transparent p-4 transition-all hover:border-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-navy-700 focus:ring-offset-2"
+                  >
+                    <span className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy-900 ring-1 ring-navy-100 transition-colors group-hover:bg-navy-900 group-hover:text-white">
+                      <Icon size={19} />
+                    </span>
+                    <span>
+                      <span className="flex items-center gap-2 text-[16px] font-bold text-navy-900">
+                        {solution.title}
+                        <ArrowRight size={14} className="opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100" />
+                      </span>
+                      <span className="mt-1 block text-[14px] leading-relaxed text-slate-500">
+                        {solution.desc}
+                      </span>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-4 border-t border-slate-200 bg-slate-50/80 px-6 py-6 sm:flex-row sm:items-center sm:justify-between lg:px-9">
+              <p className="max-w-[620px] text-[14px] leading-relaxed text-slate-600">
+                Not sure which option fits? We review your business profile and help you understand available funding paths. Funding is subject to approval and terms may vary.
+              </p>
+              <Link to="/solutions" className="btn-secondary w-fit flex-shrink-0">
+                View All Solutions
+                <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
