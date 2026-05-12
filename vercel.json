@@ -31,6 +31,17 @@
   "redirects": [
     {
       "source": "/",
+      "destination": "/apply",
+      "permanent": false,
+      "has": [
+        {
+          "type": "host",
+          "value": "apply.bypasssolution.com"
+        }
+      ]
+    },
+    {
+      "source": "/",
       "destination": "/admin",
       "permanent": false,
       "has": [
