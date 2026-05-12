@@ -32,9 +32,7 @@ export default async function handler(req: any, res: any) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return res.status(500).json({
-      error: 'Server submission is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables.',
-    });
+    return res.status(500).json({ error: 'Server submission is not configured.' });
   }
 
   const payload = (req.body || {}) as Payload;
@@ -42,32 +40,7 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Application could not be submitted.' });
   }
 
-  const required = [
-    'legalName',
-    'businessAddress',
-    'businessPhone',
-    'businessEmail',
-    'startDate',
-    'entityType',
-    'industry',
-    'requestedAmount',
-    'useOfFunds',
-    'monthlyRevenue',
-    'annualRevenue',
-    'averageDailyBalance',
-    'currentAdvances',
-    'currentBank',
-    'nsfsLast90Days',
-    'ownerName',
-    'ownerTitle',
-    'ownershipPercentage',
-    'dateOfBirth',
-    'ssnLastFour',
-    'ownerPhone',
-    'ownerEmail',
-    'homeAddress',
-  ];
-
+  const required = ['legalName','businessAddress','businessPhone','businessEmail','startDate','entityType','industry','requestedAmount','useOfFunds','monthlyRevenue','annualRevenue','averageDailyBalance','currentAdvances','currentBank','nsfsLast90Days','ownerName','ownerTitle','ownershipPercentage','dateOfBirth','ssnLastFour','ownerPhone','ownerEmail','homeAddress'];
   const missing = required.filter((key) => !asString(payload, key));
   if (missing.length) {
     return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
@@ -150,23 +123,29 @@ export default async function handler(req: any, res: any) {
 
   const leadId = data.id as string;
 
-  await supabase.from('communications').insert({
-    lead_id: leadId,
-    channel: 'Email',
-    direction: 'outbound',
-    subject: 'Application received',
-    body: 'Applicant confirmation queued: Bypass Solution received the funding application for review.',
-    recipient: asString(payload, 'ownerEmail'),
-    sender: 'info@bypasssolution.com',
-    status: 'queued',
-    related_template: 'applicant_confirmation',
-  });
+  try {
+    await supabase.from('communications').insert({
+      lead_id: leadId,
+      channel: 'Email',
+      direction: 'outbound',
+      subject: 'Application received',
+      body: 'Applicant confirmation queued: Bypass Solution received the funding application for review.',
+      recipient: asString(payload, 'ownerEmail'),
+      sender: 'info@bypasssolution.com',
+      status: 'queued',
+    });
+  } catch {}
 
-  await supabase.from('activity_logs').insert({
-    lead_id: leadId,
-    action: 'application_submitted',
-    metadata: { source: 'website', submitted_via: 'serverless_api' },
-  });
+  try {
+    await supabase.from('audit_logs').insert({
+      lead_id: leadId,
+      action: 'application_submitted',
+      metadata: { source: 'website', submitted_via: 'serverless_api' },
+    });
+  } catch {}
 
-  return res.status(200).json({ id: leadId, confirmationId: leadId.slice(0, 8).toUpperCase() });
+  return res.status(200).json({
+    id: leadId,
+    confirmationId: leadId.slice(0, 8).toUpperCase(),
+  });
 }
