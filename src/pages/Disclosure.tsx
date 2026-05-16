@@ -21,7 +21,7 @@ export default function Disclosure() {
             <div>
               <p className="text-[15px] font-semibold text-amber-800 mb-1">Important Notice</p>
               <p className="text-[14px] text-amber-700 leading-relaxed">
-                All funding products available through Bypass Solution are subject to review and approval by individual funding partners. Not all applicants will qualify. Review all funding terms carefully before accepting any offer. This disclosure does not constitute an offer to provide funding.
+                All funding products available through Elite Funding Solutions are subject to review and approval by individual funding partners. Not all applicants will qualify. Review all funding terms carefully before accepting any offer. This disclosure does not constitute an offer to provide funding.
               </p>
             </div>
           </div>
@@ -33,13 +33,13 @@ export default function Disclosure() {
                 <div className="w-10 h-10 rounded-md bg-accent-50 flex items-center justify-center">
                   <Shield size={18} className="text-accent-600" />
                 </div>
-                <h2 className="text-[18px] font-bold text-navy-900">About Bypass Solution</h2>
+                <h2 className="text-[18px] font-bold text-navy-900">About Elite Funding Solutions</h2>
               </div>
               <p className="text-[15px] text-slate-600 leading-relaxed">
-                Bypass Solution is a business funding marketplace, not a lender. We connect small business owners with a network of funding partners who may offer various business financing products, including revenue-based funding, working capital, business lines of credit, equipment financing, and other flexible capital options.
+                Elite Funding Solutions is a business funding marketplace, not a lender. We connect small business owners with a network of funding partners who may offer various business financing products, including revenue-based funding, working capital, business lines of credit, equipment financing, and other flexible capital options.
               </p>
               <p className="text-[15px] text-slate-600 leading-relaxed mt-3">
-                Bypass Solution does not make lending decisions. All funding decisions are made exclusively by individual funding partners based on their own underwriting criteria. Bypass Solution may receive compensation from funding partners when a business owner accepts a funding offer.
+                Elite Funding Solutions does not make lending decisions. All funding decisions are made exclusively by individual funding partners based on their own underwriting criteria. Elite Funding Solutions may receive compensation from funding partners when a business owner accepts a funding offer.
               </p>
             </div>
 

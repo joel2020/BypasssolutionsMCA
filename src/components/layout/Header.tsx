@@ -130,7 +130,7 @@ export default function Header() {
       <div className="max-w-[1200px] mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-[72px]">
           {/* Logo */}
-          <Link to="/" className="flex items-center flex-shrink-0" aria-label="Bypass Solution home">
+          <Link to="/" className="flex items-center flex-shrink-0" aria-label="Elite Funding Solutions home">
             <Logo size="md" />
           </Link>
 
@@ -223,7 +223,7 @@ export default function Header() {
                             <div>
                               <p className="text-[14px] font-bold text-navy-900">Not sure what fits?</p>
                               <p className="mt-0.5 max-w-[420px] text-[13px] leading-5 text-slate-600">
-                                Get a fast funding review and we&apos;ll help match your business with the right option.
+                                Check fit first and we&apos;ll help match your business with the right option.
                               </p>
                             </div>
                           </div>
@@ -231,8 +231,8 @@ export default function Header() {
                             <Link to="/solutions" className="text-[13px] font-bold text-slate-600 transition-colors hover:text-navy-900">
                               View All Funding Solutions
                             </Link>
-                            <Link to="/apply" className="btn-primary h-10 px-4 text-[13px]">
-                              Start Funding Review <ArrowRight size={15} />
+                            <Link to="/funding-fit-check" className="btn-primary h-10 px-4 text-[13px]">
+                              Check Funding Fit <ArrowRight size={15} />
                             </Link>
                           </div>
                         </div>
@@ -262,8 +262,8 @@ export default function Header() {
             <Link to="/contact" onClick={closeSolutions} className="text-[15px] font-medium text-slate-600 hover:text-navy-900 transition-colors px-3 py-2">
               Contact
             </Link>
-            <Link to="/apply" onClick={closeSolutions} className="btn-primary h-10 text-[14px]">
-              Apply Now
+            <Link to="/funding-fit-check" onClick={closeSolutions} className="btn-primary h-10 text-[14px]">
+              Check Funding Fit
             </Link>
           </div>
 
@@ -329,13 +329,13 @@ export default function Header() {
                           <div>
                             <p className="text-[14px] font-bold text-navy-900">Not sure what fits?</p>
                             <p className="mt-0.5 text-[12px] leading-5 text-slate-600">
-                              Get a fast funding review and we&apos;ll help match your business with the right option.
+                              Check fit first and we&apos;ll help match your business with the right option.
                             </p>
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                          <Link to="/apply" className="btn-primary w-full justify-center text-[14px]">
-                            Start Funding Review
+                          <Link to="/funding-fit-check" className="btn-primary w-full justify-center text-[14px]">
+                            Check Funding Fit
                           </Link>
                           <Link to="/solutions" className="text-center text-[13px] font-bold text-slate-600 hover:text-navy-900">
                             View All Funding Solutions
@@ -359,8 +359,8 @@ export default function Header() {
               Contact
             </Link>
             <div className="pt-2 border-t border-slate-100 mt-2">
-              <Link to="/apply" className="btn-primary w-full justify-center">
-                Apply Now
+              <Link to="/funding-fit-check" className="btn-primary w-full justify-center">
+                Check Funding Fit
               </Link>
             </div>
           </nav>

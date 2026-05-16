@@ -103,13 +103,13 @@ export default function HowItWorks() {
             Simple Process
           </p>
           <h1 className="text-[42px] font-bold text-white leading-tight tracking-tight mb-4 max-w-[580px]">
-            How Bypass Solution Works
+            How Elite Funding Solutions Works
           </h1>
           <p className="text-[17px] text-slate-400 max-w-[520px] leading-relaxed mb-8">
             A straightforward, transparent process designed to get you from application to funding decision as efficiently as possible.
           </p>
-          <Link to="/apply" className="btn-primary">
-            Start Your Application
+          <Link to="/funding-fit-check" className="btn-primary">
+            Check Funding Fit
             <ArrowRight size={16} />
           </Link>
         </div>
@@ -171,8 +171,8 @@ export default function HowItWorks() {
           </div>
 
           <div className="flex justify-center mt-10">
-            <Link to="/apply" className="btn-primary text-[15px] h-12 px-8">
-              Start Your Application
+            <Link to="/funding-fit-check" className="btn-primary text-[15px] h-12 px-8">
+              Check Funding Fit
               <ArrowRight size={16} />
             </Link>
           </div>
@@ -218,8 +218,8 @@ export default function HowItWorks() {
                 Complete our simple application in about 5 minutes. A funding specialist will review your information and reach out to discuss available options. No obligation to accept any offer.
               </p>
               <div className="flex items-center gap-4">
-                <Link to="/apply" className="btn-primary">
-                  Check Eligibility
+                <Link to="/funding-fit-check" className="btn-primary">
+                  Check Funding Fit
                   <ArrowRight size={16} />
                 </Link>
                 <Link to="/contact" className="text-accent-400 hover:text-accent-300 text-[15px] font-medium transition-colors">
@@ -238,7 +238,7 @@ export default function HowItWorks() {
                   'Not all applicants will qualify for funding.',
                   'Funding amounts and terms may vary.',
                   'Review all terms carefully before accepting any offer.',
-                  'Bypass Solution is not a lender.',
+                  'Elite Funding Solutions is not a lender.',
                   'Estimated timelines are not guarantees.',
                 ].map((d) => (
                   <li key={d} className="flex items-start gap-2.5 text-[14px] text-slate-400">

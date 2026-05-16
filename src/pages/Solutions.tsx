@@ -121,8 +121,8 @@ export default function Solutions() {
           <p className="text-[17px] text-slate-400 max-w-[520px] leading-relaxed mb-8">
             We work with a network of funding partners to explore options that may fit your business profile. All funding is subject to review and approval.
           </p>
-          <Link to="/apply" className="btn-primary">
-            Check Eligibility
+          <Link to="/funding-fit-check" className="btn-primary">
+            Check Funding Fit
             <ArrowRight size={16} />
           </Link>
         </div>
@@ -207,8 +207,8 @@ export default function Solutions() {
             Speak with one of our funding specialists. We'll review your business profile and help you understand what options may be available.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/apply" className="btn-primary">
-              Start Your Application
+            <Link to="/funding-fit-check" className="btn-primary">
+              Check Funding Fit
               <ArrowRight size={16} />
             </Link>
             <Link to="/contact" className="btn-secondary">

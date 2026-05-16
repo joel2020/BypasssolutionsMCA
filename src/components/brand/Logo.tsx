@@ -61,7 +61,7 @@ function FullLogoSvg({ inverse = false }: { inverse?: boolean }) {
   const line = inverse ? '#2F8CFF' : '#0B64D8';
 
   return (
-    <svg viewBox="0 0 760 178" className="h-auto w-full" role="img" aria-label="Bypass Solution">
+    <svg viewBox="0 0 760 178" className="h-auto w-full" role="img" aria-label="Elite Funding Solutions">
       <g transform="translate(0 0)">
         <MarkPaths gradientId={`bypass-full-mark-${id}`} slashId={`bypass-full-slash-${id}`} inverse={inverse} />
       </g>
@@ -74,7 +74,7 @@ function FullLogoSvg({ inverse = false }: { inverse?: boolean }) {
         fontWeight="800"
         letterSpacing="12"
       >
-        BYPASS
+        ELITE
       </text>
       <line x1="194" y1="116" x2="260" y2="116" stroke={line} strokeWidth="5" />
       <text
@@ -86,7 +86,7 @@ function FullLogoSvg({ inverse = false }: { inverse?: boolean }) {
         fontWeight="700"
         letterSpacing="23"
       >
-        SOLUTION
+        FUNDING
       </text>
       <line x1="625" y1="116" x2="696" y2="116" stroke={line} strokeWidth="5" />
       <text
@@ -98,7 +98,7 @@ function FullLogoSvg({ inverse = false }: { inverse?: boolean }) {
         fontWeight="600"
         letterSpacing="8"
       >
-        WORKING CAPITAL. SMARTER. FASTER.
+        FUNDING SOLUTIONS
       </text>
     </svg>
   );
@@ -107,7 +107,7 @@ function FullLogoSvg({ inverse = false }: { inverse?: boolean }) {
 export default function Logo({ size = 'md', variant = 'full', className = '', inverse = false }: LogoProps) {
   if (variant === 'icon') {
     return (
-      <span className={`inline-flex ${iconSizeClasses[size]} ${className}`} role="img" aria-label="Bypass Solution">
+      <span className={`inline-flex ${iconSizeClasses[size]} ${className}`} role="img" aria-label="Elite Funding Solutions">
         <LogoMark inverse={inverse} />
       </span>
     );

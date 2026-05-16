@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://bypasssolution.com/sitemap.xml
+Sitemap: https://www.elitefundingsolution.com/sitemap.xml

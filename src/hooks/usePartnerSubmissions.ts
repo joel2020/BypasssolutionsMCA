@@ -85,36 +85,22 @@ export function useCreatePartnerSubmission() {
     setLoading(true);
 
     try {
-      const { data: auth } = await supabase.auth.getUser();
-
       const { data, error } = await supabase
-        .from('partner_submissions')
-        .insert({
-          application_id: payload.applicationId,
-          funding_partner_id: payload.fundingPartnerId,
-          submitted_by: auth.user?.id ?? null,
-          status: 'Submitted',
-          notes: payload.notes ?? null,
-          included_document_ids: payload.includedDocumentIds ?? [],
-          submitted_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+        .functions
+        .invoke('submit-to-lenders', {
+          body: {
+            applicationId: payload.applicationId,
+            leadId: payload.leadId ?? null,
+            fundingPartnerIds: [payload.fundingPartnerId],
+            notes: payload.notes ?? '',
+            includedDocumentIds: payload.includedDocumentIds ?? [],
+          },
+        });
 
       if (error) throw error;
+      if (!data?.ok) throw new Error(data?.errors?.[0] || 'Lender submission failed.');
 
-      await supabase.from('activity_logs').insert({
-        application_id: payload.applicationId,
-        lead_id: payload.leadId ?? null,
-        user_id: auth.user?.id ?? null,
-        action: 'partner_submission_created',
-        metadata: {
-          funding_partner_id: payload.fundingPartnerId,
-          included_document_ids: payload.includedDocumentIds ?? [],
-        },
-      });
-
-      return data as PartnerSubmission;
+      return data.results?.[0] as PartnerSubmission;
     } finally {
       setLoading(false);
     }

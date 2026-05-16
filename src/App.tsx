@@ -15,17 +15,20 @@ import Industries from './pages/Industries';
 import HowItWorks from './pages/HowItWorks';
 import About from './pages/About';
 import FAQ from './pages/FAQ';
-import Apply from './pages/ApplyLite';
+import Apply from './pages/Apply';
+import FundingFitCheck from './pages/FundingFitCheck';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Disclosure from './pages/Disclosure';
+import LegalSimple from './pages/LegalSimple';
 import Unauthorized from './components/auth/Unauthorized';
 import NotFound from './pages/NotFound';
 
 // Admin pages are lazy-loaded so public landing pages do not ship CRM/reporting code.
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const Logout = lazy(() => import('./pages/admin/Logout'));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
 const Leads = lazy(() => import('./pages/admin/Leads'));
 const LeadDetail = lazy(() => import('./pages/admin/LeadDetail'));
@@ -41,6 +44,45 @@ const Email = lazy(() => import('./pages/admin/Email'));
 const Commissions = lazy(() => import('./pages/admin/Commissions'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
+
+const legalPages = {
+  applicationConsent: {
+    title: 'Application Consent',
+    intro: 'This consent explains the authorization used when a business owner submits a secure commercial funding application.',
+    sections: [
+      { title: 'Application Review', body: 'By submitting an application, you authorize review of business, owner, revenue, document, and funding request information for commercial funding options.' },
+      { title: 'Partner Sharing', body: 'You authorize Elite Funding Solutions and Elite Funding Solutions advisors to share application information with funding partners only for commercial funding review and follow-up.' },
+      { title: 'No Funding Guarantee', body: 'Submitting an application does not guarantee approval, funding amount, pricing, or timing. All offers are subject to underwriting and final agreements.' },
+    ],
+  },
+  esignConsent: {
+    title: 'E-Sign Consent',
+    intro: 'This consent explains electronic delivery and electronic signature use for commercial funding records.',
+    sections: [
+      { title: 'Electronic Records', body: 'You consent to receive application records, disclosures, notices, and funding communications electronically where permitted by law.' },
+      { title: 'Electronic Signature', body: 'Typing or submitting your legal name as a signature may be treated as an electronic signature for application authorization purposes.' },
+      { title: 'Withdrawal', body: 'You may request paper records or withdraw e-sign consent by contacting the company, but doing so may slow or prevent electronic processing.' },
+    ],
+  },
+  smsTerms: {
+    title: 'SMS Terms',
+    intro: 'SMS updates are optional and are not required to apply for or receive funding.',
+    sections: [
+      { title: 'Optional Consent', body: 'SMS consent is not a condition of funding. You may apply or check funding fit without agreeing to text messages.' },
+      { title: 'Message Terms', body: 'Message frequency varies. Message and data rates may apply. Reply STOP to opt out and HELP for help where supported.' },
+      { title: 'Use of SMS', body: 'SMS may be used for application follow-up, document reminders, status updates, and advisor coordination.' },
+    ],
+  },
+  cookiePolicy: {
+    title: 'Cookie Policy',
+    intro: 'This policy explains how cookies and similar technologies support website functionality and funding inquiry follow-up.',
+    sections: [
+      { title: 'Functional Cookies', body: 'Cookies may help remember basic preferences, improve website behavior, and support form attribution.' },
+      { title: 'Analytics and Attribution', body: 'We may use analytics and attribution data to understand which pages and campaigns lead to funding inquiries.' },
+      { title: 'Browser Controls', body: 'You can control cookies through your browser settings. Blocking cookies may affect some site functionality.' },
+    ],
+  },
+};
 
 const crmHosts = new Set(['crm.bypasssolution.com', 'crm.bypasssolution.test']);
 
@@ -118,7 +160,7 @@ function AdminGuard({ session, children }: { session: Session | null | undefined
   if (!roleCheck?.allowed) {
     return (
       <Unauthorized
-        message={roleCheck?.setupMissing && import.meta.env.DEV ? 'CRM setup required' : 'Unauthorized access'}
+        message={roleCheck?.setupMissing && import.meta.env.DEV ? 'CRM setup required' : 'Access not configured'}
         detail={roleCheck?.reason}
       />
     );
@@ -201,14 +243,22 @@ export default function App() {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/industries" element={<Industries />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/funding-fit-check" element={<FundingFitCheck />} />
           <Route path="/apply" element={<Apply />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/disclosure" element={<Disclosure />} />
+          <Route path="/application-consent" element={<LegalSimple {...legalPages.applicationConsent} />} />
+          <Route path="/esign-consent" element={<LegalSimple {...legalPages.esignConsent} />} />
+          <Route path="/sms-terms" element={<LegalSimple {...legalPages.smsTerms} />} />
+          <Route path="/cookie-policy" element={<LegalSimple {...legalPages.cookiePolicy} />} />
         </Route>
 
         {/* Admin login */}
+        <Route path="/login" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/login" element={<Navigate to="/admin" replace />} />
+        <Route path="/logout" element={<Logout />} />
         <Route
           path="/admin"
           element={

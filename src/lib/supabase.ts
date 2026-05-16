@@ -37,7 +37,7 @@ export const supabase = createClient(
   }
 );
 
-// ── Database types ────────────────────────────────────────────────────────────
+// Database types
 
 export type LeadStatus =
   | 'New Lead' | 'Contacted' | 'Application Started' | 'Documents Needed'
@@ -197,6 +197,13 @@ export interface PartnerSubmission {
   denied_at?: string | null;
   denied_by?: string | null;
   included_document_ids?: string[] | null;
+  package_snapshot?: Record<string, unknown> | null;
+  email_subject?: string | null;
+  email_body?: string | null;
+  email_status?: string | null;
+  email_sent_at?: string | null;
+  email_provider_message_id?: string | null;
+  email_error?: string | null;
   funding_partners?: Pick<FundingPartner, 'name' | 'email' | 'contact_name'> | null;
 }
 
