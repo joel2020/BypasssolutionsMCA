@@ -16,6 +16,7 @@ import HowItWorks from './pages/HowItWorks';
 import About from './pages/About';
 import FAQ from './pages/FAQ';
 import Apply from './pages/Apply';
+import ApplyStart from './pages/ApplyStart';
 import FundingFitCheck from './pages/FundingFitCheck';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
@@ -245,6 +246,7 @@ export default function App() {
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/funding-fit-check" element={<FundingFitCheck />} />
           <Route path="/apply" element={<Apply />} />
+          <Route path="/start" element={<ApplyStart />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
