@@ -7,7 +7,7 @@ const footerLinks = {
     { label: 'Business Funding', href: '/solutions' },
     { label: 'Revenue-Based Funding', href: '/solutions' },
     { label: 'Working Capital', href: '/solutions' },
-    { label: 'Check Funding Fit', href: '/funding-fit-check' },
+    { label: 'Fast Funding Review', href: '/apply' },
     { label: 'Equipment & Expansion Capital', href: '/solutions' },
     { label: 'Short-Term Business Funding', href: '/solutions' },
   ],
@@ -23,7 +23,7 @@ const footerLinks = {
     { label: 'About', href: '/about' },
     { label: 'How It Works', href: '/how-it-works' },
     { label: 'FAQ', href: '/faq' },
-    { label: 'Apply Securely', href: '/apply' },
+    { label: 'Apply Now', href: '/apply' },
     { label: 'Contact Us', href: '/contact' },
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Use', href: '/terms' },
@@ -39,16 +39,16 @@ export default function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8">
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <Link to="/" className="inline-flex mb-5" aria-label="Elite Funding Solutions home">
+            <Link to="/" className="inline-flex mb-5" aria-label="Bypass Solution home">
               <Logo size="md" inverse />
             </Link>
             <p className="text-slate-400 text-[15px] leading-relaxed max-w-xs mb-6">
               Helping small businesses explore fast, flexible funding options. Working capital and business financing, subject to review and approval.
             </p>
             <div className="flex flex-col gap-3">
-              <a href="mailto:info@elitefundingsolution.com" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
+              <a href="mailto:info@bypasssolution.com" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
                 <Mail size={15} className="text-accent-400" />
-                info@elitefundingsolution.com
+                info@bypasssolution.com
               </a>
               <a href="tel:+18133246359" className="flex items-center gap-2.5 text-slate-400 hover:text-white transition-colors text-[14px]">
                 <Phone size={15} className="text-accent-400" />
@@ -117,11 +117,11 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-6">
           <p className="text-slate-500 text-[12px] leading-relaxed">
-            Elite Funding Solutions is not a lender. We connect business owners with funding options through our network of funding partners. All funding is subject to review and approval. Not all applicants will qualify. Funding amounts, terms, and rates may vary based on business performance, creditworthiness, and other factors. Review all funding terms before accepting any offer. This is not an offer to lend. Elite Funding Solutions does not guarantee approval or specific funding amounts.
+            Bypass Solution is not a lender. We connect business owners with funding options through our network of funding partners. All funding is subject to review and approval. Not all applicants will qualify. Funding amounts, terms, and rates may vary based on business performance, creditworthiness, and other factors. Review all funding terms before accepting any offer. This is not an offer to lend. Bypass Solution does not guarantee approval or specific funding amounts.
           </p>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-5">
             <p className="text-slate-600 text-[13px]">
-              Copyright {new Date().getFullYear()} Elite Funding Solutions. All rights reserved.
+              © {new Date().getFullYear()} Bypass Solution. All rights reserved.
             </p>
             <div className="flex items-center gap-5">
               <Link to="/privacy" className="text-slate-600 hover:text-slate-400 text-[13px] transition-colors">Privacy Policy</Link>

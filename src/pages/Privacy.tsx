@@ -34,7 +34,7 @@ We do not use your information for purposes unrelated to business funding servic
     },
     {
       title: '3. Information Sharing',
-      content: `Elite Funding Solutions shares your information with funding partners and lenders in our network for the purpose of reviewing your funding application. We do not sell your personal information to third-party marketers.
+      content: `Bypass Solution shares your information with funding partners and lenders in our network for the purpose of reviewing your funding application. We do not sell your personal information to third-party marketers.
 
 We may share information with:
 
@@ -62,11 +62,11 @@ However, no method of transmission over the internet or electronic storage is co
     },
     {
       title: '5. Credit Inquiries',
-      content: `As part of the application review process, Elite Funding Solutions or its funding partners may perform credit inquiries. Our initial review process typically involves a soft credit inquiry, which does not affect your credit score. Some funding partners may perform hard credit inquiries as part of their underwriting process, which may affect your credit score. You will be notified before any hard credit inquiry is performed.`,
+      content: `As part of the application review process, Bypass Solution or its funding partners may perform credit inquiries. Our initial review process typically involves a soft credit inquiry, which does not affect your credit score. Some funding partners may perform hard credit inquiries as part of their underwriting process, which may affect your credit score. You will be notified before any hard credit inquiry is performed.`,
     },
     {
       title: '6. Data Retention',
-      content: `We retain your information for as long as necessary to provide our services, comply with legal obligations, resolve disputes, and enforce our agreements. If you would like to request deletion of your information, please contact us at info@elitefundingsolution.com. Note that some information may need to be retained for compliance or legal purposes.`,
+      content: `We retain your information for as long as necessary to provide our services, comply with legal obligations, resolve disputes, and enforce our agreements. If you would like to request deletion of your information, please contact us at info@bypasssolution.com. Note that some information may need to be retained for compliance or legal purposes.`,
     },
     {
       title: '7. Your Rights',
@@ -80,7 +80,7 @@ The right to request deletion of your information.
 
 The right to opt out of certain communications.
 
-To exercise any of these rights, please contact us at info@elitefundingsolution.com.`,
+To exercise any of these rights, please contact us at info@bypasssolution.com.`,
     },
     {
       title: '8. Cookies and Tracking',
@@ -98,8 +98,10 @@ To exercise any of these rights, please contact us at info@elitefundingsolution.
       title: '11. Contact Us',
       content: `If you have questions or concerns about this Privacy Policy or our data practices, please contact us:
 
-Email: info@elitefundingsolution.com
-Website: www.elitefundingsolution.com
+Email: info@bypasssolution.com
+Phone: +1 (813) 324-6359
+Fax: +1 (813) 324-6360
+Website: www.bypasssolution.com
 
 We will respond to your inquiry within a reasonable timeframe.`,
     },
@@ -119,7 +121,7 @@ We will respond to your inquiry within a reasonable timeframe.`,
         <div className="max-w-[860px] mx-auto px-6 lg:px-8">
           <div className="bg-blue-50 border border-blue-200 rounded-md px-5 py-4 mb-10">
             <p className="text-[14px] text-blue-700">
-              Elite Funding Solutions is committed to protecting your privacy. This policy explains how we collect, use, and protect information submitted through our platform.
+              Bypass Solution is committed to protecting your privacy. This policy explains how we collect, use, and protect information submitted through our platform.
             </p>
           </div>
 

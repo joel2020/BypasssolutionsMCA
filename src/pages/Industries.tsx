@@ -91,8 +91,8 @@ export default function Industries() {
           <p className="text-[17px] text-slate-400 max-w-[520px] leading-relaxed mb-8">
             Traditional banks often overlook small businesses in specialized industries. We work with funding partners who understand your sector and can review your unique profile.
           </p>
-          <Link to="/funding-fit-check" className="btn-primary">
-            Check Funding Fit
+          <Link to="/apply" className="btn-primary">
+            Check Eligibility
             <ArrowRight size={16} />
           </Link>
         </div>
@@ -178,8 +178,8 @@ export default function Industries() {
             We work with businesses across dozens of industries. Speak with a funding specialist to discuss your specific situation.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/funding-fit-check" className="btn-primary">
-              Check Funding Fit
+            <Link to="/apply" className="btn-primary">
+              Start Your Application
               <ArrowRight size={16} />
             </Link>
             <Link to="/contact" className="inline-flex items-center justify-center gap-2 h-11 px-6 bg-white/10 text-white text-[15px] font-semibold border border-white/20 rounded-md hover:bg-white/15 transition-all">

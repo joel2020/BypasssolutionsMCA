@@ -38,7 +38,7 @@ export default function SEO() {
     upsertMeta('meta[property="og:description"]', { property: 'og:description', content: meta.description });
     upsertMeta('meta[property="og:url"]', { property: 'og:url', content: url });
     upsertMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
-    upsertMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: 'Elite Funding Solutions' });
+    upsertMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: 'Bypass Solution' });
     upsertMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary_large_image' });
     upsertMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: meta.title });
     upsertMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: meta.description });

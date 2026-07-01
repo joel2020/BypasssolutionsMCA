@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { useCurrentUser } from '../hooks/useCurrentUser';
-import { ADMIN_LOGIN_ROUTE, signOutAndClearAuthState } from '../lib/auth';
 import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, FileText, Kanban, FolderOpen, Tag, Building2, CheckSquare,
@@ -53,7 +53,8 @@ export default function AdminLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleLogout = async () => {
-    await signOutAndClearAuthState(ADMIN_LOGIN_ROUTE);
+    await supabase.auth.signOut();
+    navigate('/admin');
   };
 
   const Sidebar = () => (
@@ -137,7 +138,7 @@ export default function AdminLayout() {
           <div className="relative">
             <button onClick={() => setUserMenuOpen((v) => !v)} onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors">
               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-blue-200 p-[2px]"><div className="grid h-full w-full place-items-center rounded-full bg-[#132442] text-[13px] font-bold text-white">{initials}</div></div>
-              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">{displayName}</p><p className="text-[12px] text-slate-400">{profile?.role === 'admin' ? 'Admin' : 'Rep'} / Production</p></div>
+              <div className="hidden xl:block text-left"><p className="text-[14px] font-semibold text-white">{displayName}</p><p className="text-[12px] text-slate-400">{profile?.role === 'admin' ? 'Admin' : 'Rep'} • Production</p></div>
               <ChevronDown size={15} className="text-slate-400" />
             </button>
             {userMenuOpen && (

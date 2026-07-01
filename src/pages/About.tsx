@@ -15,10 +15,10 @@ export default function About() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(47,140,255,0.32),transparent_35%)]" />
         <div className="relative max-w-[1200px] mx-auto px-6 lg:px-8 py-20 lg:py-28 grid lg:grid-cols-[1.1fr_.9fr] gap-12 items-center">
           <div>
-            <p className="text-accent-300 text-[12px] font-bold uppercase tracking-[0.18em] mb-5">About Elite Funding Solutions</p>
+            <p className="text-accent-300 text-[12px] font-bold uppercase tracking-[0.18em] mb-5">About Bypass Solution</p>
             <h1 className="text-[44px] lg:text-[68px] leading-[1.02] font-extrabold tracking-[-0.05em] mb-6">Working capital built around business momentum.</h1>
-            <p className="text-slate-300 text-[18px] leading-relaxed max-w-2xl">Elite Funding Solutions helps established business owners prepare, submit, and review working capital options through a process designed to feel secure, responsive, and professional from first application to final funding decision.</p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3"><Link to="/funding-fit-check" className="btn-primary">Check Funding Fit <ArrowRight size={16} /></Link><Link to="/apply" className="btn-secondary bg-white/10 border-white/15 text-white hover:bg-white/15">Apply Securely</Link></div>
+            <p className="text-slate-300 text-[18px] leading-relaxed max-w-2xl">Bypass Solution helps established business owners prepare, submit, and review working capital options through a process designed to feel secure, responsive, and professional from first application to final funding decision.</p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3"><Link to="/apply" className="btn-primary">Start Funding Application <ArrowRight size={16} /></Link><Link to="/contact" className="btn-secondary bg-white/10 border-white/15 text-white hover:bg-white/15">Speak With a Specialist</Link></div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl shadow-black/20 backdrop-blur">
             <div className="grid grid-cols-2 gap-4">
@@ -46,7 +46,7 @@ export default function About() {
       </section>
 
       <section className="py-16 bg-[#07152B] text-white">
-        <div className="page-container flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"><div><p className="text-accent-300 text-[12px] uppercase tracking-[0.16em] font-bold mb-3">Ready when you are</p><h2 className="text-[34px] font-bold tracking-[-0.03em]">Move your business forward with smarter working capital.</h2></div><Link to="/funding-fit-check" className="btn-primary">Check Funding Fit <ShieldCheck size={16} /></Link></div>
+        <div className="page-container flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"><div><p className="text-accent-300 text-[12px] uppercase tracking-[0.16em] font-bold mb-3">Ready when you are</p><h2 className="text-[34px] font-bold tracking-[-0.03em]">Move your business forward with smarter working capital.</h2></div><Link to="/apply" className="btn-primary">Start Application <ShieldCheck size={16} /></Link></div>
       </section>
     </main>
   );
