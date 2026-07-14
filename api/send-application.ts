@@ -152,6 +152,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const role = doc.roles?.[0];
     if (!role) throw new Error('Template has no signer role.');
 
+    // NOTE: custom invite subject/message is a PAID signNow feature (error 65582
+    // "Upgrade your subscription plan to personalize invite subject and message").
+    // The account is on the free plan, so we send the invite without them.
     const fromEmail = process.env.SIGNNOW_FROM_EMAIL || 'roman@bypasssolution.com';
     await signNow(`/document/${documentId}/invite`, {
       method: 'POST',
@@ -161,12 +164,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           role_id: role.role_id || role.unique_id || '',
           role: role.name || 'Recipient 1',
           order: 1,
-          subject: 'Your Bypass Solution funding application',
-          message: 'Please review and sign your funding application to continue.',
         }],
         from: fromEmail,
-        subject: 'Your Bypass Solution funding application',
-        message: 'Please review and sign your funding application to continue.',
       }),
     });
 
