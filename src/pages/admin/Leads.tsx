@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Plus, Upload, Download, ChevronDown } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
+import { useReps } from '../../hooks/useReps';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
-import { canonicalLeadStatuses, leadStatusColors } from '../../lib/status';
+import { leadStatusColors } from '../../lib/status';
+import type { LeadStatus } from '../../lib/supabase';
 import NewApplicationModal from '../../components/admin/NewApplicationModal';
 
-const reps = ['All', 'Sarah K.', 'Mike T.', 'Tom R.', 'Unassigned'];
+// Submissions = a lead that already has an application or better.
+// Lead-only records live on the Leads tab and never appear here.
+const submissionStatuses: LeadStatus[] = ['Documents Needed', 'Under Review', 'Pre-Approved', 'Offer Sent', 'Funded'];
 const sources = ['All', 'Website', 'Google Ads', 'Referral', 'Facebook', 'Instagram'];
 
 export default function Leads() {
@@ -16,8 +20,12 @@ export default function Leads() {
   const [filterSource, setFilterSource] = useState('All');
   const [showAddLead, setShowAddLead] = useState(false);
   const { data: leads, loading, error, refetch } = useLeads({ status: filterStatus === 'All' ? 'All' : filterStatus as never, assignedRep: filterRep, source: filterSource });
+  const { data: repProfiles } = useReps();
+
+  const reps = ['All', ...repProfiles.map((rep) => rep.full_name || rep.email), 'Unassigned'];
 
   const filtered = leads.filter((l) => {
+    if (!submissionStatuses.includes(l.status)) return false;
     const q = search.toLowerCase();
     return (
       !q ||
@@ -61,9 +69,9 @@ export default function Leads() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[20px] font-bold text-navy-900">Leads</h1>
+          <h1 className="text-[20px] font-bold text-navy-900">Submissions</h1>
           <p className="text-[13px] text-slate-400">
-            {loading ? 'Loading...' : `${filtered.length} lead${filtered.length !== 1 ? 's' : ''}`}
+            {loading ? 'Loading...' : `${filtered.length} submission${filtered.length !== 1 ? 's' : ''} (application or better)`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -104,7 +112,7 @@ export default function Leads() {
         </div>
 
         {[
-          { label: 'Status', value: filterStatus, set: setFilterStatus, options: ['All', ...canonicalLeadStatuses] },
+          { label: 'Status', value: filterStatus, set: setFilterStatus, options: ['All', ...submissionStatuses] },
           { label: 'Rep', value: filterRep, set: setFilterRep, options: reps },
           { label: 'Source', value: filterSource, set: setFilterSource, options: sources },
         ].map((f) => (

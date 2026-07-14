@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Eye, Plus, ArrowRightCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, Plus, ArrowRightCircle, Phone } from 'lucide-react';
 import { supabase, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { useDocuments } from '../../hooks/useDocuments';
@@ -21,10 +21,42 @@ export default function Applications() {
   const [showCreate, setShowCreate] = useState(searchParams.get('new') === '1');
   const [converting, setConverting] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [savingNote, setSavingNote] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
   const { data: allLeads, loading, error, refetch } = useLeads();
   const { data: documents } = useDocuments();
 
   const leads = useMemo(() => allLeads.filter((lead) => leadOnlyStatuses.includes(lead.status)), [allLeads]);
+
+  // Seed the editable note boxes from Supabase without clobbering in-progress edits.
+  useEffect(() => {
+    setNoteDrafts((prev) => {
+      const next = { ...prev };
+      leads.forEach((lead) => {
+        if (next[lead.id] === undefined) next[lead.id] = lead.notes || '';
+      });
+      return next;
+    });
+  }, [leads]);
+
+  async function saveNote(leadId: string) {
+    const draft = noteDrafts[leadId] ?? '';
+    const original = leads.find((l) => l.id === leadId)?.notes || '';
+    if (draft === original) return;
+    setSavingNote(leadId);
+    try {
+      const { error: noteError } = await supabase.from('leads').update({ notes: draft }).eq('id', leadId);
+      if (noteError) throw noteError;
+      setSavedNote(leadId);
+      window.setTimeout(() => setSavedNote((cur) => (cur === leadId ? null : cur)), 1500);
+      await refetch();
+    } catch (err) {
+      setNotice({ id: leadId, text: err instanceof Error ? err.message : 'Unable to save note.' });
+    } finally {
+      setSavingNote(null);
+    }
+  }
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return leads.filter((l) => !q || l.business_name.toLowerCase().includes(q));
@@ -110,18 +142,33 @@ export default function Applications() {
                 {filtered.map((lead) => (
                   <tr key={lead.id} className="border-b border-slate-100 last:border-none align-top hover:bg-slate-50/60">
                     <td className="px-4 py-3">
-                      <Link to={`/admin/leads/${lead.id}`} className="text-[13px] font-semibold text-navy-900 hover:text-accent-600">{lead.business_name}</Link>
+                      <p className="text-[13px] font-semibold text-navy-900">{lead.business_name}</p>
                       <p className="text-[11px] text-slate-400">{lead.status}</p>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">{lead.first_name} {lead.last_name}</td>
-                    <td className="px-4 py-3 text-[13px] text-slate-600">{lead.phone || '—'}</td>
+                    <td className="px-4 py-3 text-[13px]">
+                      {lead.phone
+                        ? <a href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-1.5 font-semibold text-accent-600 hover:underline"><Phone size={12} />{lead.phone}</a>
+                        : <span className="text-slate-400">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-slate-800">{money(lead.funding_amount_requested || 0)}</td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">{money(lead.monthly_revenue || 0)}</td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">{lead.assigned_rep || 'Unassigned'}</td>
-                    <td className="px-4 py-3 text-[12px] text-slate-500 max-w-[220px]"><span className="line-clamp-2">{lead.notes || '—'}</span></td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link to={`/admin/leads/${lead.id}`} className="btn-secondary h-8 px-3 text-[12px]"><Eye size={13} /> View</Link>
+                      <textarea
+                        value={noteDrafts[lead.id] ?? ''}
+                        onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [lead.id]: e.target.value }))}
+                        onBlur={() => void saveNote(lead.id)}
+                        placeholder="Add a note..."
+                        rows={2}
+                        className="w-[220px] resize-y rounded-md border border-slate-200 bg-white p-2 text-[12px] text-slate-700 placeholder:text-slate-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500"
+                      />
+                      <p className="mt-1 h-3 text-[10px] font-semibold text-slate-400">
+                        {savingNote === lead.id ? 'Saving...' : savedNote === lead.id ? 'Saved' : ''}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end">
                         <button
                           onClick={() => convertToSubmission(lead.id)}
                           disabled={converting === lead.id}

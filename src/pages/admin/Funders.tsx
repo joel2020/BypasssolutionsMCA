@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Phone, Mail, X } from 'lucide-react';
-import { type FundingPartner } from '../../lib/supabase';
+import { Plus, Phone, Mail, X, Pencil } from 'lucide-react';
+import { supabase, type FundingPartner } from '../../lib/supabase';
 import { useCreateFundingPartner, useFundingPartners } from '../../hooks/usePartnerSubmissions';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
@@ -8,18 +8,21 @@ function currency(value?: number | null) {
   return `$${Number(value || 0).toLocaleString()}`;
 }
 
-function AddFundingPartnerModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+// Handles both creating a new partner and editing an existing one.
+function FundingPartnerModal({ partner, onClose, onSaved }: { partner?: FundingPartner | null; onClose: () => void; onSaved: () => void }) {
   const { createFundingPartner, loading } = useCreateFundingPartner();
+  const isEdit = Boolean(partner);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    name: '',
-    contactName: '',
-    email: '',
-    phone: '',
-    minRevenue: '',
-    maxFunding: '',
-    industriesAccepted: '',
-    notes: '',
-    status: 'Active' as 'Active' | 'Inactive',
+    name: partner?.name ?? '',
+    contactName: partner?.contact_name ?? '',
+    email: partner?.email ?? '',
+    phone: partner?.phone ?? '',
+    minRevenue: partner?.min_revenue ? String(partner.min_revenue) : '',
+    maxFunding: partner?.max_funding ? String(partner.max_funding) : '',
+    industriesAccepted: (partner?.industries_accepted ?? []).join(', '),
+    notes: partner?.notes ?? '',
+    status: (partner?.status ?? 'Active') as 'Active' | 'Inactive',
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -31,32 +34,57 @@ function AddFundingPartnerModal({ onClose, onCreated }: { onClose: () => void; o
     event.preventDefault();
     setError(null);
 
+    const industries = form.industriesAccepted.split(',').map((item) => item.trim()).filter(Boolean);
+
     try {
-      await createFundingPartner({
-        name: form.name,
-        contactName: form.contactName,
-        email: form.email,
-        phone: form.phone,
-        minRevenue: Number(form.minRevenue || 0),
-        maxFunding: Number(form.maxFunding || 0),
-        industriesAccepted: form.industriesAccepted.split(',').map((item) => item.trim()).filter(Boolean),
-        notes: form.notes,
-        status: form.status,
-      });
-      onCreated();
+      if (isEdit && partner) {
+        setSaving(true);
+        const { error: updateError } = await supabase
+          .from('funding_partners')
+          .update({
+            name: form.name,
+            contact_name: form.contactName,
+            email: form.email,
+            phone: form.phone,
+            min_revenue: Number(form.minRevenue || 0),
+            max_funding: Number(form.maxFunding || 0),
+            industries_accepted: industries,
+            notes: form.notes,
+            status: form.status,
+          })
+          .eq('id', partner.id);
+        if (updateError) throw updateError;
+      } else {
+        await createFundingPartner({
+          name: form.name,
+          contactName: form.contactName,
+          email: form.email,
+          phone: form.phone,
+          minRevenue: Number(form.minRevenue || 0),
+          maxFunding: Number(form.maxFunding || 0),
+          industriesAccepted: industries,
+          notes: form.notes,
+          status: form.status,
+        });
+      }
+      onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to add funding partner.');
+      setError(err instanceof Error ? err.message : 'Unable to save funding partner.');
+    } finally {
+      setSaving(false);
     }
   }
+
+  const busy = loading || saving;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[20px] font-bold text-navy-900">Add Funding Partner</h2>
-            <p className="text-[13px] text-slate-500">Create a lender/funder record for submissions.</p>
+            <h2 className="text-[20px] font-bold text-navy-900">{isEdit ? 'Edit Funding Partner' : 'Add Funding Partner'}</h2>
+            <p className="text-[13px] text-slate-500">{isEdit ? 'Update this lender/funder record.' : 'Create a lender/funder record for submissions.'}</p>
           </div>
           <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -71,11 +99,19 @@ function AddFundingPartnerModal({ onClose, onCreated }: { onClose: () => void; o
             <label className="block"><span className="text-[12px] font-semibold text-slate-600">Maximum funding</span><input type="number" min="0" className="input-field mt-1.5" value={form.maxFunding} onChange={(e) => update('maxFunding', e.target.value)} /></label>
             <label className="block md:col-span-2"><span className="text-[12px] font-semibold text-slate-600">Industries accepted</span><input className="input-field mt-1.5" placeholder="Restaurants, Retail, Construction" value={form.industriesAccepted} onChange={(e) => update('industriesAccepted', e.target.value)} /></label>
           </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Status</span>
+              <select className="select-field mt-1.5" value={form.status} onChange={(e) => update('status', e.target.value as 'Active' | 'Inactive')}>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
           <label className="block"><span className="text-[12px] font-semibold text-slate-600">Notes</span><textarea className="input-field mt-1.5 min-h-24" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
           {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button disabled={loading} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Saving...' : 'Add Partner'}</button>
+            <button disabled={busy} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{busy ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Partner'}</button>
           </div>
         </form>
       </div>
@@ -87,10 +123,15 @@ export default function Funders() {
   const { data: funders, loading, error, refetch } = useFundingPartners();
   const [selected, setSelected] = useState<FundingPartner | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<FundingPartner | null>(null);
 
   useEffect(() => {
     setSelected((current) => {
-      if (current && funders.some((funder) => funder.id === current.id)) return current;
+      // Re-read the selected partner from the refreshed list so edits show immediately.
+      if (current) {
+        const fresh = funders.find((funder) => funder.id === current.id);
+        if (fresh) return fresh;
+      }
       return funders.length > 0 ? funders[0] : null;
     });
   }, [funders]);
@@ -137,13 +178,16 @@ export default function Funders() {
           {selected && (
             <div className="lg:col-span-2">
               <div className="card p-7">
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex items-center justify-between gap-4">
                   <div>
                     <h2 className="text-[20px] font-bold text-navy-900">{selected.name}</h2>
                     <span className={`badge mt-1 text-[11px] ${selected.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                       {selected.status}
                     </span>
                   </div>
+                  <button onClick={() => setEditing(selected)} className="btn-secondary h-9 px-4 text-[13px]">
+                    <Pencil size={14} /> Edit
+                  </button>
                 </div>
 
                 <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -198,7 +242,8 @@ export default function Funders() {
         </div>
       )}
 
-      {showAdd && <AddFundingPartnerModal onClose={() => setShowAdd(false)} onCreated={() => void refetch()} />}
+      {showAdd && <FundingPartnerModal onClose={() => setShowAdd(false)} onSaved={() => void refetch()} />}
+      {editing && <FundingPartnerModal partner={editing} onClose={() => setEditing(null)} onSaved={() => void refetch()} />}
     </div>
   );
 }
