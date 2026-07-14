@@ -217,7 +217,7 @@ export default function Leads() {
           </div>
         )}
       </div>
-      {showAddLead && <NewApplicationModal initialMode="lead" onClose={() => setShowAddLead(false)} onCreated={() => void refetch()} />}
+      {showAddLead && <NewApplicationModal onClose={() => setShowAddLead(false)} onCreated={() => void refetch()} />}
     </div>
   );
 }
