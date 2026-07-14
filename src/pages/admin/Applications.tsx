@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, ArrowRightCircle, Phone, FileSignature } from 'lucide-react';
+import { Search, Plus, ArrowRightCircle, Phone, Mail, FileSignature } from 'lucide-react';
 import { supabase, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { useDocuments } from '../../hooks/useDocuments';
@@ -158,10 +158,10 @@ export default function Applications() {
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left">
+            <table className="w-full min-w-[1140px] text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  {['Company', 'Owner', 'Phone', 'Requested', 'Rev/mo', 'Rep', 'Notes', ''].map((h) => (
+                  {['Company', 'Owner', 'Phone', 'Email', 'Requested', 'Rev/mo', 'Rep', 'Notes', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">{h}</th>
                   ))}
                 </tr>
@@ -177,6 +177,11 @@ export default function Applications() {
                     <td className="px-4 py-3 text-[13px]">
                       {lead.phone
                         ? <a href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-1.5 font-semibold text-accent-600 hover:underline"><Phone size={12} />{lead.phone}</a>
+                        : <span className="text-slate-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-[13px]">
+                      {lead.email
+                        ? <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1.5 font-medium text-accent-600 hover:underline"><Mail size={12} />{lead.email}</a>
                         : <span className="text-slate-400">—</span>}
                     </td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-slate-800">{money(lead.funding_amount_requested || 0)}</td>
