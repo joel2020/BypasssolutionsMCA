@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useScope } from '../hooks/useScope';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, FileText, Tag, Building2, CheckSquare,
   BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
-  Plus, ShieldCheck, ClipboardCheck, Wallet,
+  Plus, ShieldCheck, ClipboardCheck, Wallet, Lock,
 } from 'lucide-react';
 
 const navItems = [
@@ -40,9 +41,40 @@ function NavItem({ icon: Icon, label, href }: { icon: React.ElementType; label: 
   );
 }
 
+interface DirectoryHit {
+  id: string;
+  business_name: string;
+  assigned_rep: string | null;
+  status: string;
+}
+
 export default function AdminLayout() {
   const navigate = useNavigate();
   const { profile } = useCurrentUser();
+  const { canAccess } = useScope();
+
+  // Company-wide deal search. Backed by search_lead_directory(), which returns
+  // only name/rep/stage — a rep can see a deal exists but cannot read or open it.
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<DirectoryHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const term = query.trim();
+    if (!term) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = window.setTimeout(async () => {
+      const { data, error } = await supabase.rpc('search_lead_directory', { q: term });
+      if (!error) setResults((data ?? []) as DirectoryHit[]);
+      setSearching(false);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const displayName = profile?.full_name || profile?.email || 'Current User';
   const displayEmail = profile?.email || '';
   const initials = (profile?.full_name || profile?.email || 'CU').split(/[ @.]+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
@@ -97,9 +129,49 @@ export default function AdminLayout() {
               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setSearchOpen(true)}
+                onBlur={() => window.setTimeout(() => setSearchOpen(false), 180)}
                 placeholder="Search by company name..."
                 className="h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-12 pr-4 text-[14px] text-slate-100 placeholder:text-slate-400 outline-none transition focus:border-blue-400/70 focus:ring-2 focus:ring-blue-500/20"
               />
+
+              {searchOpen && query.trim().length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#0b1730] shadow-2xl">
+                  {searching && <p className="px-4 py-3 text-[13px] text-slate-400">Searching...</p>}
+                  {!searching && results.length === 0 && (
+                    <p className="px-4 py-3 text-[13px] text-slate-400">No deals match “{query.trim()}”.</p>
+                  )}
+                  {!searching &&
+                    results.map((hit) => {
+                      const mine = canAccess(hit.assigned_rep);
+                      return (
+                        <button
+                          key={hit.id}
+                          onClick={() => {
+                            setSearchOpen(false);
+                            setQuery('');
+                            navigate(`/admin/leads/${hit.id}`);
+                          }}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/10"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-[13px] font-bold text-white">{hit.business_name}</span>
+                            <span className="block text-[11px] text-slate-400">
+                              {hit.status} • {hit.assigned_rep || 'Unassigned'}
+                            </span>
+                          </span>
+                          {!mine && (
+                            <span className="inline-flex flex-none items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                              <Lock size={10} /> Not yours
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           </div>
 
