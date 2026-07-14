@@ -4,20 +4,17 @@ import { supabase } from '../lib/supabase';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import Logo from '../components/brand/Logo';
 import {
-  LayoutDashboard, FileText, Kanban, FolderOpen, Tag, Building2, CheckSquare,
-  MessageSquare, BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
-  Filter, Plus, ShieldCheck, ClipboardCheck,
+  LayoutDashboard, FileText, Tag, Building2, CheckSquare,
+  BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
+  Plus, ShieldCheck, ClipboardCheck,
 } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
-  { icon: FileText, label: 'Applications', href: '/admin/applications' },
-  { icon: Kanban, label: 'Pipeline', href: '/admin/pipeline' },
-  { icon: ClipboardCheck, label: 'Underwriting', href: '/admin/leads' },
+  { icon: FileText, label: 'Leads', href: '/admin/applications' },
+  { icon: ClipboardCheck, label: 'Submissions', href: '/admin/leads' },
   { icon: Tag, label: 'Offers', href: '/admin/offers' },
-  { icon: FolderOpen, label: 'Documents', href: '/admin/documents' },
   { icon: Building2, label: 'Funding Partners', href: '/admin/funders' },
-  { icon: MessageSquare, label: 'Communications', href: '/admin/email' },
   { icon: CheckSquare, label: 'Tasks', href: '/admin/tasks' },
   { icon: BarChart3, label: 'Reports', href: '/admin/reports' },
   { icon: Settings, label: 'Settings', href: '/admin/settings' },
@@ -59,7 +56,7 @@ export default function AdminLayout() {
 
   const Sidebar = () => (
     <aside className="w-[292px] flex-shrink-0 border-r border-white/10 bg-[#07152c]/95 backdrop-blur-xl flex flex-col h-full">
-      <div className="px-8 py-7 border-b border-white/10">
+      <div className="pl-4 pr-6 py-7 border-b border-white/10">
         <Logo size="lg" inverse />
         <p className="text-[13px] text-blue-100/90 font-medium mt-3">Working Capital. Smarter. Faster.</p>
       </div>
@@ -99,16 +96,13 @@ export default function AdminLayout() {
               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search applications, businesses, contacts..."
+                placeholder="Search by company name..."
                 className="h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-12 pr-4 text-[14px] text-slate-100 placeholder:text-slate-400 outline-none transition focus:border-blue-400/70 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
           </div>
 
           <div className="hidden md:flex items-center gap-3 ml-auto">
-            <button onClick={() => navigate('/admin/applications')} className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 text-[14px] font-semibold text-slate-100 hover:bg-white/10">
-              <Filter size={16} /> Filter
-            </button>
             <Link to="/admin/applications?new=1" className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-[14px] font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500">
               <Plus size={17} /> New Application
             </Link>
@@ -122,9 +116,9 @@ export default function AdminLayout() {
             {notificationsOpen && (
               <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-white/10 bg-[#0b1730] p-2 shadow-2xl">
                 {[
-                  ['New leads', 'Review today\'s new CRM leads.', '/admin/leads'],
+                  ['New leads', 'Review today\'s new CRM leads.', '/admin/applications'],
                   ['Open tasks', 'See pending follow-ups.', '/admin/tasks'],
-                  ['Documents', 'Review uploaded files.', '/admin/documents'],
+                  ['Submissions', 'Review active submissions.', '/admin/leads'],
                 ].map(([title, body, href]) => (
                   <button key={title} onClick={() => { setNotificationsOpen(false); navigate(href); }} className="block w-full rounded-lg px-3 py-3 text-left hover:bg-white/10">
                     <p className="text-[13px] font-semibold text-white">{title}</p>
