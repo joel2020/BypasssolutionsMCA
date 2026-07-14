@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileText, Mail, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileSignature, FileText, Mail, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlassCard } from './Dashboard';
 import { useLead } from '../../hooks/useLead';
@@ -44,6 +44,32 @@ export default function LeadDetail() {
   const { profile } = useCurrentUser();
   const isAdmin = profile?.role === 'admin';
   const [savingStatus, setSavingStatus] = useState(false);
+  const [sendingApp, setSendingApp] = useState(false);
+  const [appResult, setAppResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function sendEsignApplication() {
+    setSendingApp(true);
+    setAppResult(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const res = await fetch('/api/send-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ leadId: id }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || 'Unable to send the application.');
+      setAppResult({ ok: true, text: `Application emailed to ${payload.sentTo} (${payload.prefilled} fields prefilled).` });
+      await refetchLead();
+    } catch (err) {
+      setAppResult({ ok: false, text: err instanceof Error ? err.message : 'Unable to send the application.' });
+    } finally {
+      setSendingApp(false);
+    }
+  }
 
   async function changeStatus(next: string) {
     setSavingStatus(true);
@@ -81,6 +107,7 @@ export default function LeadDetail() {
             <div className="mt-2 flex flex-wrap gap-4 text-[13px] text-slate-400"><span className="inline-flex items-center gap-1.5"><UserRound size={14} />{ownerName}</span><span className="inline-flex items-center gap-1.5"><Mail size={14} />{lead.email}</span><span className="inline-flex items-center gap-1.5"><Phone size={14} />{lead.phone}</span></div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => void sendEsignApplication()} disabled={sendingApp} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><FileSignature size={15} />{sendingApp ? 'Sending...' : 'Send e-sign App'}</button>
             <button onClick={() => setShowEmail(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[13px] font-black text-white"><Mail size={15} />Send Email</button>
             <button onClick={() => setShowUpload(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Upload size={15} />Upload Document</button>
             <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>
@@ -90,6 +117,11 @@ export default function LeadDetail() {
       </div>
 
       <div className="p-6 lg:p-8">
+        {appResult && (
+          <div className={`mb-4 rounded-xl border p-4 text-[13px] ${appResult.ok ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-red-400/20 bg-red-500/10 text-red-100'}`}>
+            {appResult.text}
+          </div>
+        )}
         <div className="mb-5 overflow-x-auto"><div className="flex min-w-max gap-1">{tabs.map((tab) => <button key={tab} onClick={() => setActiveTab(tab)} className={`h-10 rounded-lg px-4 text-[13px] font-bold transition ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/8 hover:text-white'}`}>{tab}</button>)}</div></div>
         <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
           <GlassCard className="p-6">

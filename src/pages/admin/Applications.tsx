@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, ArrowRightCircle, Phone } from 'lucide-react';
+import { Search, Plus, ArrowRightCircle, Phone, FileSignature } from 'lucide-react';
 import { supabase, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { useDocuments } from '../../hooks/useDocuments';
@@ -24,6 +24,7 @@ export default function Applications() {
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [sendingApp, setSendingApp] = useState<string | null>(null);
   const { data: allLeads, loading, error, refetch } = useLeads();
   const { data: documents } = useDocuments();
 
@@ -39,6 +40,27 @@ export default function Applications() {
       return next;
     });
   }, [leads]);
+
+  async function sendApplication(leadId: string) {
+    setNotice(null);
+    setSendingApp(leadId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const res = await fetch('/api/send-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session?.access_token ?? ''}` },
+        body: JSON.stringify({ leadId }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || 'Unable to send the application.');
+      setNotice({ id: leadId, text: `Application emailed to ${payload.sentTo}.` });
+      await refetch();
+    } catch (err) {
+      setNotice({ id: leadId, text: err instanceof Error ? err.message : 'Unable to send the application.' });
+    } finally {
+      setSendingApp(null);
+    }
+  }
 
   async function saveNote(leadId: string) {
     const draft = noteDrafts[leadId] ?? '';
@@ -168,7 +190,15 @@ export default function Applications() {
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => void sendApplication(lead.id)}
+                          disabled={sendingApp === lead.id}
+                          title="Generate the Bypass application in signNow, prefilled, and email it for e-signature"
+                          className="btn-secondary h-8 px-3 text-[12px] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <FileSignature size={13} /> {sendingApp === lead.id ? 'Sending...' : 'Send app'}
+                        </button>
                         <button
                           onClick={() => convertToSubmission(lead.id)}
                           disabled={converting === lead.id}
