@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, type Lead } from '../lib/supabase';
-
-// Mirrors the normalisation in useLeads: the table has redundant amount columns
-// and some rows only populate one of each, which rendered deals as "$0".
-function normaliseLead(row: Record<string, unknown>): Lead {
-  const num = (key: string) => Number(row[key] ?? 0) || 0;
-  const requested = num('funding_amount_requested') || num('requested_amount');
-  const monthly =
-    num('monthly_revenue') ||
-    num('gross_monthly_revenue') ||
-    (num('annual_revenue') ? Math.round(num('annual_revenue') / 12) : 0);
-  return { ...(row as unknown as Lead), funding_amount_requested: requested, monthly_revenue: monthly };
-}
+import { normaliseLead } from '../lib/leadNormalise';
 
 export function useLead(id: string | undefined) {
   const [data, setData] = useState<Lead | null>(null);

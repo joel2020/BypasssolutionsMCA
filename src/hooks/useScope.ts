@@ -1,23 +1,27 @@
 import { useCurrentUser } from './useCurrentUser';
+import { canAccessRecord, canManageFunders, canSubmitToLender, isRestricted, type CrmRole } from '../lib/access';
 
 /**
- * Who can see what.
+ * Who can see what, in the UI.
  *
- * A `sales_rep` only sees the leads/deals assigned to them (company-wide stats on
- * the Dashboard stay visible to everyone). Admins and underwriters see everything.
- *
- * NOTE: this is the UI layer. The authoritative enforcement is Supabase RLS —
- * until those policies are in place a determined rep could still query directly.
+ * The rules live in src/lib/access.ts (pure + unit tested) and mirror the
+ * Supabase RLS policies. The database is the authority; this just keeps the UI
+ * from showing controls the DB would reject.
  */
 export function useScope() {
   const { profile } = useCurrentUser();
-  const role = profile?.role ?? null;
-  const isAdmin = role === 'admin';
-  const restricted = role === 'sales_rep';
+  const role = (profile?.role ?? null) as CrmRole;
   const repName = profile?.full_name || profile?.email || '';
+  const actor = { role, name: repName };
 
-  /** True if this user may see/open a record assigned to `assignedRep`. */
-  const canAccess = (assignedRep?: string | null) => !restricted || (assignedRep || '') === repName;
-
-  return { profile, role, isAdmin, restricted, repName, canAccess };
+  return {
+    profile,
+    role,
+    repName,
+    isAdmin: role === 'admin',
+    restricted: isRestricted(role),
+    canAccess: (assignedRep?: string | null) => canAccessRecord(actor, assignedRep),
+    canManageFunders: canManageFunders(role),
+    canSubmitToLender: canSubmitToLender(role),
+  };
 }
