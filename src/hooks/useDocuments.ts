@@ -157,6 +157,21 @@ export function useUploadDocument() {
   return { uploadDocument, uploading, error };
 }
 
+/**
+ * Removes a document: the storage object first, then the row.
+ * Storage failures are non-fatal (an orphaned file is better than a phantom row
+ * the user can't get rid of), but a row-delete failure is surfaced.
+ */
+export async function deleteDocument(doc: { id: string; storage_path?: string | null; file_path?: string | null }) {
+  const path = doc.storage_path || doc.file_path || '';
+  if (path) {
+    const { error: storageError } = await supabase.storage.from(DOCUMENT_BUCKET).remove([path]);
+    if (storageError) console.error('Could not remove the stored file.', storageError);
+  }
+  const { error } = await supabase.from('documents').delete().eq('id', doc.id);
+  if (error) throw error;
+}
+
 export async function createDocumentSignedUrl(storagePath: string, expiresInSeconds = 300) {
   const { data, error } = await supabase.storage
     .from(DOCUMENT_BUCKET)

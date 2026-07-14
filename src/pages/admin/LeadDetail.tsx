@@ -12,6 +12,8 @@ import { useApplicationByLead } from '../../hooks/useApplications';
 import { usePartnerSubmissions } from '../../hooks/usePartnerSubmissions';
 import { sendGmailEmail, syncGmail, useGmailMessages, type GmailMessage } from '../../hooks/useGmail';
 import { DocumentList, PartnerSubmissionList, SubmitToLenderModal, UploadDocumentModal } from '../../components/admin/CrmWorkflowComponents';
+import ConvertToBypassModal from '../../components/admin/ConvertToBypassModal';
+import { createDocumentSignedUrl } from '../../hooks/useDocuments';
 import { ErrorState, NotFoundState, SkeletonLoader } from '../../components/admin/States';
 import { leadStatusColors, pipelineStages, stageForStatus, statusForStage } from '../../lib/status';
 import { maskAccount, maskEIN, maskSSN } from '../../utils/mask';
@@ -47,6 +49,7 @@ export default function LeadDetail() {
   const isAdmin = profile?.role === 'admin';
   const [savingStatus, setSavingStatus] = useState(false);
   const [sendingApp, setSendingApp] = useState(false);
+  const [convertSource, setConvertSource] = useState<{ url: string | null; name: string } | null>(null);
   const [appResult, setAppResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function sendEsignApplication() {
@@ -177,7 +180,21 @@ export default function LeadDetail() {
             {activeTab === 'Business Info' && <div className="grid gap-5 md:grid-cols-3"><Field label="Legal name" value={lead.business_name} /><Field label="DBA" value={lead.dba} /><Field label="Industry" value={lead.industry} /><Field label="Entity type" value={text(extended, 'entity_type')} /><Field label="Business start date" value={text(extended, 'start_date')} /><Field label="Masked EIN" value={maskEIN(text(extended, 'ein_last_four', ''))} /></div>}
             {activeTab === 'Owner Info' && <div className="grid gap-5 md:grid-cols-3"><Field label="Owner name" value={ownerName} /><Field label="Title" value={text(extended, 'owner_title')} /><Field label="Ownership" value={lead.ownership_pct} /><Field label="Email" value={lead.email} /><Field label="Phone" value={lead.phone} /><Field label="Masked SSN" value={maskSSN(text(extended, 'ssn_last_four', ''))} /></div>}
             {activeTab === 'Underwriting' && <div className="grid gap-5 md:grid-cols-4"><Field label="Average daily balance" value={currency.format(lead.avg_daily_balance)} /><Field label="Monthly deposits" value={currency.format(lead.monthly_deposits)} /><Field label="NSFs last 90 days" value={String(numberValue(extended, 'nsfs_last_90_days'))} /><Field label="Current MCA balances" value={currency.format(numberValue(extended, 'current_mca_balances'))} /><Field label="Account" value={maskAccount(text(extended, 'account_last_four', ''))} /></div>}
-            {activeTab === 'Documents' && <DocumentList documents={documents} />}
+            {activeTab === 'Documents' && (
+              <DocumentList
+                documents={documents}
+                onChanged={() => void refetchDocuments()}
+                onConvert={async (doc) => {
+                  let url: string | null = null;
+                  try {
+                    url = await createDocumentSignedUrl(doc.storage_path || doc.file_path || '');
+                  } catch {
+                    // the rep can still fill it in by hand
+                  }
+                  setConvertSource({ url, name: doc.file_name || 'uploaded application' });
+                }}
+              />
+            )}
             {activeTab === 'Email Activity' && <EmailActivity messages={gmailMessages} lastContactAt={lead.last_contact_at} onSend={() => setShowEmail(true)} onSync={async () => { setEmailActionError(null); try { await syncGmail(); await refetchGmailMessages(); } catch (err) { setEmailActionError(err instanceof Error ? err.message : 'Unable to sync Gmail.'); } }} error={emailActionError} />}
             {activeTab === 'Lender Submissions' && <PartnerSubmissionList submissions={submissions} leadId={id} onChanged={refetchSubmissions} />}
             {activeTab === 'Offers' && <List items={offers.map((offer) => `${offer.funder_name}: ${currency.format(offer.funding_amount)} • ${offer.status}`)} empty="No offers created." />}
@@ -190,6 +207,15 @@ export default function LeadDetail() {
         </div>
       </div>
       {showEmail && <LeadEmailModal leadEmail={lead.email} leadId={id} onClose={() => setShowEmail(false)} onSent={() => { void refetchGmailMessages(); }} />}
+      {convertSource && lead && (
+        <ConvertToBypassModal
+          lead={lead}
+          sourceUrl={convertSource.url}
+          sourceName={convertSource.name}
+          onClose={() => setConvertSource(null)}
+          onDone={() => { void refetchLead(); void refetchDocuments(); }}
+        />
+      )}
       {showUpload && <UploadDocumentModal leadId={id} applicationId={currentApplicationId} onClose={() => setShowUpload(false)} onUploaded={() => { void refetchDocuments(); void refetchApplication(); }} />}
       {showSubmit && currentApplicationId && <SubmitToLenderModal leadId={id} applicationId={currentApplicationId} documents={documents} onClose={() => setShowSubmit(false)} onSubmitted={refetchSubmissions} />}
     </div>

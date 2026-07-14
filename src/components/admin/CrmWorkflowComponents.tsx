@@ -1,6 +1,6 @@
 import { useMemo, useState, type DragEvent } from 'react';
-import { Eye, FileText, Send, Upload, XCircle } from 'lucide-react';
-import { createDocumentSignedUrl, REQUIRED_DOCUMENT_TYPES, useUploadDocument } from '../../hooks/useDocuments';
+import { Eye, FileSignature, FileText, Send, Trash2, Upload, XCircle } from 'lucide-react';
+import { createDocumentSignedUrl, deleteDocument, REQUIRED_DOCUMENT_TYPES, useUploadDocument } from '../../hooks/useDocuments';
 import { useCreatePartnerSubmission, useFundingPartners } from '../../hooks/usePartnerSubmissions';
 import type { Document, FundingPartner, PartnerSubmission } from '../../lib/supabase';
 
@@ -88,8 +88,21 @@ export function UploadDocumentModal({ leadId, applicationId, onClose, onUploaded
   );
 }
 
-export function DocumentList({ documents, empty = 'No documents uploaded yet' }: { documents: Document[]; empty?: string }) {
+export function DocumentList({
+  documents,
+  empty = 'No documents uploaded yet',
+  onChanged,
+  onConvert,
+}: {
+  documents: Document[];
+  empty?: string;
+  onChanged?: () => void;
+  onConvert?: (doc: Document) => void;
+}) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ url: string; name: string } | null>(null);
 
   async function openInViewer(doc: Document) {
@@ -102,15 +115,54 @@ export function DocumentList({ documents, empty = 'No documents uploaded yet' }:
     }
   }
 
+  async function removeDocument(doc: Document) {
+    setActionError(null);
+    setDeletingId(doc.id);
+    try {
+      await deleteDocument(doc);
+      setConfirmId(null);
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to delete this document.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (documents.length === 0) return <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-[14px] text-slate-400">{empty}</div>;
 
   return (
     <>
+      {actionError && <div className="mb-3 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-[13px] text-red-100">{actionError}</div>}
       <div className="space-y-3">
         {documents.map((doc) => (
           <div key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
             <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/15 text-blue-200"><FileText size={18} /></span><div className="min-w-0"><p className="truncate text-[14px] font-bold text-white">{doc.file_name}</p><p className="text-[12px] text-slate-400">{doc.document_type || doc.doc_type} • {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : 'Private file'}</p></div></div>
-            <div className="flex items-center gap-2"><StatusBadge status={doc.status} /><button onClick={() => void openInViewer(doc)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><Eye size={13} />{loadingId === doc.id ? 'Opening...' : 'View'}</button></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={doc.status} />
+              <button onClick={() => void openInViewer(doc)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><Eye size={13} />{loadingId === doc.id ? 'Opening...' : 'View'}</button>
+              {onConvert && (
+                <button
+                  onClick={() => onConvert(doc)}
+                  title="Rebuild this as a Bypass application, prefilled, and send it for signature"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-violet-600/90 px-3 text-[12px] font-bold text-white hover:bg-violet-600"
+                >
+                  <FileSignature size={13} /> Convert to Bypass App
+                </button>
+              )}
+              {confirmId === doc.id ? (
+                <span className="inline-flex items-center gap-2">
+                  <button onClick={() => void removeDocument(doc)} disabled={deletingId === doc.id} className="inline-flex h-9 items-center gap-2 rounded-lg bg-red-600 px-3 text-[12px] font-bold text-white disabled:opacity-60">
+                    {deletingId === doc.id ? 'Deleting...' : 'Confirm delete'}
+                  </button>
+                  <button onClick={() => setConfirmId(null)} className="inline-flex h-9 items-center rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-300 hover:bg-white/10">Cancel</button>
+                </span>
+              ) : (
+                <button onClick={() => { setActionError(null); setConfirmId(doc.id); }} title="Delete this document" className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-400/20 px-3 text-[12px] font-bold text-red-200 hover:bg-red-500/10">
+                  <Trash2 size={13} /> Delete
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
