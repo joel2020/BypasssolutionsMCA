@@ -169,8 +169,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }),
     });
 
-    // 4) Record it on the lead.
-    await admin.from('leads').update({ status: 'Application Started' }).eq('id', leadId);
+    // 4) Record it on the lead so the executed copy can be pulled back once signed.
+    await admin
+      .from('leads')
+      .update({
+        status: 'Application Started',
+        signnow_document_id: documentId,
+        signnow_sent_at: new Date().toISOString(),
+        signnow_signed_at: null,
+      })
+      .eq('id', leadId);
     try {
       await admin.from('communications').insert({
         lead_id: leadId,

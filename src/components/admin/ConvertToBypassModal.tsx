@@ -66,13 +66,23 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
 
   const set = (key: string) => (value: string) => setForm((cur) => ({ ...cur, [key]: value }));
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  /**
+   * `send` = also email the merchant the Bypass application to sign.
+   *
+   * That signature is what makes the application genuinely Bypass's — it is the
+   * difference between telling a funder the deal came from Bypass and it
+   * actually having done so.
+   */
+  async function submit(send: boolean) {
     setError(null);
     setSuccess(null);
 
     if (!form.legal_name.trim() || !form.owner_full_name.trim()) {
       setError('Legal business name and owner name are required.');
+      return;
+    }
+    if (send && !form.business_email.trim()) {
+      setError('An email address is required to send the application for signature.');
       return;
     }
 
@@ -93,23 +103,36 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       const { error: updateError } = await supabase.from('leads').update(patch).eq('id', lead.id);
       if (updateError) throw updateError;
 
-      // Render the completed Bypass application and attach it to the deal.
-      // No email is sent — the applicant is not contacted.
       const { data: sessionData } = await supabase.auth.getSession();
-      const res = await fetch('/api/generate-application', {
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
+      };
+
+      // Always attach a completed Bypass application to the deal.
+      const genRes = await fetch('/api/generate-application', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
-        },
+        headers,
         body: JSON.stringify({ leadId: lead.id, sourceDocumentId }),
       });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || 'Unable to generate the Bypass application.');
+      const gen = await genRes.json().catch(() => ({}));
+      if (!genRes.ok) throw new Error(gen?.error || 'Unable to generate the Bypass application.');
 
-      setSuccess(`Bypass application generated (${payload.fieldsFilled} fields) and attached to this deal. No email was sent.`);
+      if (!send) {
+        setSuccess(`Bypass application generated (${gen.fieldsFilled} fields) and attached. No email was sent.`);
+      } else {
+        const sendRes = await fetch('/api/send-application', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ leadId: lead.id }),
+        });
+        const sent = await sendRes.json().catch(() => ({}));
+        if (!sendRes.ok) throw new Error(sent?.error || 'Application attached, but sending it for signature failed.');
+        setSuccess(`Bypass application attached and sent to ${sent.sentTo} to sign. Once they sign, use "Check for signature" to pull the executed copy onto this deal.`);
+      }
+
       onDone();
-      window.setTimeout(onClose, 2400);
+      window.setTimeout(onClose, send ? 3200 : 2400);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to convert this application.');
     } finally {
@@ -130,7 +153,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form onSubmit={(e) => { e.preventDefault(); void submit(true); }} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             {sourceUrl && (
               <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-[12px] font-bold text-blue-200 hover:bg-white/10">
@@ -139,9 +162,10 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
             )}
 
             <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-[12px] leading-relaxed text-blue-100">
-              This builds a completed Bypass application from these details and attaches it to the deal.
-              <strong className="text-white"> The applicant is not contacted and no email is sent.</strong>{' '}
-              The application they already signed stays on the file as the executed document.
+              <strong className="text-white">Convert &amp; send to sign</strong> attaches the completed Bypass application
+              and emails it to the merchant — one tap for them. Their signature is what makes this genuinely Bypass's
+              application, which is what a funder relies on. <strong className="text-white">Attach only</strong> files the
+              completed app without contacting them; in that case the document they already signed remains the executed one.
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -166,10 +190,19 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
             {success && <div className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-100"><CheckCircle2 size={15} /> {success}</div>}
           </div>
 
-          <div className="flex flex-shrink-0 justify-end gap-3 border-t border-white/10 px-5 py-3">
+          <div className="flex flex-shrink-0 flex-wrap justify-end gap-3 border-t border-white/10 px-5 py-3">
             <button type="button" onClick={onClose} className="inline-flex h-10 items-center rounded-xl border border-white/10 px-4 text-[13px] font-bold text-slate-300 hover:bg-white/10">Cancel</button>
-            <button disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
-              <FileSignature size={15} />{saving ? 'Converting...' : 'Convert & attach to deal'}
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void submit(false)}
+              title="Attach a completed Bypass application to the deal without contacting the merchant"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-[13px] font-bold text-slate-100 hover:bg-white/10 disabled:opacity-60"
+            >
+              Attach only
+            </button>
+            <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
+              <FileSignature size={15} />{saving ? 'Working...' : 'Convert & send to sign'}
             </button>
           </div>
         </form>
