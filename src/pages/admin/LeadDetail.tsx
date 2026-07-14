@@ -49,7 +49,7 @@ export default function LeadDetail() {
   const isAdmin = profile?.role === 'admin';
   const [savingStatus, setSavingStatus] = useState(false);
   const [sendingApp, setSendingApp] = useState(false);
-  const [convertSource, setConvertSource] = useState<{ url: string | null; name: string } | null>(null);
+  const [convertSource, setConvertSource] = useState<{ url: string | null; name: string; id: string } | null>(null);
   const [appResult, setAppResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function sendEsignApplication() {
@@ -191,7 +191,7 @@ export default function LeadDetail() {
                   } catch {
                     // the rep can still fill it in by hand
                   }
-                  setConvertSource({ url, name: doc.file_name || 'uploaded application' });
+                  setConvertSource({ url, name: doc.file_name || 'uploaded application', id: doc.id });
                 }}
               />
             )}
@@ -212,6 +212,7 @@ export default function LeadDetail() {
           lead={lead}
           sourceUrl={convertSource.url}
           sourceName={convertSource.name}
+          sourceDocumentId={convertSource.id}
           onClose={() => setConvertSource(null)}
           onDone={() => { void refetchLead(); void refetchDocuments(); }}
         />

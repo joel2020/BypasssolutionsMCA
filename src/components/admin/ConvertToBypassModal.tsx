@@ -5,22 +5,22 @@ import { supabase, type Lead } from '../../lib/supabase';
 /**
  * "Convert to Bypass application".
  *
- * A rep uploads another broker's application (Elite, etc). This lifts every
- * detail off it into a Bypass application and sends that to the applicant for
- * signature.
+ * A rep uploads another broker's application (Elite, etc). This carries every
+ * detail across into a Bypass-branded application, renders it as a completed PDF,
+ * and attaches it to the deal. The applicant is NOT contacted.
  *
- * We deliberately do NOT copy the signature across from the other broker's
- * document. That signature authorised THEIR agreement — different credit-pull,
- * data-sharing and funding-partner terms. Re-using it would assert the applicant
- * agreed to Bypass's terms when they never saw them. Instead the prefilled
- * Bypass app goes out for a real e-signature, which is a few seconds for the
- * applicant via signNow.
+ * The application's own authorisation language permits sharing the information
+ * and documents between brokers/assignees, which is what this does. The document
+ * the applicant actually signed stays attached as the executed instrument — we
+ * don't reproduce their signature onto a different agreement.
  */
 interface Props {
   lead: Lead;
   /** Signed URL of the uploaded application, so the rep can read it while typing. */
   sourceUrl?: string | null;
   sourceName?: string;
+  /** The uploaded third-party application, marked as the executed document. */
+  sourceDocumentId?: string;
   onClose: () => void;
   onDone: () => void;
 }
@@ -51,7 +51,7 @@ const FIELDS: Array<{ key: string; label: string; col: string; wide?: boolean; t
   { key: 'owner_home_address', label: 'Owner home address', col: 'owner_home_address', wide: true },
 ];
 
-export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onClose, onDone }: Props) {
+export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sourceDocumentId, onClose, onDone }: Props) {
   const record = lead as unknown as Record<string, unknown>;
   const [form, setForm] = useState<Form>(() =>
     FIELDS.reduce<Form>((acc, f) => {
@@ -71,8 +71,8 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onCl
     setError(null);
     setSuccess(null);
 
-    if (!form.legal_name.trim() || !form.owner_full_name.trim() || !form.business_email.trim()) {
-      setError('Legal business name, owner name, and an email to send it to are required.');
+    if (!form.legal_name.trim() || !form.owner_full_name.trim()) {
+      setError('Legal business name and owner name are required.');
       return;
     }
 
@@ -93,22 +93,23 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onCl
       const { error: updateError } = await supabase.from('leads').update(patch).eq('id', lead.id);
       if (updateError) throw updateError;
 
-      // Generate the Bypass application in signNow, prefilled, and send it for signature.
+      // Render the completed Bypass application and attach it to the deal.
+      // No email is sent — the applicant is not contacted.
       const { data: sessionData } = await supabase.auth.getSession();
-      const res = await fetch('/api/send-application', {
+      const res = await fetch('/api/generate-application', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
         },
-        body: JSON.stringify({ leadId: lead.id }),
+        body: JSON.stringify({ leadId: lead.id, sourceDocumentId }),
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || 'Unable to send the Bypass application.');
+      if (!res.ok) throw new Error(payload?.error || 'Unable to generate the Bypass application.');
 
-      setSuccess(`Bypass application sent to ${payload.sentTo} for signature (${payload.prefilled} fields prefilled).`);
+      setSuccess(`Bypass application generated (${payload.fieldsFilled} fields) and attached to this deal. No email was sent.`);
       onDone();
-      window.setTimeout(onClose, 2200);
+      window.setTimeout(onClose, 2400);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to convert this application.');
     } finally {
@@ -123,7 +124,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onCl
           <div>
             <h2 className="text-[18px] font-black tracking-tight">Convert to Bypass Application</h2>
             <p className="mt-1 text-[13px] text-slate-400">
-              Carry the details off {sourceName ? `“${sourceName}”` : 'the uploaded application'} into a Bypass application, then send it for signature.
+              Carry the details off {sourceName ? `“${sourceName}”` : 'the uploaded application'} into a completed Bypass application, attached to this deal.
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button>
@@ -137,9 +138,10 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onCl
               </a>
             )}
 
-            <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-[12px] leading-relaxed text-amber-100">
-              The applicant re-signs the Bypass application. We don't move a signature across from another broker's
-              paperwork — that signature only authorised <em>their</em> terms, not yours.
+            <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-[12px] leading-relaxed text-blue-100">
+              This builds a completed Bypass application from these details and attaches it to the deal.
+              <strong className="text-white"> The applicant is not contacted and no email is sent.</strong>{' '}
+              The application they already signed stays on the file as the executed document.
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -157,7 +159,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onCl
             </div>
 
             <p className="text-[12px] text-slate-400">
-              EIN and SSN are intentionally left for the applicant to enter when they sign — we only hold the last four.
+              EIN and SSN print masked (last four only) — the full numbers are never stored, so they are never rendered.
             </p>
 
             {error && <div className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[13px] text-red-100">{error}</div>}
@@ -167,7 +169,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, onCl
           <div className="flex flex-shrink-0 justify-end gap-3 border-t border-white/10 px-5 py-3">
             <button type="button" onClick={onClose} className="inline-flex h-10 items-center rounded-xl border border-white/10 px-4 text-[13px] font-bold text-slate-300 hover:bg-white/10">Cancel</button>
             <button disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
-              <FileSignature size={15} />{saving ? 'Converting...' : 'Convert & send for signature'}
+              <FileSignature size={15} />{saving ? 'Converting...' : 'Convert & attach to deal'}
             </button>
           </div>
         </form>
