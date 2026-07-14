@@ -39,6 +39,7 @@ const Calls = lazy(() => import('./pages/admin/Calls'));
 const SMS = lazy(() => import('./pages/admin/SMS'));
 const Email = lazy(() => import('./pages/admin/Email'));
 const Commissions = lazy(() => import('./pages/admin/Commissions'));
+const Earnings = lazy(() => import('./pages/admin/Earnings'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 
@@ -238,6 +239,7 @@ export default function App() {
           <Route path="sms" element={<SMS />} />
           <Route path="email" element={<Email />} />
           <Route path="commissions" element={<Commissions />} />
+          <Route path="earnings" element={<Earnings />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
         </Route>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, Plus, Upload, Download, ChevronDown } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useReps } from '../../hooks/useReps';
+import { useScope } from '../../hooks/useScope';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import { leadStatusColors } from '../../lib/status';
 import type { LeadStatus } from '../../lib/supabase';
@@ -21,11 +22,13 @@ export default function Leads() {
   const [showAddLead, setShowAddLead] = useState(false);
   const { data: leads, loading, error, refetch } = useLeads({ status: filterStatus === 'All' ? 'All' : filterStatus as never, assignedRep: filterRep, source: filterSource });
   const { data: repProfiles } = useReps();
+  const { canAccess } = useScope();
 
   const reps = ['All', ...repProfiles.map((rep) => rep.full_name || rep.email), 'Unassigned'];
 
   const filtered = leads.filter((l) => {
     if (!submissionStatuses.includes(l.status)) return false;
+    if (!canAccess(l.assigned_rep)) return false; // reps only see their own deals
     const q = search.toLowerCase();
     return (
       !q ||

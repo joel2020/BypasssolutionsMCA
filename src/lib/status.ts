@@ -15,6 +15,42 @@ export const canonicalLeadStatuses: LeadStatus[] = [
 
 export const activeLeadStatuses: LeadStatus[] = canonicalLeadStatuses.filter((status) => !['Declined', 'Lost'].includes(status));
 
+/**
+ * The 7-stage pipeline board.
+ *
+ * Each stage maps onto the status values already stored in Supabase, so we get
+ * the new board without migrating live rows. `primary` is what we write when a
+ * deal is moved into that stage.
+ */
+export interface PipelineStage {
+  label: string;
+  statuses: LeadStatus[];
+  primary: LeadStatus;
+}
+
+export const pipelineStages: PipelineStage[] = [
+  { label: 'New lead', statuses: ['New Lead', 'Contacted'], primary: 'New Lead' },
+  { label: 'Application started', statuses: ['Application Started'], primary: 'Application Started' },
+  { label: 'Documents needed', statuses: ['Documents Needed'], primary: 'Documents Needed' },
+  { label: 'Under review', statuses: ['Under Review'], primary: 'Under Review' },
+  { label: 'Approved', statuses: ['Pre-Approved'], primary: 'Pre-Approved' },
+  { label: 'In-contract', statuses: ['Offer Sent'], primary: 'Offer Sent' },
+  { label: 'Funded', statuses: ['Funded'], primary: 'Funded' },
+];
+
+/** Stage label a lead currently sits in, or null for Declined/Lost (off the board). */
+export function stageForStatus(status: LeadStatus): string | null {
+  return pipelineStages.find((stage) => stage.statuses.includes(status))?.label ?? null;
+}
+
+/** The status to persist when a deal is moved into a stage. */
+export function statusForStage(label: string): LeadStatus | null {
+  return pipelineStages.find((stage) => stage.label === label)?.primary ?? null;
+}
+
+/** Approved-or-better, used for "Active approvals $" and "Recent approvals". */
+export const approvedStatuses: LeadStatus[] = ['Pre-Approved', 'Offer Sent'];
+
 export const leadStatusColors: Record<LeadStatus, string> = {
   'New Lead': 'bg-blue-50 text-blue-700 border-blue-200',
   Contacted: 'bg-cyan-50 text-cyan-700 border-cyan-200',

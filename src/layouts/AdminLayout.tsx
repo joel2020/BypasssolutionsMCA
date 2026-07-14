@@ -6,7 +6,7 @@ import Logo from '../components/brand/Logo';
 import {
   LayoutDashboard, FileText, Tag, Building2, CheckSquare,
   BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
-  Plus, ShieldCheck, ClipboardCheck,
+  Plus, ShieldCheck, ClipboardCheck, Wallet,
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { icon: ClipboardCheck, label: 'Submissions', href: '/admin/leads' },
   { icon: Tag, label: 'Offers', href: '/admin/offers' },
   { icon: Building2, label: 'Funding Partners', href: '/admin/funders' },
+  { icon: Wallet, label: 'Earnings', href: '/admin/earnings' },
   { icon: CheckSquare, label: 'Tasks', href: '/admin/tasks' },
   { icon: BarChart3, label: 'Reports', href: '/admin/reports' },
   { icon: Settings, label: 'Settings', href: '/admin/settings' },

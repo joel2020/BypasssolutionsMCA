@@ -4,6 +4,7 @@ import { Search, Plus, ArrowRightCircle, Phone, FileSignature } from 'lucide-rea
 import { supabase, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { useDocuments } from '../../hooks/useDocuments';
+import { useScope } from '../../hooks/useScope';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import NewApplicationModal from '../../components/admin/NewApplicationModal';
 
@@ -27,8 +28,13 @@ export default function Applications() {
   const [sendingApp, setSendingApp] = useState<string | null>(null);
   const { data: allLeads, loading, error, refetch } = useLeads();
   const { data: documents } = useDocuments();
+  const { canAccess } = useScope();
 
-  const leads = useMemo(() => allLeads.filter((lead) => leadOnlyStatuses.includes(lead.status)), [allLeads]);
+  // Reps only see leads assigned to them.
+  const leads = useMemo(
+    () => allLeads.filter((lead) => leadOnlyStatuses.includes(lead.status) && canAccess(lead.assigned_rep)),
+    [allLeads, canAccess],
+  );
 
   // Seed the editable note boxes from Supabase without clobbering in-progress edits.
   useEffect(() => {

@@ -13,10 +13,11 @@ import { usePartnerSubmissions } from '../../hooks/usePartnerSubmissions';
 import { sendGmailEmail, syncGmail, useGmailMessages, type GmailMessage } from '../../hooks/useGmail';
 import { DocumentList, PartnerSubmissionList, SubmitToLenderModal, UploadDocumentModal } from '../../components/admin/CrmWorkflowComponents';
 import { ErrorState, NotFoundState, SkeletonLoader } from '../../components/admin/States';
-import { canonicalLeadStatuses, leadStatusColors } from '../../lib/status';
+import { leadStatusColors, pipelineStages, stageForStatus, statusForStage } from '../../lib/status';
 import { maskAccount, maskEIN, maskSSN } from '../../utils/mask';
 import { supabase } from '../../lib/supabase';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { useScope } from '../../hooks/useScope';
 
 const tabs = ['Overview', 'Business Info', 'Owner Info', 'Documents', 'Email Activity', 'Lender Submissions', 'Offers', 'Tasks', 'Notes', 'Activity Timeline'];
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -42,6 +43,7 @@ export default function LeadDetail() {
   const [emailActionError, setEmailActionError] = useState<string | null>(null);
   const { data: lead, loading, error, notFound, refetch: refetchLead } = useLead(id);
   const { profile } = useCurrentUser();
+  const { canAccess } = useScope();
   const isAdmin = profile?.role === 'admin';
   const [savingStatus, setSavingStatus] = useState(false);
   const [sendingApp, setSendingApp] = useState(false);
@@ -71,7 +73,9 @@ export default function LeadDetail() {
     }
   }
 
-  async function changeStatus(next: string) {
+  // The dropdown shows the 7 pipeline stage names; we persist the underlying status value.
+  async function changeStatus(selection: string) {
+    const next = statusForStage(selection) ?? selection;
     setSavingStatus(true);
     try {
       await supabase.from('leads').update({ status: next }).eq('id', id);
@@ -92,6 +96,21 @@ export default function LeadDetail() {
   if (error) return <div className="min-h-screen bg-[#071225] p-6 lg:p-8"><ErrorState message={error} /></div>;
   if (notFound || !lead) return <NotFoundState />;
 
+  // A rep may not open a deal that is not assigned to them.
+  if (!canAccess(lead.assigned_rep)) {
+    return (
+      <div className="min-h-screen bg-[#071225] p-6 text-white lg:p-8">
+        <Link to="/admin/applications" className="mb-6 inline-flex items-center gap-2 text-[13px] font-semibold text-slate-400 hover:text-white"><ArrowLeft size={15} /> Back</Link>
+        <div className="mx-auto mt-16 max-w-md rounded-2xl border border-amber-400/20 bg-amber-500/10 p-8 text-center">
+          <h1 className="text-[20px] font-bold text-amber-100">This deal isn't assigned to you</h1>
+          <p className="mt-2 text-[14px] text-amber-200/80">
+            It belongs to {lead.assigned_rep || 'another rep'}. Ask an admin if you need access.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const extended = lead as unknown as ExtendedLead;
   const ownerName = `${lead.first_name} ${lead.last_name}`.trim() || text(extended, 'owner_full_name');
   const statusClass = leadStatusColors[lead.status] ?? 'bg-slate-100 text-slate-600 border-slate-200';
@@ -103,7 +122,7 @@ export default function LeadDetail() {
         <Link to="/admin/applications" className="mb-4 inline-flex items-center gap-2 text-[13px] font-semibold text-slate-400 hover:text-white"><ArrowLeft size={15} /> Leads</Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex flex-wrap items-center gap-3"><h1 className="text-[28px] font-black tracking-tight">{lead.business_name}</h1>{isAdmin ? <select value={lead.status} disabled={savingStatus} onChange={(e) => changeStatus(e.target.value)} className={`cursor-pointer rounded-full border px-3 py-1 text-[12px] font-bold outline-none ${statusClass}`}>{canonicalLeadStatuses.map((s) => <option key={s} value={s} className="text-slate-900">{s}</option>)}</select> : <span className={`rounded-full border px-3 py-1 text-[12px] font-bold ${statusClass}`}>{lead.status}</span>}</div>
+            <div className="flex flex-wrap items-center gap-3"><h1 className="text-[28px] font-black tracking-tight">{lead.business_name}</h1>{isAdmin ? <select value={stageForStatus(lead.status) ?? lead.status} disabled={savingStatus} onChange={(e) => changeStatus(e.target.value)} className={`cursor-pointer rounded-full border px-3 py-1 text-[12px] font-bold outline-none ${statusClass}`}>{pipelineStages.map((stage) => <option key={stage.label} value={stage.label} className="text-slate-900">{stage.label}</option>)}<option value="Declined" className="text-slate-900">Declined</option><option value="Lost" className="text-slate-900">Lost</option></select> : <span className={`rounded-full border px-3 py-1 text-[12px] font-bold ${statusClass}`}>{stageForStatus(lead.status) ?? lead.status}</span>}</div>
             <div className="mt-2 flex flex-wrap gap-4 text-[13px] text-slate-400"><span className="inline-flex items-center gap-1.5"><UserRound size={14} />{ownerName}</span><span className="inline-flex items-center gap-1.5"><Mail size={14} />{lead.email}</span><span className="inline-flex items-center gap-1.5"><Phone size={14} />{lead.phone}</span></div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

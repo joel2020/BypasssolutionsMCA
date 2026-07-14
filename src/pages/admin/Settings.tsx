@@ -61,7 +61,22 @@ function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCre
         },
       });
 
-      if (invokeError) throw invokeError;
+      if (invokeError) {
+        // supabase-js reports a generic "Edge Function returned a non-2xx status
+        // code" and hides the function's response body. Read it so the admin sees
+        // the real reason (email already exists, missing secret, not an admin...).
+        let detail = invokeError.message;
+        const context = (invokeError as unknown as { context?: Response }).context;
+        if (context && typeof context.json === 'function') {
+          try {
+            const payload = await context.json();
+            if (payload?.error) detail = payload.error;
+          } catch {
+            // fall back to the generic message
+          }
+        }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(data.error);
       onCreated();
       onClose();
