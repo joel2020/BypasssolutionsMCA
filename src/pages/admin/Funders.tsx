@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Phone, Mail, X, Pencil } from 'lucide-react';
 import { supabase, type FundingPartner } from '../../lib/supabase';
 import { useCreateFundingPartner, useFundingPartners } from '../../hooks/usePartnerSubmissions';
+import { useScope } from '../../hooks/useScope';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
 function currency(value?: number | null) {
@@ -121,6 +122,7 @@ function FundingPartnerModal({ partner, onClose, onSaved }: { partner?: FundingP
 
 export default function Funders() {
   const { data: funders, loading, error, refetch } = useFundingPartners();
+  const { isAdmin } = useScope();
   const [selected, setSelected] = useState<FundingPartner | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<FundingPartner | null>(null);
@@ -146,9 +148,11 @@ export default function Funders() {
           <h1 className="text-[20px] font-bold text-navy-900">Funding Partners</h1>
           <p className="text-[13px] text-slate-400">{funders.length} funding partner{funders.length === 1 ? '' : 's'}</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary h-9 px-4 text-[13px]">
-          <Plus size={14} /> Add Funding Partner
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(true)} className="btn-primary h-9 px-4 text-[13px]">
+            <Plus size={14} /> Add Funding Partner
+          </button>
+        )}
       </div>
 
       {funders.length === 0 ? (
@@ -185,9 +189,11 @@ export default function Funders() {
                       {selected.status}
                     </span>
                   </div>
-                  <button onClick={() => setEditing(selected)} className="btn-secondary h-9 px-4 text-[13px]">
-                    <Pencil size={14} /> Edit
-                  </button>
+                  {isAdmin && (
+                    <button onClick={() => setEditing(selected)} className="btn-secondary h-9 px-4 text-[13px]">
+                      <Pencil size={14} /> Edit
+                    </button>
+                  )}
                 </div>
 
                 <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">

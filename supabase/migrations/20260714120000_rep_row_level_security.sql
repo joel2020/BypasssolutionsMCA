@@ -163,6 +163,91 @@ create policy "Scoped update commissions"
   using (public.is_admin_role(array['admin']))
   with check (public.is_admin_role(array['admin']));
 
+-- ---------------------------------------------------------------------------
+-- 5. Only admins may manage funding partners.
+--    Reps can still SEE the funder list (they need it to work a deal) but
+--    cannot create, edit, or delete funders.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['funding_partners','funders'] loop
+    if not exists (
+      select 1 from information_schema.tables
+      where table_schema = 'public' and table_name = t
+    ) then
+      continue;
+    end if;
+
+    execute format('alter table public.%I enable row level security', t);
+
+    execute format('drop policy if exists "Authenticated users can read %1$s" on public.%1$I', t);
+    execute format('drop policy if exists "Authenticated users can insert %1$s" on public.%1$I', t);
+    execute format('drop policy if exists "Authenticated users can update %1$s" on public.%1$I', t);
+    execute format('drop policy if exists "Read %1$s" on public.%1$I', t);
+    execute format('drop policy if exists "Admins insert %1$s" on public.%1$I', t);
+    execute format('drop policy if exists "Admins update %1$s" on public.%1$I', t);
+    execute format('drop policy if exists "Admins delete %1$s" on public.%1$I', t);
+
+    -- everyone in the CRM can read the funder list
+    execute format($f$
+      create policy "Read %1$s" on public.%1$I
+        for select to authenticated using (true)
+    $f$, t);
+
+    execute format($f$
+      create policy "Admins insert %1$s" on public.%1$I
+        for insert to authenticated
+        with check (public.is_admin_role(array['admin']))
+    $f$, t);
+
+    execute format($f$
+      create policy "Admins update %1$s" on public.%1$I
+        for update to authenticated
+        using (public.is_admin_role(array['admin']))
+        with check (public.is_admin_role(array['admin']))
+    $f$, t);
+
+    execute format($f$
+      create policy "Admins delete %1$s" on public.%1$I
+        for delete to authenticated
+        using (public.is_admin_role(array['admin']))
+    $f$, t);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 6. Only admins may send a deal to a funder.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'partner_submissions'
+  ) then
+    execute 'alter table public.partner_submissions enable row level security';
+    execute 'drop policy if exists "Authenticated users can insert partner_submissions" on public.partner_submissions';
+    execute 'drop policy if exists "Admins insert partner_submissions" on public.partner_submissions';
+    execute 'drop policy if exists "Admins update partner_submissions" on public.partner_submissions';
+
+    execute $f$
+      create policy "Admins insert partner_submissions" on public.partner_submissions
+        for insert to authenticated
+        with check (public.is_admin_role(array['admin']))
+    $f$;
+
+    execute $f$
+      create policy "Admins update partner_submissions" on public.partner_submissions
+        for update to authenticated
+        using (public.is_admin_role(array['admin']))
+        with check (public.is_admin_role(array['admin']))
+    $f$;
+  end if;
+end $$;
+
 /*
   ROLLBACK (paste this if anything misbehaves):
 

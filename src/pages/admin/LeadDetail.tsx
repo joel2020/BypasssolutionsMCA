@@ -129,7 +129,7 @@ export default function LeadDetail() {
             <button onClick={() => void sendEsignApplication()} disabled={sendingApp} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><FileSignature size={15} />{sendingApp ? 'Sending...' : 'Send e-sign App'}</button>
             <button onClick={() => setShowEmail(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[13px] font-black text-white"><Mail size={15} />Send Email</button>
             <button onClick={() => setShowUpload(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Upload size={15} />Upload Document</button>
-            <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>
+            {isAdmin && <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>}
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-right"><p className="text-[12px] text-slate-400">Requested</p><p className="text-[22px] font-black text-white">{currency.format(lead.funding_amount_requested)}</p></div>
           </div>
         </div>
