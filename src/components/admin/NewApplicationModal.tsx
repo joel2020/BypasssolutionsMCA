@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
-import { supabase, type LeadStatus } from '../../lib/supabase';
-
-type ApplicationCreateMode = 'lead' | 'submission';
+import { supabase } from '../../lib/supabase';
+import { useReps } from '../../hooks/useReps';
 
 interface NewApplicationModalProps {
-  initialMode?: ApplicationCreateMode;
   onClose: () => void;
   onCreated: () => void | Promise<void>;
 }
 
-export default function NewApplicationModal({ initialMode = 'lead', onClose, onCreated }: NewApplicationModalProps) {
+export default function NewApplicationModal({ onClose, onCreated }: NewApplicationModalProps) {
+  const { data: reps } = useReps();
   const [form, setForm] = useState({
     businessName: '',
     firstName: '',
@@ -20,9 +19,8 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
     industry: '',
     requestedAmount: '',
     monthlyRevenue: '',
-    assignedRep: 'Christopher Roman',
+    assignedRep: '',
     source: 'CRM',
-    type: initialMode,
     notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -40,19 +38,15 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
     setSuccess(null);
 
     try {
-      const isSubmission = form.type === 'submission';
       const requestedAmount = Number(form.requestedAmount || 0);
       const monthlyRevenue = Number(form.monthlyRevenue || 0);
-      const now = new Date().toISOString();
 
       if (!form.businessName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.phone.trim()) {
         throw new Error('Business name, owner name, email, and phone are required.');
       }
-
       if (requestedAmount <= 0) {
         throw new Error('Requested funding amount must be greater than zero.');
       }
-
       if (monthlyRevenue < 0) {
         throw new Error('Monthly revenue cannot be negative.');
       }
@@ -62,8 +56,9 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
         throw new Error('Your CRM session expired. Sign in again and retry.');
       }
 
-      const leadStatus: LeadStatus = isSubmission ? 'Under Review' : 'New Lead';
-      const { data: lead, error: leadError } = await supabase
+      // Always create a LEAD. Full submissions are made via "Convert to submission"
+      // from the Leads table, which requires the last 4 months of bank statements.
+      const { error: leadError } = await supabase
         .from('leads')
         .insert({
           business_name: form.businessName.trim(),
@@ -76,39 +71,23 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
           requested_amount: requestedAmount,
           monthly_revenue: monthlyRevenue,
           gross_monthly_revenue: monthlyRevenue,
-          status: leadStatus,
+          status: 'New Lead',
           assigned_rep: form.assignedRep.trim() || 'Unassigned',
           assigned_to: authData.user.id,
           created_by: authData.user.id,
           source: form.source.trim() || 'CRM',
           notes: form.notes.trim(),
           consent: true,
-          submitted_at: isSubmission ? now : null,
-        })
-        .select('id')
-        .single();
+          submitted_at: null,
+        });
 
       if (leadError) throw leadError;
 
-      if (isSubmission) {
-        const { error: appError } = await supabase.from('applications').insert({
-          lead_id: lead.id,
-          status: 'Submitted',
-          source: form.source.trim() || 'CRM',
-          requested_amount: requestedAmount,
-          monthly_revenue: monthlyRevenue,
-          assigned_to: authData.user.id,
-          submitted_at: now,
-        });
-
-        if (appError) throw appError;
-      }
-
-      setSuccess(isSubmission ? 'Full submission created.' : 'Lead created.');
+      setSuccess('Lead created.');
       await onCreated();
       window.setTimeout(onClose, 650);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create applicant.');
+      setError(err instanceof Error ? err.message : 'Unable to create lead.');
     } finally {
       setSaving(false);
     }
@@ -119,25 +98,14 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
       <div className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)]">
         <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-6">
           <div>
-            <h2 className="text-[20px] font-bold text-navy-900">Create New Applicant</h2>
-            <p className="text-[13px] text-slate-500">Add a lead-only record or create a full submission.</p>
+            <h2 className="text-[20px] font-bold text-navy-900">New Lead</h2>
+            <p className="text-[13px] text-slate-500">Create a CRM lead. Convert it to a full submission once the last 4 months of bank statements are uploaded.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => update('type', 'lead')} className={`rounded-lg border p-3 text-left sm:p-4 ${form.type === 'lead' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-                <p className="text-[14px] font-bold text-navy-900">Lead only</p>
-                <p className="mt-1 text-[12px] text-slate-500">Creates a CRM lead record in Supabase.</p>
-              </button>
-              <button type="button" onClick={() => update('type', 'submission')} className={`rounded-lg border p-3 text-left sm:p-4 ${form.type === 'submission' ? 'border-accent-500 bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-                <p className="text-[14px] font-bold text-navy-900">Full submission</p>
-                <p className="mt-1 text-[12px] text-slate-500">Creates both a lead and an application record.</p>
-              </button>
-            </div>
-
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business name</span><input required className="input-field mt-1.5" value={form.businessName} onChange={(e) => update('businessName', e.target.value)} /></label>
               <label className="block"><span className="text-[12px] font-semibold text-slate-600">Industry</span><input className="input-field mt-1.5" value={form.industry} onChange={(e) => update('industry', e.target.value)} /></label>
@@ -147,7 +115,16 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
               <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input required className="input-field mt-1.5" value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
               <label className="block"><span className="text-[12px] font-semibold text-slate-600">Requested amount</span><input required type="number" min="1" className="input-field mt-1.5" value={form.requestedAmount} onChange={(e) => update('requestedAmount', e.target.value)} /></label>
               <label className="block"><span className="text-[12px] font-semibold text-slate-600">Monthly revenue</span><input type="number" min="0" className="input-field mt-1.5" value={form.monthlyRevenue} onChange={(e) => update('monthlyRevenue', e.target.value)} /></label>
-              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Assigned rep</span><input className="input-field mt-1.5" value={form.assignedRep} onChange={(e) => update('assignedRep', e.target.value)} /></label>
+              <label className="block">
+                <span className="text-[12px] font-semibold text-slate-600">Assigned rep</span>
+                <select className="select-field mt-1.5" value={form.assignedRep} onChange={(e) => update('assignedRep', e.target.value)}>
+                  <option value="">Unassigned</option>
+                  {reps.map((rep) => {
+                    const name = rep.full_name || rep.email;
+                    return <option key={rep.id} value={name}>{name}</option>;
+                  })}
+                </select>
+              </label>
               <label className="block"><span className="text-[12px] font-semibold text-slate-600">Source</span><input className="input-field mt-1.5" value={form.source} onChange={(e) => update('source', e.target.value)} /></label>
             </div>
 
@@ -157,7 +134,7 @@ export default function NewApplicationModal({ initialMode = 'lead', onClose, onC
           </div>
           <div className="flex flex-shrink-0 justify-end gap-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Creating...' : 'Create Applicant'}</button>
+            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Creating...' : 'Create Lead'}</button>
           </div>
         </form>
       </div>
