@@ -1,5 +1,5 @@
 import { useMemo, useState, type DragEvent } from 'react';
-import { Download, FileText, Send, Upload, XCircle } from 'lucide-react';
+import { Eye, FileText, Send, Upload, XCircle } from 'lucide-react';
 import { createDocumentSignedUrl, REQUIRED_DOCUMENT_TYPES, useUploadDocument } from '../../hooks/useDocuments';
 import { useCreatePartnerSubmission, useFundingPartners } from '../../hooks/usePartnerSubmissions';
 import type { Document, FundingPartner, PartnerSubmission } from '../../lib/supabase';
@@ -90,12 +90,13 @@ export function UploadDocumentModal({ leadId, applicationId, onClose, onUploaded
 
 export function DocumentList({ documents, empty = 'No documents uploaded yet' }: { documents: Document[]; empty?: string }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ url: string; name: string } | null>(null);
 
-  async function openSignedUrl(doc: Document) {
+  async function openInViewer(doc: Document) {
     setLoadingId(doc.id);
     try {
       const url = await createDocumentSignedUrl(doc.storage_path || doc.file_path || '');
-      window.open(url, '_blank', 'noopener,noreferrer');
+      setViewer({ url, name: doc.file_name || doc.document_type || doc.doc_type || 'Document' });
     } finally {
       setLoadingId(null);
     }
@@ -104,14 +105,30 @@ export function DocumentList({ documents, empty = 'No documents uploaded yet' }:
   if (documents.length === 0) return <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-[14px] text-slate-400">{empty}</div>;
 
   return (
-    <div className="space-y-3">
-      {documents.map((doc) => (
-        <div key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-          <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/15 text-blue-200"><FileText size={18} /></span><div className="min-w-0"><p className="truncate text-[14px] font-bold text-white">{doc.file_name}</p><p className="text-[12px] text-slate-400">{doc.document_type || doc.doc_type} • {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : 'Private file'}</p></div></div>
-          <div className="flex items-center gap-2"><StatusBadge status={doc.status} /><button onClick={() => void openSignedUrl(doc)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><Download size={13} />{loadingId === doc.id ? 'Opening...' : 'View'}</button></div>
+    <>
+      <div className="space-y-3">
+        {documents.map((doc) => (
+          <div key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/15 text-blue-200"><FileText size={18} /></span><div className="min-w-0"><p className="truncate text-[14px] font-bold text-white">{doc.file_name}</p><p className="text-[12px] text-slate-400">{doc.document_type || doc.doc_type} • {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : 'Private file'}</p></div></div>
+            <div className="flex items-center gap-2"><StatusBadge status={doc.status} /><button onClick={() => void openInViewer(doc)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><Eye size={13} />{loadingId === doc.id ? 'Opening...' : 'View'}</button></div>
+          </div>
+        ))}
+      </div>
+      {viewer && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-slate-950/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setViewer(null)}>
+          <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1730]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <p className="truncate text-[14px] font-bold text-white">{viewer.name}</p>
+              <div className="flex items-center gap-2">
+                <a href={viewer.url} target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-300 hover:bg-white/10">Open in new tab</a>
+                <button onClick={() => setViewer(null)} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button>
+              </div>
+            </div>
+            <iframe title={viewer.name} src={viewer.url} className="h-full w-full flex-1 bg-white" />
+          </div>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 
