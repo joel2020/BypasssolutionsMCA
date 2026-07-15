@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canAccessRecord, canManageFunders, canSubmitToLender, isRestricted, type Actor } from './access';
 
-const admin: Actor = { role: 'admin', name: 'Christopher Roman' };
+const admin: Actor = { role: 'admin', name: 'Chris Roman' };
 const underwriter: Actor = { role: 'underwriter', name: 'Uma UW' };
 const viewer: Actor = { role: 'viewer', name: 'Vic Viewer' };
 const rep: Actor = { role: 'sales_rep', name: 'Sam Rep' };
