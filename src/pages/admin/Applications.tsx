@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, ArrowRightCircle, Phone, Mail, FileSignature } from 'lucide-react';
-import { supabase, type LeadStatus } from '../../lib/supabase';
+import { Search, Plus, FolderOpen, Phone, Mail, FileSignature } from 'lucide-react';
+import { supabase, type Lead, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
-import { useDocuments } from '../../hooks/useDocuments';
 import { useScope } from '../../hooks/useScope';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import NewApplicationModal from '../../components/admin/NewApplicationModal';
+import ManageLeadModal from '../../components/admin/ManageLeadModal';
 
 // A "lead" is anything not yet a full submission.
 const leadOnlyStatuses: LeadStatus[] = ['New Lead', 'Contacted', 'Application Started'];
-const REQUIRED_BANK_STATEMENTS = 4;
 
 function money(value: number) {
   return value > 0 ? `$${value.toLocaleString()}` : '—';
@@ -20,14 +19,13 @@ export default function Applications() {
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(searchParams.get('new') === '1');
-  const [converting, setConverting] = useState<string | null>(null);
+  const [managing, setManaging] = useState<Lead | null>(null);
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [sendingApp, setSendingApp] = useState<string | null>(null);
   const { data: allLeads, loading, error, refetch } = useLeads();
-  const { data: documents } = useDocuments();
   const { canAccess } = useScope();
 
   // Reps only see leads assigned to them.
@@ -89,40 +87,6 @@ export default function Applications() {
     const q = search.trim().toLowerCase();
     return leads.filter((l) => !q || l.business_name.toLowerCase().includes(q));
   }, [leads, search]);
-
-  const bankStatementCount = (leadId: string) =>
-    documents.filter((doc) => doc.lead_id === leadId && doc.doc_type === 'Bank Statement').length;
-
-  async function convertToSubmission(leadId: string) {
-    setNotice(null);
-    const count = bankStatementCount(leadId);
-    if (count < REQUIRED_BANK_STATEMENTS) {
-      setNotice({ id: leadId, text: `Full submissions require the last ${REQUIRED_BANK_STATEMENTS} months of bank statements (${count}/${REQUIRED_BANK_STATEMENTS} uploaded). Open the lead's file to upload them, then convert.` });
-      return;
-    }
-    setConverting(leadId);
-    try {
-      const lead = leads.find((l) => l.id === leadId);
-      const { data: authData } = await supabase.auth.getUser();
-      const now = new Date().toISOString();
-      const { error: upErr } = await supabase.from('leads').update({ status: 'Under Review', submitted_at: now }).eq('id', leadId);
-      if (upErr) throw upErr;
-      await supabase.from('applications').insert({
-        lead_id: leadId,
-        status: 'Submitted',
-        source: lead?.source || 'CRM',
-        requested_amount: lead?.funding_amount_requested ?? 0,
-        monthly_revenue: lead?.monthly_revenue ?? 0,
-        assigned_to: authData?.user?.id,
-        submitted_at: now,
-      });
-      await refetch();
-    } catch (err) {
-      setNotice({ id: leadId, text: err instanceof Error ? err.message : 'Unable to convert this lead.' });
-    } finally {
-      setConverting(null);
-    }
-  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -211,11 +175,11 @@ export default function Applications() {
                           <FileSignature size={13} /> {sendingApp === lead.id ? 'Sending...' : 'Send app'}
                         </button>
                         <button
-                          onClick={() => convertToSubmission(lead.id)}
-                          disabled={converting === lead.id}
-                          className="btn-primary h-8 px-3 text-[12px] disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => setManaging(lead)}
+                          title="Edit the lead, upload bank statements, and convert to a submission"
+                          className="btn-primary h-8 px-3 text-[12px]"
                         >
-                          <ArrowRightCircle size={13} /> {converting === lead.id ? 'Converting...' : 'Convert to submission'}
+                          <FolderOpen size={13} /> Open
                         </button>
                       </div>
                       {notice?.id === lead.id && (
@@ -231,6 +195,7 @@ export default function Applications() {
       )}
 
       {showCreate && <NewApplicationModal onClose={() => { setShowCreate(false); setSearchParams({}); }} onCreated={() => void refetch()} />}
+      {managing && <ManageLeadModal lead={managing} onClose={() => setManaging(null)} onChanged={() => void refetch()} />}
     </div>
   );
 }
