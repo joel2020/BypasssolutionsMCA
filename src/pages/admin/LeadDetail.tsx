@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileSignature, FileText, Mail, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileSignature, FileText, Mail, Pencil, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlassCard } from './Dashboard';
 import { useLead } from '../../hooks/useLead';
@@ -13,6 +13,7 @@ import { usePartnerSubmissions } from '../../hooks/usePartnerSubmissions';
 import { sendGmailEmail, syncGmail, useGmailMessages, type GmailMessage } from '../../hooks/useGmail';
 import { DocumentList, PartnerSubmissionList, SubmitToLenderModal, UploadDocumentModal } from '../../components/admin/CrmWorkflowComponents';
 import ConvertToBypassModal from '../../components/admin/ConvertToBypassModal';
+import EditLeadModal from '../../components/admin/EditLeadModal';
 import { createDocumentSignedUrl } from '../../hooks/useDocuments';
 import { ErrorState, NotFoundState, SkeletonLoader } from '../../components/admin/States';
 import { leadStatusColors, pipelineStages, stageForStatus, statusForStage } from '../../lib/status';
@@ -40,6 +41,7 @@ export default function LeadDetail() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('Overview');
   const [showUpload, setShowUpload] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [emailActionError, setEmailActionError] = useState<string | null>(null);
@@ -162,6 +164,7 @@ export default function LeadDetail() {
             <div className="mt-2 flex flex-wrap gap-4 text-[13px] text-slate-400"><span className="inline-flex items-center gap-1.5"><UserRound size={14} />{ownerName}</span><span className="inline-flex items-center gap-1.5"><Mail size={14} />{lead.email}</span><span className="inline-flex items-center gap-1.5"><Phone size={14} />{lead.phone}</span></div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setShowEdit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Pencil size={15} />Edit</button>
             <button onClick={() => void checkForSignature()} disabled={checkingSig} title="Pull the signed Bypass application in once the merchant has signed it" className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12] disabled:opacity-60"><RefreshCw size={15} />{checkingSig ? 'Checking...' : 'Check for signature'}</button>
             <button onClick={() => void sendEsignApplication()} disabled={sendingApp} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><FileSignature size={15} />{sendingApp ? 'Sending...' : 'Send e-sign App'}</button>
             <button onClick={() => setShowEmail(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[13px] font-black text-white"><Mail size={15} />Send Email</button>
@@ -241,6 +244,7 @@ export default function LeadDetail() {
         </div>
       </div>
       {showEmail && <LeadEmailModal leadEmail={lead.email} leadId={id} onClose={() => setShowEmail(false)} onSent={() => { void refetchGmailMessages(); }} />}
+      {showEdit && lead && <EditLeadModal lead={lead} onClose={() => setShowEdit(false)} onSaved={() => void refetchLead()} />}
       {convertSource && lead && (
         <ConvertToBypassModal
           lead={lead}

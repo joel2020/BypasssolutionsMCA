@@ -3,14 +3,16 @@ import { CheckCircle2, FileText, Trash2, Upload, X } from 'lucide-react';
 import { supabase, type Lead } from '../../lib/supabase';
 import { useReps } from '../../hooks/useReps';
 import { useDocuments, useUploadDocument, deleteDocument } from '../../hooks/useDocuments';
+import { buildPayload, initialForm } from '../../lib/leadEditFields';
+import LeadFieldsGrid from './LeadFieldsGrid';
 
 const REQUIRED_BANK_STATEMENTS = 4;
 const BANK_STATEMENT = 'Bank Statement';
 
 /**
- * Work a lead from the Leads tab without opening the Submissions-style
- * opportunity view: edit the details, upload the bank statements, and convert it
- * to a full submission (which requires the last 4 months of bank statements).
+ * Work a lead from the Leads tab: edit ALL of its details, upload the bank
+ * statements, and convert it to a full submission (which requires the last 4
+ * months of bank statements).
  */
 export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Lead; onClose: () => void; onChanged: () => void }) {
   const { data: reps } = useReps();
@@ -18,24 +20,13 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
   const { uploadDocument, uploading } = useUploadDocument();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({
-    business_name: lead.business_name ?? '',
-    first_name: lead.first_name ?? '',
-    last_name: lead.last_name ?? '',
-    email: lead.email ?? '',
-    phone: lead.phone ?? '',
-    industry: lead.industry ?? '',
-    funding_amount_requested: lead.funding_amount_requested ? String(lead.funding_amount_requested) : '',
-    monthly_revenue: lead.monthly_revenue ? String(lead.monthly_revenue) : '',
-    assigned_rep: lead.assigned_rep ?? '',
-    notes: lead.notes ?? '',
-  });
+  const [form, setForm] = useState<Record<string, string>>(() => initialForm(lead));
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const set = <K extends keyof typeof form>(key: K) => (value: string) => setForm((cur) => ({ ...cur, [key]: value }));
+  const set = (key: string, value: string) => setForm((cur) => ({ ...cur, [key]: value }));
 
   const bankStatements = useMemo(() => allDocuments.filter((d) => d.doc_type === BANK_STATEMENT), [allDocuments]);
   const hasEnough = bankStatements.length >= REQUIRED_BANK_STATEMENTS;
@@ -45,25 +36,8 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
     setMessage(null);
     setSaving(true);
     try {
-      const amount = Number(form.funding_amount_requested.replace(/[^\d.]/g, '')) || 0;
-      const revenue = Number(form.monthly_revenue.replace(/[^\d.]/g, '')) || 0;
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({
-          business_name: form.business_name.trim(),
-          first_name: form.first_name.trim(),
-          last_name: form.last_name.trim(),
-          email: form.email.trim().toLowerCase(),
-          phone: form.phone.trim(),
-          industry: form.industry.trim(),
-          funding_amount_requested: amount,
-          requested_amount: amount,
-          monthly_revenue: revenue,
-          gross_monthly_revenue: revenue,
-          assigned_rep: form.assigned_rep.trim() || 'Unassigned',
-          notes: form.notes,
-        })
-        .eq('id', lead.id);
+      if (!(form.business_name ?? '').trim()) throw new Error('Business name is required.');
+      const { error: updateError } = await supabase.from('leads').update(buildPayload(form)).eq('id', lead.id);
       if (updateError) throw updateError;
       setMessage('Lead details saved.');
       onChanged();
@@ -121,8 +95,8 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
         lead_id: lead.id,
         status: 'Submitted',
         source: lead.source || 'CRM',
-        requested_amount: Number(form.funding_amount_requested.replace(/[^\d.]/g, '')) || 0,
-        monthly_revenue: Number(form.monthly_revenue.replace(/[^\d.]/g, '')) || 0,
+        requested_amount: Number((form.funding_amount_requested ?? '').replace(/[^\d.]/g, '')) || 0,
+        monthly_revenue: Number((form.monthly_revenue ?? '').replace(/[^\d.]/g, '')) || 0,
         assigned_to: authData?.user?.id,
         submitted_at: now,
       });
@@ -137,37 +111,17 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4 lg:items-center">
-      <div className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+      <div className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
         <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-6">
           <div>
             <h2 className="text-[20px] font-bold text-navy-900">{lead.business_name || 'Lead'}</h2>
-            <p className="text-[13px] text-slate-500">Edit the lead, add bank statements, and convert it to a full submission.</p>
+            <p className="text-[13px] text-slate-500">Edit any detail, add bank statements, and convert it to a full submission.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business name</span><input className="input-field mt-1.5" value={form.business_name} onChange={(e) => set('business_name')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Industry</span><input className="input-field mt-1.5" value={form.industry} onChange={(e) => set('industry')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Owner first name</span><input className="input-field mt-1.5" value={form.first_name} onChange={(e) => set('first_name')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Owner last name</span><input className="input-field mt-1.5" value={form.last_name} onChange={(e) => set('last_name')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => set('email')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input className="input-field mt-1.5" value={form.phone} onChange={(e) => set('phone')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Requested amount</span><input inputMode="numeric" className="input-field mt-1.5" value={form.funding_amount_requested} onChange={(e) => set('funding_amount_requested')(e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Monthly revenue</span><input inputMode="numeric" className="input-field mt-1.5" value={form.monthly_revenue} onChange={(e) => set('monthly_revenue')(e.target.value)} /></label>
-            <label className="block">
-              <span className="text-[12px] font-semibold text-slate-600">Assigned rep</span>
-              <select className="select-field mt-1.5" value={form.assigned_rep} onChange={(e) => set('assigned_rep')(e.target.value)}>
-                <option value="">Unassigned</option>
-                {reps.map((rep) => {
-                  const name = rep.full_name || rep.email;
-                  return <option key={rep.id} value={name}>{name}</option>;
-                })}
-              </select>
-            </label>
-          </div>
-          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Notes</span><textarea className="input-field mt-1.5 min-h-20 resize-y" value={form.notes} onChange={(e) => set('notes')(e.target.value)} /></label>
+          <LeadFieldsGrid form={form} set={set} reps={reps} />
 
           <div className="rounded-lg border border-slate-200 p-4">
             <div className="mb-2 flex items-center justify-between">
