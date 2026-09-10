@@ -10,9 +10,9 @@ import { canAccessRecord, canManageFunders, canSubmitToLender, isRestricted, typ
  */
 export function useScope() {
   const { profile } = useCurrentUser();
-  const role = (profile?.role ?? null) as CrmRole;
+  const role = (profile?.status === 'active' ? profile.role : null) as CrmRole;
   const repName = profile?.full_name || profile?.email || '';
-  const actor = { role, name: repName };
+  const actor = { role, name: repName, id: profile?.id };
 
   return {
     profile,
@@ -20,7 +20,7 @@ export function useScope() {
     repName,
     isAdmin: role === 'admin',
     restricted: isRestricted(role),
-    canAccess: (assignedRep?: string | null) => canAccessRecord(actor, assignedRep),
+    canAccess: (assignedRep?: string | null, assignedTo?: string | null) => canAccessRecord(actor, assignedRep, assignedTo),
     canManageFunders: canManageFunders(role),
     canSubmitToLender: canSubmitToLender(role),
   };

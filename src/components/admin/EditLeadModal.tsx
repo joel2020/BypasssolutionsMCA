@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
-import { supabase, type Lead } from '../../lib/supabase';
+import { type Lead } from '../../lib/supabase';
 import { useReps } from '../../hooks/useReps';
-import { buildPayload, initialForm } from '../../lib/leadEditFields';
+import { initialForm } from '../../lib/leadEditFields';
+import { leadEditPayload, updateLead } from '../../lib/leadMutations';
 import LeadFieldsGrid from './LeadFieldsGrid';
 
 /**
@@ -27,8 +28,7 @@ export default function EditLeadModal({ lead, onClose, onSaved }: { lead: Lead; 
     }
     setSaving(true);
     try {
-      const { error: updateError } = await supabase.from('leads').update(buildPayload(form)).eq('id', lead.id);
-      if (updateError) throw updateError;
+      await updateLead(lead.id, leadEditPayload(form, lead, reps));
       setMessage('Saved.');
       onSaved();
       window.setTimeout(onClose, 700);

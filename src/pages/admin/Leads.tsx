@@ -28,7 +28,7 @@ export default function Leads() {
 
   const filtered = leads.filter((l) => {
     if (!submissionStatuses.includes(l.status)) return false;
-    if (!canAccess(l.assigned_rep)) return false; // reps only see their own deals
+    if (!canAccess(l.assigned_rep, l.assigned_to)) return false; // reps only see their own deals
     const q = search.toLowerCase();
     return (
       !q ||

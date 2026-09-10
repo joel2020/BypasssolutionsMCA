@@ -25,6 +25,10 @@ export function assertSupabaseConfigured() {
   }
 }
 
+// Capture invitation/recovery intent before the SDK consumes and clears the URL fragment.
+const authLinkType = typeof window === 'undefined' ? null : new URLSearchParams(window.location.hash.slice(1)).get('type');
+export const isPasswordSetupLink = authLinkType === 'invite' || authLinkType === 'recovery';
+
 export const supabase = createClient(
   isSupabaseConfigured ? supabaseUrl! : 'https://missing-config.invalid',
   isSupabaseConfigured ? supabaseAnonKey! : 'missing-supabase-anon-key',
@@ -81,6 +85,7 @@ export interface Lead {
   urgency: string;
   status: LeadStatus;
   assigned_rep: string;
+  assigned_to?: string | null;
   lead_score: number;
   source: string;
   last_contact_at: string | null;
@@ -106,6 +111,7 @@ export interface Task {
   description?: string | null;
   task_type: string;
   assigned_rep: string;
+  assigned_to?: string | null;
   due_date: string | null;
   priority: 'High' | 'Medium' | 'Low';
   status: 'Open' | 'In Progress' | 'Completed';

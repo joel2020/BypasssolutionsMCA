@@ -1,3 +1,4 @@
+import { getWritableLead } from '../server/crmAccess.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Generates the Bypass application in signNow from a CRM lead, prefills it,
@@ -108,10 +109,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   // Only an authenticated CRM user may send an application.
   const authHeader = (req.headers?.authorization || req.headers?.Authorization) as string | undefined;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) return res.status(401).json({ error: 'Missing CRM session.' });
 
-  const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
+  const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const { data: userData, error: userError } = await authClient.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Invalid CRM session.' });
 
@@ -119,9 +120,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const leadId = typeof body.leadId === 'string' ? body.leadId.trim() : '';
   if (!leadId) return res.status(400).json({ error: 'leadId is required.' });
 
+  const access = await getWritableLead(authClient, userData.user.id, leadId);
+  if (!access.lead) return res.status(access.status).json({ error: access.error });
+  const lead = access.lead;
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: lead, error: leadError } = await admin.from('leads').select('*').eq('id', leadId).single();
-  if (leadError || !lead) return res.status(404).json({ error: 'Lead not found.' });
 
   const signerEmail = str(lead as Lead, 'email', 'business_email');
   if (!signerEmail) return res.status(400).json({ error: 'This lead has no email address to send the application to.' });

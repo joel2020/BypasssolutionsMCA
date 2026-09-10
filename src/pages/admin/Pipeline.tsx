@@ -1,6 +1,7 @@
+import { updateLead } from '../../lib/leadMutations';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, type LeadStatus } from '../../lib/supabase';
+import { type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import { canonicalLeadStatuses, leadStatusColors } from '../../lib/status';
@@ -13,19 +14,15 @@ export default function Pipeline() {
   async function moveLead(leadId: string, nextStatus: LeadStatus) {
     setMovingId(leadId);
     setFeedback(null);
-    const { error: updateError } = await supabase
-      .from('leads')
-      .update({ status: nextStatus, updated_at: new Date().toISOString() })
-      .eq('id', leadId);
-    setMovingId(null);
-
-    if (updateError) {
-      setFeedback(updateError.message);
-      return;
+    try {
+      await updateLead(leadId, { status: nextStatus, updated_at: new Date().toISOString() });
+      setFeedback(`Pipeline status updated to ${nextStatus}.`);
+      await refetch();
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to update pipeline status.');
+    } finally {
+      setMovingId(null);
     }
-
-    setFeedback(`Pipeline status updated to ${nextStatus}.`);
-    await refetch();
   }
 
   if (loading) return <div className="p-6 lg:p-8"><SkeletonLoader label="Loading pipeline from Supabase..." /></div>;

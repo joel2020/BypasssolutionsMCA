@@ -1,3 +1,4 @@
+import { updateLead } from '../../lib/leadMutations';
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileSignature, FileText, Mail, Pencil, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
@@ -116,8 +117,11 @@ export default function LeadDetail() {
     const next = statusForStage(selection) ?? selection;
     setSavingStatus(true);
     try {
-      await supabase.from('leads').update({ status: next }).eq('id', id);
+      if (!id) throw new Error('Lead not found.');
+      await updateLead(id, { status: next });
       await refetchLead();
+    } catch (err) {
+      setAppResult({ ok: false, text: err instanceof Error ? err.message : 'Unable to change status.' });
     } finally {
       setSavingStatus(false);
     }
@@ -125,7 +129,7 @@ export default function LeadDetail() {
   const { data: application, refetch: refetchApplication } = useApplicationByLead(id);
   const { data: offers } = useOffers(id);
   const { data: tasks } = useTasks({ leadId: id });
-  const { data: documents, refetch: refetchDocuments } = useDocuments({ leadId: id, applicationId: application?.id });
+  const { data: documents, refetch: refetchDocuments } = useDocuments({ leadId: id });
   const { data: submissions, refetch: refetchSubmissions } = usePartnerSubmissions(application?.id);
   const { data: notes } = useNotes(id);
   const { data: gmailMessages, refetch: refetchGmailMessages } = useGmailMessages({ leadId: id });
@@ -135,7 +139,7 @@ export default function LeadDetail() {
   if (notFound || !lead) return <NotFoundState />;
 
   // A rep may not open a deal that is not assigned to them.
-  if (!canAccess(lead.assigned_rep)) {
+  if (!canAccess(lead.assigned_rep, lead.assigned_to)) {
     return (
       <div className="min-h-screen bg-[#071225] p-6 text-white lg:p-8">
         <Link to="/admin/applications" className="mb-6 inline-flex items-center gap-2 text-[13px] font-semibold text-slate-400 hover:text-white"><ArrowLeft size={15} /> Back</Link>

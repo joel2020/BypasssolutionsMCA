@@ -3,7 +3,8 @@ import { CheckCircle2, FileText, Trash2, Upload, X } from 'lucide-react';
 import { supabase, type Lead } from '../../lib/supabase';
 import { useReps } from '../../hooks/useReps';
 import { useDocuments, useUploadDocument, deleteDocument } from '../../hooks/useDocuments';
-import { buildPayload, initialForm } from '../../lib/leadEditFields';
+import { initialForm } from '../../lib/leadEditFields';
+import { leadEditPayload, updateLead } from '../../lib/leadMutations';
 import LeadFieldsGrid from './LeadFieldsGrid';
 
 const REQUIRED_BANK_STATEMENTS = 4;
@@ -16,7 +17,7 @@ const BANK_STATEMENT = 'Bank Statement';
  */
 export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Lead; onClose: () => void; onChanged: () => void }) {
   const { data: reps } = useReps();
-  const { data: allDocuments, refetch: refetchDocuments } = useDocuments({ leadId: lead.id });
+  const { data: allDocuments, loading: documentsLoading, error: documentsError, refetch: refetchDocuments } = useDocuments({ leadId: lead.id });
   const { uploadDocument, uploading } = useUploadDocument();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -28,7 +29,7 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
 
   const set = (key: string, value: string) => setForm((cur) => ({ ...cur, [key]: value }));
 
-  const bankStatements = useMemo(() => allDocuments.filter((d) => d.doc_type === BANK_STATEMENT), [allDocuments]);
+  const bankStatements = useMemo(() => allDocuments.filter((d) => d.doc_type === BANK_STATEMENT && ['Uploaded', 'Under Review', 'Reviewed', 'Approved'].includes(d.status) && Boolean(d.storage_path)), [allDocuments]);
   const hasEnough = bankStatements.length >= REQUIRED_BANK_STATEMENTS;
 
   async function saveDetails() {
@@ -37,8 +38,7 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
     setSaving(true);
     try {
       if (!(form.business_name ?? '').trim()) throw new Error('Business name is required.');
-      const { error: updateError } = await supabase.from('leads').update(buildPayload(form)).eq('id', lead.id);
-      if (updateError) throw updateError;
+      await updateLead(lead.id, leadEditPayload(form, lead, reps));
       setMessage('Lead details saved.');
       onChanged();
     } catch (err) {
@@ -86,20 +86,13 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
     }
     setConverting(true);
     try {
-      await saveDetails();
-      const { data: authData } = await supabase.auth.getUser();
-      const now = new Date().toISOString();
-      const { error: upErr } = await supabase.from('leads').update({ status: 'Under Review', submitted_at: now }).eq('id', lead.id);
-      if (upErr) throw upErr;
-      await supabase.from('applications').insert({
-        lead_id: lead.id,
-        status: 'Submitted',
-        source: lead.source || 'CRM',
-        requested_amount: Number((form.funding_amount_requested ?? '').replace(/[^\d.]/g, '')) || 0,
-        monthly_revenue: Number((form.monthly_revenue ?? '').replace(/[^\d.]/g, '')) || 0,
-        assigned_to: authData?.user?.id,
-        submitted_at: now,
+      if (!(form.business_name ?? '').trim()) throw new Error('Business name is required.');
+      const { data: applicationId, error: conversionError } = await supabase.rpc('convert_lead_to_submission', {
+        p_lead_id: lead.id,
+        p_details: leadEditPayload(form, lead, reps),
       });
+      if (conversionError) throw new Error(conversionError.message);
+      if (!applicationId) throw new Error('The application was not created. Please retry.');
       onChanged();
       onClose();
     } catch (err) {
@@ -126,7 +119,7 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
           <div className="rounded-lg border border-slate-200 p-4">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-[13px] font-bold text-navy-900">Bank statements <span className={`ml-1 ${hasEnough ? 'text-green-600' : 'text-amber-600'}`}>({bankStatements.length}/{REQUIRED_BANK_STATEMENTS})</span></p>
-              <button type="button" onClick={() => fileInput.current?.click()} disabled={uploading} className="btn-secondary h-8 px-3 text-[12px] disabled:opacity-60">
+              <button type="button" onClick={() => fileInput.current?.click()} disabled={uploading || converting || saving} className="btn-secondary h-8 px-3 text-[12px] disabled:opacity-60">
                 <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload'}
               </button>
               <input ref={fileInput} type="file" multiple accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={(e) => void onFiles(e.target.files)} />
@@ -138,21 +131,22 @@ export default function ManageLeadModal({ lead, onClose, onChanged }: { lead: Le
                 {bankStatements.map((d) => (
                   <div key={d.id} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-[12px]">
                     <span className="flex min-w-0 items-center gap-2 text-slate-700"><FileText size={13} className="text-slate-400" /><span className="truncate">{d.file_name}</span></span>
-                    <button type="button" onClick={() => void removeStatement(d.id)} className="flex-none text-slate-400 hover:text-red-600"><Trash2 size={13} /></button>
+                    <button type="button" disabled={converting || uploading || saving} onClick={() => void removeStatement(d.id)} className="flex-none text-slate-400 hover:text-red-600"><Trash2 size={13} /></button>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
+          {documentsError && <p role="alert" className="text-sm text-red-700">{documentsError}</p>}
           {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
           {message && <div className="flex items-center gap-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-[13px] text-green-700"><CheckCircle2 size={15} /> {message}</div>}
         </div>
 
         <div className="flex flex-shrink-0 flex-wrap justify-end gap-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
           <button type="button" onClick={onClose} className="btn-secondary">Close</button>
-          <button type="button" onClick={() => void saveDetails()} disabled={saving} className="btn-secondary disabled:opacity-60">{saving ? 'Saving...' : 'Save details'}</button>
-          <button type="button" onClick={() => void convert()} disabled={converting || !hasEnough} title={hasEnough ? 'Convert to a full submission' : `Upload ${REQUIRED_BANK_STATEMENTS} bank statements first`} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={() => void saveDetails()} disabled={saving || converting || uploading} className="btn-secondary disabled:opacity-60">{saving ? 'Saving...' : 'Save details'}</button>
+          <button type="button" onClick={() => void convert()} disabled={converting || saving || uploading || documentsLoading || Boolean(documentsError) || !hasEnough} title={hasEnough ? 'Convert to a full submission' : `Upload ${REQUIRED_BANK_STATEMENTS} bank statements first`} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">
             {converting ? 'Converting...' : 'Convert to submission'}
           </button>
         </div>

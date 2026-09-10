@@ -41,6 +41,7 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void 
 }
 
 function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [action, setAction] = useState<'invite' | 'resend'>('invite');
   const [form, setForm] = useState({ fullName: '', email: '', role: 'sales_rep' as Profile['role'] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,10 +55,11 @@ function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCre
       const origin = window.location.origin;
       const { data, error: invokeError } = await supabase.functions.invoke('invite-team-member', {
         body: {
+          action,
           full_name: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
           role: form.role,
-          redirect_to: `${origin}/admin`,
+          redirect_to: `${origin}/admin/set-password`,
         },
       });
 
@@ -93,23 +95,28 @@ function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCre
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h2 className="text-[18px] font-bold text-navy-900">Add Team Member</h2>
-            <p className="text-[13px] text-slate-500">Invite a user and create their CRM profile.</p>
+            <p className="text-[13px] text-slate-500">Invite a rep or resend access to an existing account.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
         <form onSubmit={submit} className="space-y-4 p-6">
-          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Full name</span><input required className="input-field mt-1.5" value={form.fullName} onChange={(e) => setForm((current) => ({ ...current, fullName: e.target.value }))} /></label>
+          <label className="block text-sm">Action
+            <select className="select-field mt-1.5" value={action} onChange={(event) => setAction(event.target.value as 'invite' | 'resend')}>
+              <option value="invite">Invite new team member</option><option value="resend">Resend access email</option>
+            </select>
+          </label>
+          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Full name</span><input required={action === 'invite'} disabled={action === 'resend'} className="input-field mt-1.5" value={form.fullName} onChange={(e) => setForm((current) => ({ ...current, fullName: e.target.value }))} /></label>
           <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input required type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} /></label>
           <label className="block">
             <span className="text-[12px] font-semibold text-slate-600">Role</span>
-            <select className="select-field mt-1.5" value={form.role} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as Profile['role'] }))}>
+            <select disabled={action === 'resend'} className="select-field mt-1.5" value={form.role} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as Profile['role'] }))}>
               {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
             </select>
           </label>
           {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Sending invite...' : 'Send Invite'}</button>
+            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Sending...' : action === 'resend' ? 'Resend access email' : 'Send Invite'}</button>
           </div>
         </form>
       </div>
@@ -236,7 +243,7 @@ export default function Settings() {
               </tbody>
             </table>
           </div>
-          {showAddMember && <AddTeamMemberModal onClose={() => setShowAddMember(false)} onCreated={() => { setFeedback('Team invite sent and profile created.'); void refetchProfiles(); }} />}
+          {showAddMember && <AddTeamMemberModal onClose={() => setShowAddMember(false)} onCreated={() => { setFeedback('Team access email sent.'); void refetchProfiles(); }} />}
         </div>
       )}
 

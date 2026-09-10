@@ -1,196 +1,69 @@
 import { useState } from 'react';
-import { Phone, PhoneMissed, PhoneCall, Plus } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useLeads } from '../../hooks/useLeads';
+import { useScope } from '../../hooks/useScope';
+import { useSupabaseQuery } from '../../hooks/useSupabaseQuery';
+import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
-const callQueue = [
-  { id: 'Q1', name: 'Linda Thompson', business: 'Thompson E-Commerce', phone: '(555) 901-2345', priority: 'High', reason: 'Initial outreach — new lead' },
-  { id: 'Q2', name: 'Anthony Brown', business: "Brown's Wholesale", phone: '(555) 890-1234', priority: 'Medium', reason: 'Follow up on doc request' },
-  { id: 'Q3', name: 'Robert Davis', business: 'Davis Concrete', phone: '(555) 012-3456', priority: 'Low', reason: 'Client requested call back Fri' },
-];
-
-const initialCallHistory = [
-  { id: 'C1', name: 'Marcus Johnson', business: 'Johnson Trucking', phone: '(555) 234-5678', rep: 'Sarah K.', date: '2024-01-05 2:14 PM', duration: '4:32', disposition: 'Connected', notes: 'Discussed bank statement upload. Client will submit by EOD.' },
-  { id: 'C2', name: 'Elena Ramirez', business: 'Casa Elena Restaurant', phone: '(555) 345-6789', rep: 'Mike T.', date: '2024-01-05 11:30 AM', duration: '7:15', disposition: 'Connected', notes: 'Walked through offer options. Client is reviewing. Follow up tomorrow.' },
-  { id: 'C3', name: 'Marcus Johnson', business: 'Johnson Trucking', phone: '(555) 234-5678', rep: 'Sarah K.', date: '2024-01-04 10:00 AM', duration: '0:00', disposition: 'No Answer', notes: 'Left voicemail. Will try again tomorrow.' },
-  { id: 'C4', name: 'Robert Davis', business: 'Davis Concrete', phone: '(555) 012-3456', rep: 'Mike T.', date: '2024-01-04 3:00 PM', duration: '2:10', disposition: 'Voicemail', notes: 'Left detailed voicemail about funding options.' },
-  { id: 'C5', name: 'Sophia Martinez', business: 'Bloom Wellness Studio', phone: '(555) 789-0123', rep: 'Tom R.', date: '2024-01-03 1:00 PM', duration: '5:45', disposition: 'Connected', notes: 'Client needs renovation funding. Sent application link.' },
-];
-
-const dispositionIcon = (d: string) => {
-  if (d === 'Connected') return <PhoneCall size={14} className="text-green-500" />;
-  if (d === 'No Answer') return <PhoneMissed size={14} className="text-slate-400" />;
-  return <Phone size={14} className="text-amber-500" />;
-};
-
-const dispositionBadge = (d: string) => {
-  if (d === 'Connected') return 'bg-green-50 text-green-700';
-  if (d === 'No Answer') return 'bg-slate-100 text-slate-500';
-  if (d === 'Voicemail') return 'bg-amber-50 text-amber-700';
-  return 'bg-blue-50 text-blue-700';
-};
+interface CallRecord {
+  id: string;
+  created_at: string;
+  lead_id: string;
+  rep_name: string;
+  duration: string;
+  disposition: string;
+  notes: string;
+  leads: { business_name: string } | null;
+}
 
 export default function Calls() {
-  const [callHistory, setCallHistory] = useState(initialCallHistory);
+  const { role, repName } = useScope();
+  const canWrite = role === 'admin' || role === 'underwriter' || role === 'sales_rep';
+  const { data: leads, error: leadsError } = useLeads();
+  const { data: calls, loading, error, refetch } = useSupabaseQuery<CallRecord[]>(async () => {
+    const { data, error: queryError } = await supabase.from('call_logs').select('*, leads(business_name)').order('created_at', { ascending: false });
+    if (queryError) throw new Error(queryError.message);
+    return (data ?? []) as unknown as CallRecord[];
+  }, [], []);
   const [showLog, setShowLog] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: '',
-    business: '',
-    phone: '',
-    rep: 'Unassigned',
-    duration: '0:00',
-    disposition: 'Connected',
-    notes: '',
-  });
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [form, setForm] = useState({ leadId: '', duration: '0:00', disposition: 'Connected', notes: '' });
 
-  const logCall = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!form.name.trim() || !form.phone.trim()) {
-      setFeedback('Name and phone are required to log a call.');
-      return;
-    }
-    setCallHistory((current) => [{
-      id: crypto.randomUUID(),
-      name: form.name.trim(),
-      business: form.business.trim() || 'Unknown business',
-      phone: form.phone.trim(),
-      rep: form.rep.trim() || 'Unassigned',
-      date: new Date().toLocaleString(),
-      duration: form.duration.trim() || '0:00',
-      disposition: form.disposition,
-      notes: form.notes.trim() || 'No notes recorded.',
-    }, ...current]);
-    setForm({ name: '', business: '', phone: '', rep: 'Unassigned', duration: '0:00', disposition: 'Connected', notes: '' });
-    setShowLog(false);
-    setFeedback('Call logged in this CRM session.');
-  };
+  async function save(event: React.FormEvent) {
+    event.preventDefault(); setFeedback(''); setSaveError('');
+    if (!canWrite || !form.leadId) { setSaveError('Select a lead you can update.'); return; }
+    if (!/^\d+:[0-5]\d$/.test(form.duration)) { setSaveError('Enter duration as minutes:seconds, such as 4:30.'); return; }
+    setSaving(true);
+    try {
+      const { error: insertError } = await supabase.from('call_logs').insert({ lead_id: form.leadId, rep_name: repName, duration: form.duration, disposition: form.disposition, notes: form.notes.trim() });
+      if (insertError) throw new Error(insertError.message);
+      setFeedback('Call saved.'); setShowLog(false);
+      setForm({ leadId: '', duration: '0:00', disposition: 'Connected', notes: '' });
+      await refetch();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Unable to save the call.');
+    } finally { setSaving(false); }
+  }
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-[20px] font-bold text-navy-900">Calls</h1>
-          <p className="text-[13px] text-slate-400">Dialer-ready interface — Twilio/JustCall integration pending</p>
-        </div>
-        <button onClick={() => setShowLog(true)} className="btn-primary h-9 px-4 text-[13px]">
-          <Plus size={14} /> Log Call
-        </button>
-      </div>
-      {feedback && <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] text-blue-700">{feedback}</div>}
-
-      {/* Integration notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-5 py-4 mb-6 flex items-start gap-3">
-        <Phone size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-        <div>
-          <p className="text-[14px] font-semibold text-blue-800">Dialer Integration Ready</p>
-          <p className="text-[13px] text-blue-700">This interface is pre-wired for Twilio, Aircall, or JustCall. Connect your dialer account in Settings to enable click-to-call functionality.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Call queue */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[15px] font-semibold text-navy-900">Call Queue</h2>
-            <span className="badge-default text-[11px]">{callQueue.length} pending</span>
-          </div>
-          <div className="flex flex-col gap-3">
-            {callQueue.map((call) => (
-              <div key={call.id} className="card p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="text-[13px] font-semibold text-slate-800">{call.name}</p>
-                    <p className="text-[11px] text-slate-400">{call.business}</p>
-                  </div>
-                  <span className={`badge text-[10px] ${call.priority === 'High' ? 'bg-red-50 text-red-600' : call.priority === 'Medium' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {call.priority}
-                  </span>
-                </div>
-                <p className="text-[12px] text-slate-500 mb-3">{call.reason}</p>
-                <div className="flex gap-2">
-                  <a href={`tel:${call.phone}`} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-md text-[12px] font-medium hover:bg-green-600 transition-colors">
-                    <Phone size={12} /> Call Now
-                  </a>
-                  <button onClick={() => setFeedback(`Reschedule task noted for ${call.name}. Create a dated task from Tasks if ownership is needed.`)} className="flex items-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200">
-                    Reschedule
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Call history */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[15px] font-semibold text-navy-900">Call History</h2>
-          </div>
-          <div className="card overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  {['Lead', 'Phone', 'Disposition', 'Duration', 'Rep', 'Date', 'Notes'].map(h => (
-                    <th key={h} className="text-left text-[12px] font-semibold uppercase tracking-wider text-slate-400 px-4 py-3 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {callHistory.map((call) => (
-                  <tr key={call.id} className="border-b border-slate-100 last:border-none hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <p className="text-[13px] font-medium text-slate-800">{call.name}</p>
-                      <p className="text-[11px] text-slate-400">{call.business}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <a href={`tel:${call.phone}`} className="text-[13px] text-accent-600 hover:underline whitespace-nowrap">{call.phone}</a>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-semibold ${dispositionBadge(call.disposition)}`}>
-                        {dispositionIcon(call.disposition)}
-                        {call.disposition}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[13px] text-slate-600">{call.duration}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[13px] text-slate-600">{call.rep}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[12px] text-slate-400 whitespace-nowrap">{call.date.split(' ')[0]}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-[12px] text-slate-500 max-w-[180px] truncate">{call.notes}</p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      {showLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
-            <h2 className="text-[18px] font-bold text-navy-900">Log Call</h2>
-            <p className="mb-5 text-[13px] text-slate-500">Record a call note for this CRM session.</p>
-            <form onSubmit={logCall} className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Name</span><input required className="input-field mt-1.5" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} /></label>
-                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Business</span><input className="input-field mt-1.5" value={form.business} onChange={(e) => setForm((current) => ({ ...current, business: e.target.value }))} /></label>
-                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input required className="input-field mt-1.5" value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} /></label>
-                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Rep</span><input className="input-field mt-1.5" value={form.rep} onChange={(e) => setForm((current) => ({ ...current, rep: e.target.value }))} /></label>
-                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Duration</span><input className="input-field mt-1.5" value={form.duration} onChange={(e) => setForm((current) => ({ ...current, duration: e.target.value }))} /></label>
-                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Disposition</span><select className="select-field mt-1.5" value={form.disposition} onChange={(e) => setForm((current) => ({ ...current, disposition: e.target.value }))}><option>Connected</option><option>No Answer</option><option>Voicemail</option></select></label>
-              </div>
-              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Notes</span><textarea className="input-field mt-1.5 min-h-20" value={form.notes} onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))} /></label>
-              <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setShowLog(false)} className="btn-secondary">Cancel</button>
-                <button className="btn-primary">Save Call</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      <div className="mb-6 flex items-center justify-between"><div><h1 className="text-xl font-bold text-navy-900">Calls</h1><p className="text-sm text-slate-500">Call history saved to your CRM leads.</p></div><button className="btn-primary" disabled={!canWrite} onClick={() => { setShowLog(true); setSaveError(''); setFeedback(''); }}>Log Call</button></div>
+      {feedback && <p role="status" className="mb-4 text-sm text-green-700">{feedback}</p>}
+      {saveError && !showLog && <p role="alert" className="mb-4 text-sm text-red-700">{saveError}</p>}
+      {loading ? <SkeletonLoader label="Loading call history..." /> : error ? <ErrorState message={error} /> : calls.length === 0 ? <EmptyState title="No calls logged" message="Log a call against a lead to keep a shared history of your conversations." /> : (
+        <div className="card overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{['Business', 'Rep', 'Date', 'Duration', 'Outcome', 'Notes'].map((label) => <th key={label} className="p-3">{label}</th>)}</tr></thead><tbody>{calls.map((call) => <tr key={call.id} className="border-t border-slate-100"><td className="p-3">{call.leads?.business_name || 'Lead'}</td><td className="p-3">{call.rep_name}</td><td className="p-3">{new Date(call.created_at).toLocaleString()}</td><td className="p-3">{call.duration}</td><td className="p-3">{call.disposition}</td><td className="p-3">{call.notes}</td></tr>)}</tbody></table></div>
       )}
+      {showLog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><form onSubmit={save} className="w-full max-w-md space-y-4 rounded-xl bg-white p-6"><h2 className="text-lg font-bold">Log a call</h2>
+        {leadsError && <p role="alert" className="text-sm text-red-700">{leadsError}</p>}
+        <label className="block">Lead<select required className="select-field mt-1" value={form.leadId} onChange={(e) => setForm({ ...form, leadId: e.target.value })}><option value="">Select lead</option>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.business_name}</option>)}</select></label>
+        <label className="block">Duration<input className="input-field mt-1" required value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} /></label>
+        <label className="block">Outcome<select className="select-field mt-1" value={form.disposition} onChange={(e) => setForm({ ...form, disposition: e.target.value })}>{['Connected','No Answer','Voicemail','Busy','Wrong Number'].map((outcome) => <option key={outcome}>{outcome}</option>)}</select></label>
+        <label className="block">Notes<textarea className="input-field mt-1" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
+        {saveError && <p role="alert" className="text-sm text-red-700">{saveError}</p>}
+        <div className="flex justify-end gap-3"><button type="button" disabled={saving} className="btn-secondary" onClick={() => setShowLog(false)}>Cancel</button><button disabled={saving} className="btn-primary">{saving ? 'Saving...' : 'Save call'}</button></div>
+      </form></div>}
     </div>
   );
 }

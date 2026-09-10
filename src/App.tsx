@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { isSupabaseConfigured, missingSupabaseMessage, supabase } from './lib/supabase';
+import { isSupabaseConfigured, isPasswordSetupLink, missingSupabaseMessage, supabase } from './lib/supabase';
 import { getCurrentUserRole, type RoleCheckResult } from './lib/auth';
 import type { Session } from '@supabase/supabase-js';
 
@@ -25,6 +25,7 @@ import NotFound from './pages/NotFound';
 
 // Admin pages are lazy-loaded so public landing pages do not ship CRM/reporting code.
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const SetPassword = lazy(() => import('./pages/admin/SetPassword'));
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
 const Leads = lazy(() => import('./pages/admin/Leads'));
@@ -131,6 +132,7 @@ function AdminGuard({ session, children }: { session: Session | null | undefined
 export default function App() {
   const onCrmHost = isCrmHost();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [needsPassword, setNeedsPassword] = useState(isPasswordSetupLink);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -148,8 +150,10 @@ export default function App() {
         if (active) setSession(null);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === 'PASSWORD_RECOVERY') setNeedsPassword(true);
+      if (event === 'SIGNED_OUT') setNeedsPassword(false);
     });
 
     return () => {
@@ -165,7 +169,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>
-      <Routes>
+      {needsPassword ? <SetPassword session={session} onComplete={() => setNeedsPassword(false)} /> : <Routes>
+        <Route path="/admin/set-password" element={<SetPassword session={session} onComplete={() => setNeedsPassword(false)} />} />
         {/* CRM subdomain entrypoint */}
         {onCrmHost && (
           <>
@@ -246,7 +251,7 @@ export default function App() {
 
         {/* Catch all */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
+      </Routes>}
       </Suspense>
     </BrowserRouter>
   );

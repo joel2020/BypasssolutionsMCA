@@ -9,6 +9,7 @@ export type CrmRole = 'admin' | 'underwriter' | 'sales_rep' | 'viewer' | null;
 
 export interface Actor {
   role: CrmRole;
+  id?: string;
   /** profiles.full_name — leads store the rep by name in `assigned_rep`. */
   name: string;
 }
@@ -19,9 +20,10 @@ export function isRestricted(role: CrmRole): boolean {
 }
 
 /** May this actor see a record assigned to `assignedRep`? */
-export function canAccessRecord(actor: Actor, assignedRep?: string | null): boolean {
+export function canAccessRecord(actor: Actor, assignedRep?: string | null, assignedTo?: string | null): boolean {
   if (!actor.role) return false;
   if (!isRestricted(actor.role)) return true;
+  if (actor.id && assignedTo === actor.id) return true;
   const owner = (assignedRep ?? '').trim();
   if (!owner || !actor.name.trim()) return false;
   return owner === actor.name;

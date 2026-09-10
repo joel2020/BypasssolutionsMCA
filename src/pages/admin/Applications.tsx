@@ -1,3 +1,4 @@
+import { updateLead } from '../../lib/leadMutations';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, FolderOpen, Phone, Mail, FileSignature } from 'lucide-react';
@@ -30,7 +31,7 @@ export default function Applications() {
 
   // Reps only see leads assigned to them.
   const leads = useMemo(
-    () => allLeads.filter((lead) => leadOnlyStatuses.includes(lead.status) && canAccess(lead.assigned_rep)),
+    () => allLeads.filter((lead) => leadOnlyStatuses.includes(lead.status) && canAccess(lead.assigned_rep, lead.assigned_to)),
     [allLeads, canAccess],
   );
 
@@ -72,8 +73,7 @@ export default function Applications() {
     if (draft === original) return;
     setSavingNote(leadId);
     try {
-      const { error: noteError } = await supabase.from('leads').update({ notes: draft }).eq('id', leadId);
-      if (noteError) throw noteError;
+      await updateLead(leadId, { notes: draft });
       setSavedNote(leadId);
       window.setTimeout(() => setSavedNote((cur) => (cur === leadId ? null : cur)), 1500);
       await refetch();

@@ -11,6 +11,8 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,15 +25,24 @@ export default function AdminLogin() {
       return;
     }
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError) {
-      setError(authError.message);
+    setMessage('');
+    try {
+      if (recovering) {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/admin/set-password`,
+        });
+        if (resetError) throw resetError;
+        setMessage('Check your email for a password reset link. If an account exists, you will receive instructions.');
+      } else {
+        const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (authError) throw authError;
+        navigate('/admin/dashboard', { replace: true });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    navigate('/admin/dashboard', { replace: true });
   };
 
   return (
@@ -47,7 +58,7 @@ export default function AdminLogin() {
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <Shield size={22} className="text-slate-600" />
             </div>
-            <h1 className="text-[20px] font-bold text-navy-900">Admin Portal</h1>
+            <h1 className="text-[20px] font-bold text-navy-900">CRM Portal</h1>
             <p className="text-[14px] text-slate-500 mt-1">Sign in to the CRM dashboard</p>
           </div>
 
@@ -64,7 +75,7 @@ export default function AdminLogin() {
               />
             </div>
 
-            <div>
+            {!recovering && <div>
               <label className="block text-[14px] font-medium text-slate-700 mb-1.5">Password</label>
               <div className="relative">
                 <input
@@ -83,8 +94,9 @@ export default function AdminLogin() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-            </div>
+            </div>}
 
+            {message && <p role="status" className="text-sm text-green-700">{message}</p>}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2.5">
                 <p className="text-[13px] text-red-600">{error}</p>
@@ -95,8 +107,11 @@ export default function AdminLogin() {
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                'Sign In'
+                recovering ? 'Send reset link' : 'Sign In'
               )}
+            </button>
+            <button type="button" disabled={loading} onClick={() => { setRecovering(!recovering); setError(''); setMessage(''); }} className="text-sm text-blue-700 hover:underline">
+              {recovering ? 'Back to sign in' : 'Forgot password?'}
             </button>
           </form>
         </div>
