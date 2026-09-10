@@ -2,18 +2,7 @@ import { getWritableLead } from '../server/crmAccess.js';
 import { createClient } from '@supabase/supabase-js';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-/**
- * Renders a COMPLETED Bypass Solution application from a lead and attaches it to
- * the deal. No email, no signature request — the applicant is never contacted.
- *
- * This is the "convert another broker's application" path: the data is carried
- * across (which the application's own authorisation language permits), the
- * original signed application stays attached as the executed document, and this
- * produces a Bypass-branded, fully filled application for the submission packet.
- *
- * It does NOT reproduce the applicant's signature. The signed instrument remains
- * the document they actually signed.
- */
+/** Generate a filled, unsigned Bypass application. Keep the original source unchanged. */
 
 const BUCKET = 'application-documents';
 const TEMPLATE_PATH = '_templates/bypass-application.pdf';
@@ -82,7 +71,7 @@ function buildValues(lead: Lead): Record<string, string> {
     business_phone: str(lead, 'business_phone', 'phone'),
     business_email: str(lead, 'business_email', 'email'),
     business_website: str(lead, 'website'),
-    // We only ever store the last four — never render a full tax ID.
+    // Use masked saved values unless reviewed full identifiers were supplied for this PDF.
     business_ein: einLast4 ? `XX-XXX${einLast4}` : '',
     business_start_date: str(lead, 'start_date'),
     entity_type: str(lead, 'entity_type'),
@@ -121,15 +110,28 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const { data: userData, error: userError } = await authClient.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Invalid CRM session.' });
 
-  const body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {}) as {
-    leadId?: string;
-    sourceDocumentId?: string;
-  };
+  let body: { leadId?: string; sourceDocumentId?: string; identifiers?: { ein?: string; ssn?: string } };
+  try {
+    body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body) || {};
+  } catch { return res.status(400).json({ error: 'Invalid request body.' }); }
   const leadId = typeof body.leadId === 'string' ? body.leadId.trim() : '';
   if (!leadId) return res.status(400).json({ error: 'leadId is required.' });
 
+  const identifiers: Record<string, string> = {};
+  for (const key of ['ein', 'ssn'] as const) {
+    const raw = body.identifiers?.[key];
+    if (raw === undefined || raw === '') continue;
+    if (typeof raw !== 'string' || !/^\d{9}$/.test(raw.replace(/[\s-]/g, ''))) return res.status(400).json({ error: 'Full EIN and SSN must contain nine digits.' });
+    identifiers[key] = raw.replace(/[\s-]/g, '');
+  }
+
   const access = await getWritableLead(authClient, userData.user.id, leadId);
   if (!access.lead) return res.status(access.status).json({ error: access.error });
+  if (body.sourceDocumentId) {
+    if (typeof body.sourceDocumentId !== 'string') return res.status(400).json({ error: 'Invalid source document.' });
+    const { data: source, error: sourceError } = await authClient.from('documents').select('id').eq('id', body.sourceDocumentId).eq('lead_id', leadId).maybeSingle();
+    if (sourceError || !source) return res.status(403).json({ error: 'The source application is not available on this lead.' });
+  }
   const lead = access.lead;
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -143,6 +145,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const page = pdf.getPages()[0];
     const values = buildValues(lead as Lead);
+    // Full identifiers live only in this private PDF, not unmasked CRM columns or logs.
+    if (identifiers.ein) values.business_ein = `${identifiers.ein.slice(0,2)}-${identifiers.ein.slice(2)}`;
+    if (identifiers.ssn) values.owner_ssn = `${identifiers.ssn.slice(0,3)}-${identifiers.ssn.slice(3,5)}-${identifiers.ssn.slice(5)}`;
 
     let filled = 0;
     for (const field of FIELDS) {
@@ -190,20 +195,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       })
       .select('id')
       .single();
-    if (docError) throw docError;
-
-    // 4) Mark the uploaded third-party app as the executed (signed) document.
-    if (body.sourceDocumentId) {
-      await admin
-        .from('documents')
-        .update({ doc_type: 'Signed Application (executed)', document_type: 'Signed Application (executed)' })
-        .eq('id', body.sourceDocumentId)
-        .eq('lead_id', leadId);
+    if (docError) {
+      await admin.storage.from(BUCKET).remove([path]);
+      throw new Error('Unable to attach the generated application. Please retry.');
     }
 
     return res.status(200).json({ ok: true, documentId: docRow.id, fileName, fieldsFilled: filled });
   } catch (err) {
-    console.error('generate-application failed', err);
+    console.error('generate-application failed');
     return res.status(502).json({ error: err instanceof Error ? err.message : 'Unable to generate the application.' });
   }
 }
