@@ -104,8 +104,9 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
         setSuccess(`Bypass application attached and sent to ${sent.sentTo} to sign. Once they sign, use "Check for signature" to pull the executed copy onto this deal.`);
       }
 
+      // Close before refetching: the parent briefly unmounts while loading.
+      onClose();
       onDone();
-      window.setTimeout(onClose, send ? 3200 : 2400);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to convert this application.');
     } finally {
@@ -159,6 +160,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
                     step={f.type === 'number' ? '0.01' : undefined}
                     value={form[f.key]}
                     onChange={(e) => set(f.key)(e.target.value)}
+                    onInput={f.type === 'date' ? (e) => set(f.key)(e.currentTarget.value) : undefined}
                     className="mt-1.5 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-[13px] text-white outline-none focus:border-blue-400"
                   />
                 </label>

@@ -12,10 +12,14 @@ Signature reuse is NOT implemented pending the user's answer about applicant aut
 
 Generation validates an accessible same-lead source before privileged work, cleans up a generated file if the document-row insert fails, and no longer logs error objects that could contain document data. The modal uses the existing checked lead-update helper; blank amounts and dates become null and zero remains zero.
 
-Validation: 156 automated tests passed, TypeScript app/server checks, ESLint and production build passed. Browser testing of a synthetic typed PDF extracted 18 values including derived last-four fields. Synthetic image and forced PDF OCR extracted 17 accepted values and correctly flagged the OCR-corrupted email after a validation fix. No real applicant was contacted. Live rollout verification will be recorded below.
+Validation: 157 automated tests passed, TypeScript app/server checks, ESLint and production build passed. Browser testing of a synthetic typed PDF extracted 18 values including derived last-four fields. Synthetic image and forced PDF OCR extracted 17 accepted values and correctly flagged the OCR-corrupted email after a validation fix. No real applicant was contacted. Live rollout verification will be recorded below.
 
 Review limitation: the previously attempted Claude reviewer is unavailable because its OAuth login expired; no independent Claude approval is claimed.
 
 The actual private Bypass template was downloaded and a synthetic filled PDF rendered and visually inspected: business, primary owner and all seven partner fields fit the template; signature lines remain blank.
 
 Field recognition also handles printed labels without colons, common owner/partner section headings, and combined city/state/ZIP rows. These are conservative rules with review required, not an unrestricted form-understanding model.
+
+Live production verification on source 0cfafcb passed digital extraction (18 fields), forced PDF OCR (17 fields plus invalid-email review warning), no automatic DB writes before review, saved mirrored amounts/dates/last-four fields, generated private PDF with full primary identifiers and partner details, and zero emails sent. Original file SHA-256 before/after matched: daf1c342fe5b7d8cc6b3dc9aecd7f7b930c50f3efc0048d162f467defb2e153b. Source document type remained Business Docs.
+
+The live test exposed two UI issues addressed in the final follow-up: close the conversion modal before the parent refetch to avoid reopening it, and handle date input events so a browser-entered date survives later form edits. A focused regression checks date retention in the generation request and close-before-refresh ordering. Final rollout details follow after rechecking these behaviors.
