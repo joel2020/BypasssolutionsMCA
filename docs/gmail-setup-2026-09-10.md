@@ -1,5 +1,7 @@
 # Gmail integration setup — September 10, 2026
 
+Update: the later [production Gmail verification](gmail-live-verification-2026-09-10.md) completed actual Google login, self-addressed sending, inbox delivery, PDF attachment opening, sync, and token refresh. The setup-time limitations below describe the earlier release stage.
+
 Google Cloud project: `refined-analogy-508220-d6` (Bypass Solutions CRM), created with explicit authorization under the signed-in account `joelcariasrecruiter@gmail.com`.
 
 ## Configuration

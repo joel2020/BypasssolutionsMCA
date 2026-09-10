@@ -1,9 +1,23 @@
 import { adminClient, corsHeaders, ensureAccessToken, extractBodyText, findLeadId, gmailFetch, headerValue, json, parseEmails, requireUser, upsertCommunication } from '../_shared/gmail.ts';
+import { preservedGmailLeadLinks } from '../_shared/gmailSync.ts';
 
 type SupabaseClient = ReturnType<typeof adminClient>;
 
 async function syncLabel(supabase: SupabaseClient, service: SupabaseClient, userId: string, accessToken: string, gmailEmail: string, label: 'INBOX' | 'SENT') {
   const list = await gmailFetch(accessToken, `messages?maxResults=50&labelIds=${label}`);
+  const messageIds: string[] = (list.messages ?? []).map((item: { id: string }) => item.id);
+  if (!messageIds.length) return 0;
+  const [existing, deliveries] = await Promise.all([
+    supabase.from('gmail_messages').select('gmail_message_id,lead_id').eq('user_id', userId).in('gmail_message_id', messageIds),
+    supabase.from('lender_email_deliveries').select('gmail_message_id,lead_id').eq('user_id', userId).eq('state', 'sent').in('gmail_message_id', messageIds),
+  ]);
+  if (existing.error) throw existing.error;
+  if (deliveries.error) throw deliveries.error;
+  const candidateIds = [...new Set([...(existing.data ?? []), ...(deliveries.data ?? [])].flatMap(row => row.lead_id ? [row.lead_id] : []))];
+  // Use the caller's client so reassigned/inaccessible leads cannot be restored.
+  const accessible = candidateIds.length ? await supabase.from('leads').select('id').in('id', candidateIds) : { data: [], error: null };
+  if (accessible.error) throw accessible.error;
+  const leadLinks = preservedGmailLeadLinks(existing.data ?? [], deliveries.data ?? [], (accessible.data ?? []).map(row => row.id));
   const rows = [];
   for (const item of list.messages ?? []) {
     const full = await gmailFetch(accessToken, `messages/${item.id}?format=full`);
@@ -16,7 +30,7 @@ async function syncLabel(supabase: SupabaseClient, service: SupabaseClient, user
     const toEmails = parseEmails(to);
     const ccEmails = parseEmails(cc);
     const direction = full.labelIds?.includes('SENT') || fromEmails.includes(gmailEmail.toLowerCase()) ? 'outbound' : 'inbound';
-    const leadId = await findLeadId(supabase, [...fromEmails, ...toEmails, ...ccEmails].filter((email) => email !== gmailEmail.toLowerCase()));
+    const leadId = leadLinks.get(full.id) ?? await findLeadId(supabase, [...fromEmails, ...toEmails, ...ccEmails].filter((email) => email !== gmailEmail.toLowerCase()));
     const row = {
       user_id: userId,
       lead_id: leadId,

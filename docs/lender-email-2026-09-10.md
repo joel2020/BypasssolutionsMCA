@@ -1,5 +1,7 @@
 # Email client files to lenders
 
+Update: the later [production Gmail verification](gmail-live-verification-2026-09-10.md) confirmed real self-addressed delivery, PDF opening, submission history, token refresh, and client-link preservation during sync.
+
 From a client's CRM record with an application, click **Submit to Lender**. Active admins, underwriters and sales reps can send within their existing client permissions. The composer shows the connected Gmail sender, an active lender's saved email address, editable subject/message, and document filenames with types and sizes. Choose files explicitly; no attachments are selected automatically. Each send goes to one lender, keeping other lenders' addresses private.
 
 The package contains real MIME attachments downloaded by the authenticated caller from the private CRM document bucket. Select 1–20 files totaling at most 18 MB. Missing, pending, rejected, empty, inaccessible and wrong-client files are rejected before Gmail is called. Files must be stored in the selected client's lead/application folder; legacy files elsewhere must be uploaded into that folder before sending.
