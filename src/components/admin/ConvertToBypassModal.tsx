@@ -86,7 +86,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       const genRes = await fetch('/api/generate-application', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ leadId: lead.id, sourceDocumentId, identifiers: { ein: form.full_ein, ssn: form.full_ssn } }),
+        body: JSON.stringify({ leadId: lead.id, sourceDocumentId, identifiers: { ein: form.full_ein, ssn: form.full_ssn }, partner: Object.fromEntries(Object.entries(form).filter(([key]) => key.startsWith('partner_'))) }),
       });
       const gen = await genRes.json().catch(() => ({}));
       if (!genRes.ok) throw new Error(gen?.error || 'Unable to generate the Bypass application.');
@@ -146,7 +146,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
               </>}
             </div>}
             <div className="rounded-xl border border-white/10 p-3 text-[12px] leading-relaxed text-slate-300">
-              The original application and any signature stay unchanged. This creates a filled, unsigned Bypass application; it does not transfer a signature or mark the source as signed. “Convert &amp; send to sign” emails the applicant a new signature request.
+              The original application and any signature stay unchanged. This creates a filled, unsigned Bypass application; it does not transfer a signature or mark the source as signed. “Convert &amp; send to sign” emails the applicant a new signature request using saved CRM fields. The signer completes full identifiers and partner fields in that separate request.
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -166,7 +166,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
             </div>
 
             <p className="text-[12px] text-slate-400">
-              Full EIN and SSN, when provided, appear in the private generated PDF. Only the last four digits are saved to CRM fields. If left blank, the PDF uses the saved last four. Other details remain in the original; extracted text is not saved separately.
+              Full EIN and SSN, when provided, appear in the private generated PDF. Only the last four digits of the primary owner’s identifiers are saved to CRM fields. Partner details are saved in the PDF only. If left blank, the PDF uses the saved last four. Other details remain in the original; extracted text is not saved separately.
             </p>
 
             <label className="flex items-start gap-2 text-[13px]"><input type="checkbox" className="mt-1" checked={reviewed} disabled={extracting || saving} onChange={e=>setReviewed(e.target.checked)} /> I reviewed the values against the original, checked additional owners and missing information, and understand this Bypass copy is unsigned.</label>

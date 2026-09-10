@@ -25,6 +25,13 @@ export const APPLICATION_FIELDS: ApplicationField[] = [
   {key:'full_ein',label:'Full EIN (PDF only)',aliases:['ein','business ein','federal tax id','tax id']},
   {key:'ssn_last_four',label:'SSN last four',aliases:[]},
   {key:'full_ssn',label:'Full SSN (PDF only)',aliases:['ssn','owner ssn','social security number']},
+  {key:'partner_full_name',label:'Partner full name (PDF only)',aliases:['partner full name','partner name','second owner name','owner 2 name']},
+  {key:'partner_title',label:'Partner title (PDF only)',aliases:['partner title','second owner title','owner 2 title']},
+  {key:'partner_ownership_pct',label:'Partner ownership % (PDF only)',aliases:['partner ownership %','partner ownership percentage','owner 2 ownership %']},
+  {key:'partner_dob',label:'Partner date of birth (PDF only)',aliases:['partner date of birth','partner dob','owner 2 dob'],type:'date'},
+  {key:'partner_ssn',label:'Partner SSN (PDF only)',aliases:['partner ssn','second owner ssn','owner 2 ssn']},
+  {key:'partner_phone',label:'Partner mobile (PDF only)',aliases:['partner mobile','partner phone','owner 2 phone']},
+  {key:'partner_home_address',label:'Partner home address (PDF only)',aliases:['partner home address','partner address','owner 2 address'],wide:true},
 ];
 const escaped = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function dateValue(value: string): string | null {
@@ -35,11 +42,11 @@ function dateValue(value: string): string | null {
   const date = new Date(`${iso}T00:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === iso ? iso : null;
 }
-function normalized(field: ApplicationField, raw: string): string | null {
+export function normalizeApplicationField(field: ApplicationField, raw: string): string | null {
   const value = raw.trim();
   if (!value || value.length > 250 || /\[\s*\]|☐/.test(value)) return null;
   if (field.key === 'business_email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null;
-  if (field.key === 'ownership_pct') {
+  if (field.key.endsWith('ownership_pct')) {
     const number=value.replace(/%$/,'').trim();
     return /^\d+(?:\.\d+)?$/.test(number) && Number(number)<=100 ? number : null;
   }
@@ -48,7 +55,7 @@ function normalized(field: ApplicationField, raw: string): string | null {
     const number = value.replace(/[$,\s]/g,'');
     return /^\d+(?:\.\d{1,2})?$/.test(number) && Number.isFinite(Number(number)) ? number : null;
   }
-  if (field.key.startsWith('full_')) {
+  if (field.key.startsWith('full_') || field.key === 'partner_ssn') {
     const digits = value.replace(/[\s-]/g,'');
     return /^\d{9}$/.test(digits) ? digits : null;
   }
@@ -66,12 +73,12 @@ export function parseApplicationText(text: string) {
   const matches = [...text.matchAll(pattern)];
   const candidates = new Map<string, Set<string>>();
   const warnings = new Set<string>();
-  if (/owner\s*(?:#?\s*2|two)|additional owner|second owner/i.test(text)) warnings.add('Additional owner information found. The Bypass form has one owner section; review all owners in the original.');
+  if (/owner\s*(?:#?\s*2|two)|additional owner|second owner/i.test(text)) warnings.add('Additional owner information found. Review the owner and partner sections against the original, including any owners beyond those two sections.');
   for (let i=0;i<matches.length;i++) {
     const match=matches[i]; const field=aliases.get(match[1].toLowerCase())!;
     const raw=text.slice(match.index!+match[0].length,matches[i+1]?.index ?? text.length).trim().split(/\r?\n/)[0];
     if (!raw) continue;
-    const value=normalized(field,raw);
+    const value=normalizeApplicationField(field,raw);
     if (value === null) { warnings.add(`${field.label}: could not confidently read this value; check the original.`); continue; }
     if (!candidates.has(field.key)) candidates.set(field.key,new Set());
     candidates.get(field.key)!.add(value);
@@ -90,9 +97,9 @@ export function applicationPatch(form: Record<string,string>): Record<string,unk
   for (const field of APPLICATION_FIELDS) {
     if (!(field.key in form)) continue;
     const raw=form[field.key].trim();
-    const value=raw ? normalized(field,raw) : null;
+    const value=raw ? normalizeApplicationField(field,raw) : null;
     if (raw && value===null) throw new Error(`Check ${field.label.toLowerCase()}.`);
-    if (field.key.startsWith('full_')) continue;
+    if (field.key.startsWith('full_') || field.key.startsWith('partner_')) continue;
     patch[field.key]=value===null ? null : field.type==='number' ? Number(value) : value;
   }
   if (form.full_ein?.trim()) patch.ein_last_four=form.full_ein.replace(/[\s-]/g,'').slice(-4);

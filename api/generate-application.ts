@@ -1,3 +1,4 @@
+import { APPLICATION_FIELDS, normalizeApplicationField } from '../src/lib/applicationImport.js';
 import { getWritableLead } from '../server/crmAccess.js';
 import { createClient } from '@supabase/supabase-js';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
@@ -31,6 +32,13 @@ const FIELDS: Array<{ key: string; x: number; y: number; w: number }> = [
   { key: 'owner_ssn', x: 507, y: 354, w: 79 },
   { key: 'owner_mobile', x: 112, y: 379, w: 474 },
   { key: 'owner_home_address', x: 84, y: 404, w: 502 },
+  { key: 'partner_full_name', x: 105, y: 451, w: 195 },
+  { key: 'partner_title', x: 390, y: 451, w: 196 },
+  { key: 'partner_ownership_pct', x: 153, y: 476, w: 47 },
+  { key: 'partner_dob', x: 290, y: 476, w: 105 },
+  { key: 'partner_ssn', x: 515, y: 476, w: 71 },
+  { key: 'partner_phone', x: 126, y: 501, w: 460 },
+  { key: 'partner_home_address', x: 96, y: 526, w: 490 },
 ];
 
 type ApiRequest = { method?: string; body?: unknown; headers?: Record<string, string | string[] | undefined> };
@@ -110,7 +118,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const { data: userData, error: userError } = await authClient.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Invalid CRM session.' });
 
-  let body: { leadId?: string; sourceDocumentId?: string; identifiers?: { ein?: string; ssn?: string } };
+  let body: { leadId?: string; sourceDocumentId?: string; identifiers?: { ein?: string; ssn?: string }; partner?: Record<string, unknown> };
   try {
     body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body) || {};
   } catch { return res.status(400).json({ error: 'Invalid request body.' }); }
@@ -123,6 +131,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (raw === undefined || raw === '') continue;
     if (typeof raw !== 'string' || !/^\d{9}$/.test(raw.replace(/[\s-]/g, ''))) return res.status(400).json({ error: 'Full EIN and SSN must contain nine digits.' });
     identifiers[key] = raw.replace(/[\s-]/g, '');
+  }
+
+  const partner: Record<string, string> = {};
+  for (const field of APPLICATION_FIELDS.filter(field => field.key.startsWith('partner_'))) {
+    const raw = body.partner?.[field.key];
+    if (raw === undefined || raw === '') continue;
+    const value = typeof raw === 'string' ? normalizeApplicationField(field, raw) : null;
+    if (value === null) return res.status(400).json({ error: `Check ${field.label.toLowerCase()}.` });
+    partner[field.key] = value;
   }
 
   const access = await getWritableLead(authClient, userData.user.id, leadId);
@@ -144,7 +161,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const pdf = await PDFDocument.load(await blank.arrayBuffer());
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const page = pdf.getPages()[0];
-    const values = buildValues(lead as Lead);
+    const values = { ...buildValues(lead as Lead), ...partner };
     // Full identifiers live only in this private PDF, not unmasked CRM columns or logs.
     if (identifiers.ein) values.business_ein = `${identifiers.ein.slice(0,2)}-${identifiers.ein.slice(2)}`;
     if (identifiers.ssn) values.owner_ssn = `${identifiers.ssn.slice(0,3)}-${identifiers.ssn.slice(3,5)}-${identifiers.ssn.slice(5)}`;

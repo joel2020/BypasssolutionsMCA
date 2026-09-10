@@ -11,10 +11,10 @@ vi.mock('@supabase/supabase-js',()=>({createClient:()=>({
 beforeEach(()=>{mock.source=true;mock.insertError=false;vi.clearAllMocks();vi.stubEnv('SUPABASE_URL','https://example.supabase.co');vi.stubEnv('SUPABASE_ANON_KEY','anon');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','service');});
 const run=async(body:unknown)=>{const json=vi.fn();const status=vi.fn().mockReturnValue({json});await handler({method:'POST',headers:{authorization:'Bearer test'},body},{setHeader:vi.fn(),status});return {status,json};};
 it('renders reviewed identifiers into private PDF without changing the source signature status',async()=>{
- const result=await run({leadId:'lead',sourceDocumentId:'source',identifiers:{ein:'12-3456789',ssn:'123-45-6789'}});
+ const result=await run({leadId:'lead',sourceDocumentId:'source',identifiers:{ein:'12-3456789',ssn:'123-45-6789'},partner:{partner_full_name:'Second Owner',partner_dob:'1982-02-12'}});
  expect(result.status).toHaveBeenCalledWith(200);
  expect(mock.draw).toHaveBeenCalledWith('12-3456789',expect.anything());expect(mock.draw).toHaveBeenCalledWith('123-45-6789',expect.anything());
- expect(mock.updates).not.toHaveBeenCalled();expect(JSON.stringify(mock.insert.mock.calls)).not.toContain('123-45-6789');
+ expect(mock.draw).toHaveBeenCalledWith('Second Owner',expect.anything());expect(mock.updates).not.toHaveBeenCalled();expect(JSON.stringify(mock.insert.mock.calls)).not.toContain('123-45-6789');
 });
 it('rejects a source from a different or inaccessible lead before rendering',async()=>{
  mock.source=false;const result=await run({leadId:'lead',sourceDocumentId:'other-source'});

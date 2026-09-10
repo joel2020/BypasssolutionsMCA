@@ -18,6 +18,11 @@ describe('partner application extraction', () => {
     const result=parseApplicationText('Business Email: sample @example.com');
     expect(result.fields.business_email).toBeUndefined();expect(result.warnings).toHaveLength(1);
   });
+  it('maps a second owner to PDF-only partner fields', () => {
+    const result=parseApplicationText('Owner 2 Name: Second Person\nPartner DOB: 02/12/1982\nPartner SSN: 123-45-6789');
+    expect(result.fields).toMatchObject({partner_full_name:'Second Person',partner_dob:'1982-02-12',partner_ssn:'123456789'});
+    expect(applicationPatch(result.fields)).toEqual({});
+  });
   it('does not infer signature execution or fields from unlabeled text', () => {
     expect(parseApplicationText('Signature: Test Person\nArbitrary contract text.').fields).toEqual({});
   });
