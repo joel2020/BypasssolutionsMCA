@@ -1,0 +1,4 @@
+# Google redirects here without a Supabase JWT. The callback consumes a
+# single-use, expiring server-side state before accepting an authorization code.
+[functions.gmail-oauth-callback]
+verify_jwt = false

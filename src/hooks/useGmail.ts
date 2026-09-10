@@ -50,14 +50,21 @@ function functionsUrl(name: string) {
 
 async function invoke<T>(name: string, body?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) throw error;
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    const payload = context ? await context.clone().json().catch(() => null) : null;
+    throw new Error(payload?.error || error.message);
+  }
   return data as T;
 }
 
 export async function getGmailConnection() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) return null;
   const { data, error } = await supabase
     .from('gmail_connections')
     .select('id,user_id,gmail_email,status,token_expires_at,scopes,last_sync_at,created_at,updated_at')
+    .eq('user_id', sessionData.session.user.id)
     .maybeSingle();
   if (error) throw error;
   return data as GmailConnection | null;
@@ -80,7 +87,7 @@ export async function syncGmail() {
 }
 
 export async function sendGmailEmail(input: SendGmailEmailInput) {
-  return invoke<{ message: GmailMessage }>('gmail-send', input as unknown as Record<string, unknown>);
+  return invoke<{ message: GmailMessage; warning?: string }>('gmail-send', input as unknown as Record<string, unknown>);
 }
 
 export async function disconnectGmail() {

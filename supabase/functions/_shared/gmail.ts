@@ -1,3 +1,5 @@
+import { decryptToken, encryptToken, decodeBody } from './gmailSecurity.ts';
+export { encodeRfc822 } from './gmailSecurity.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 export const corsHeaders = {
@@ -9,10 +11,8 @@ export const corsHeaders = {
 export const gmailScopes = [
   'openid',
   'email',
-  'profile',
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.modify',
 ];
 
 export function json(body: unknown, status = 200) {
@@ -39,7 +39,9 @@ export async function requireUser(req: Request) {
   const supabase = userClient(req);
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw new Error('Authentication required. Sign in to the CRM before using Gmail.');
-  return { supabase, user: data.user };
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('role,status').eq('id', data.user.id).maybeSingle();
+  if (profileError || profile?.status !== 'active' || !['admin','underwriter','sales_rep'].includes(profile.role)) throw new Error('An active CRM account with write access is required.');
+  return { supabase, user: data.user, service: adminClient() };
 }
 
 export async function exchangeCode(code: string) {
@@ -74,17 +76,18 @@ type GmailHeader = { name?: string; value?: string };
 type GmailPayload = { mimeType?: string; body?: { data?: string }; parts?: GmailPayload[] };
 type GmailCommunicationMessage = { lead_id?: string | null; direction?: 'inbound' | 'outbound'; subject?: string | null; body_text?: string | null; to_emails?: string[]; from_email?: string | null; user_id?: string | null; gmail_message_id?: string | null; gmail_thread_id?: string | null; sent_at?: string | null; raw_payload?: Record<string, unknown> | null };
 
-export async function ensureAccessToken(supabase: ReturnType<typeof createClient>, connection: GmailConnection) {
+export async function ensureAccessToken(supabase: ReturnType<typeof adminClient>, connection: GmailConnection) {
   const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at).getTime() : 0;
-  if (connection.access_token_encrypted && expiresAt > Date.now() + 60_000) return connection.access_token_encrypted;
+  if (connection.access_token_encrypted && expiresAt > Date.now() + 60_000) return decryptToken(connection.access_token_encrypted, env('GMAIL_TOKEN_ENCRYPTION_KEY'));
   if (!connection.refresh_token_encrypted) throw new Error('Gmail refresh token is missing. Reconnect Gmail.');
-  const refreshed = await refreshAccessToken(connection.refresh_token_encrypted);
+  const refreshed = await refreshAccessToken(await decryptToken(connection.refresh_token_encrypted, env('GMAIL_TOKEN_ENCRYPTION_KEY')));
   const tokenExpiresAt = new Date(Date.now() + Number(refreshed.expires_in ?? 3600) * 1000).toISOString();
-  await supabase.from('gmail_connections').update({
-    access_token_encrypted: refreshed.access_token,
+  const { error } = await supabase.from('gmail_connections').update({
+    access_token_encrypted: await encryptToken(refreshed.access_token, env('GMAIL_TOKEN_ENCRYPTION_KEY')),
     token_expires_at: tokenExpiresAt,
     status: 'connected',
   }).eq('id', connection.id);
+  if (error) throw error;
   return refreshed.access_token as string;
 }
 
@@ -106,12 +109,7 @@ export function parseEmails(value: string) {
   return [...value.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map((m) => m[0].toLowerCase());
 }
 
-function decodeBase64Url(value = '') {
-  try {
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    return atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
-  } catch { return ''; }
-}
+function decodeBase64Url(value = '') { try { return decodeBody(value); } catch { return ''; } }
 
 export function extractBodyText(payload: GmailPayload | undefined): string {
   if (!payload) return '';
@@ -124,15 +122,17 @@ export function extractBodyText(payload: GmailPayload | undefined): string {
   return '';
 }
 
-export async function findLeadId(supabase: ReturnType<typeof createClient>, emails: string[]) {
+export async function findLeadId(supabase: ReturnType<typeof adminClient>, emails: string[]) {
   const clean = [...new Set(emails.map((e) => e.toLowerCase()).filter(Boolean))];
   if (clean.length === 0) return null;
-  const { data } = await supabase.from('leads').select('id,email').in('email', clean).limit(1);
+  const { data, error } = await supabase.from('leads').select('id,email').in('email', clean).limit(1);
+  if (error) throw error;
   return data?.[0]?.id ?? null;
 }
 
-export async function upsertCommunication(supabase: ReturnType<typeof createClient>, message: GmailCommunicationMessage) {
-  await supabase.from('communications').upsert({
+export async function upsertCommunication(supabase: ReturnType<typeof adminClient>, message: GmailCommunicationMessage) {
+  if (!message.lead_id) return; // Personal/unmatched mail stays in the owner's mailbox.
+  const { error } = await supabase.from('communications').upsert({
     lead_id: message.lead_id,
     direction: message.direction,
     channel: 'Email',
@@ -141,25 +141,12 @@ export async function upsertCommunication(supabase: ReturnType<typeof createClie
     recipient: (message.to_emails ?? []).join(', '),
     sender: message.from_email,
     status: message.direction === 'outbound' ? 'sent' : 'received',
-    sent_by: message.direction === 'outbound' ? message.user_id : null,
     created_by: message.user_id,
     gmail_message_id: message.gmail_message_id,
     gmail_thread_id: message.gmail_thread_id,
     provider: 'gmail',
     provider_payload: message.raw_payload ?? {},
     created_at: message.sent_at ?? new Date().toISOString(),
-  }, { onConflict: 'gmail_message_id' });
-}
-
-export function encodeRfc822(input: { to: string[]; cc?: string[]; subject: string; body: string; from?: string }) {
-  const lines = [
-    `To: ${input.to.join(', ')}`,
-    input.cc?.length ? `Cc: ${input.cc.join(', ')}` : '',
-    `Subject: ${input.subject}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset="UTF-8"',
-    '',
-    input.body,
-  ].filter((line) => line !== '');
-  return btoa(unescape(encodeURIComponent(lines.join('\r\n')))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }, { onConflict: 'created_by,gmail_message_id' });
+  if (error) throw error;
 }

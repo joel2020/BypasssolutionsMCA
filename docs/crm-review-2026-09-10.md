@@ -67,7 +67,7 @@ Release steps 2–4 below are complete; retain this sequence for future deployme
 ## Remaining integration work
 
 - SMS requires a real messaging provider and sending number; the previous screen never sent texts. It now says so explicitly.
-- Gmail requires deployment/configuration of its OAuth/send/sync functions, Google credentials and an actual connected mailbox. No email delivery was certified.
+- Gmail functions, database tables and Google credentials have now been configured; see `gmail-setup-2026-09-10.md`. Google mailbox consent, delivery acceptance and production publishing/verification remain.
 - signNow endpoints now enforce CRM access, but signature requests, template rendering and signed-document retrieval still need a staging merchant test with configured provider credentials. No merchant messages were sent by this review.
 - Supabase reports leaked-password protection is disabled. Its [password-security guide](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) covers enabling it. Existing authenticated-callable ownership helpers also produce [security-definer advisory notices](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable); these helpers are used by RLS and must not be revoked indiscriminately.
 - The release used authenticated Vercel CLI 59.11.2; the CLI recommends an upgrade for future releases.
