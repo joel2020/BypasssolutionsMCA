@@ -11,7 +11,7 @@ Google Cloud project: `refined-analogy-508220-d6` (Bypass Solutions CRM), create
 - Google app is in **Testing**. The audience table lists `joelcarias23@gmail.com`. Additional reps require test-user enrollment until production publishing/verification is completed.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and a randomly generated 256-bit `GMAIL_TOKEN_ENCRYPTION_KEY` are stored in Supabase Edge Function secrets. Never commit these or rotate the encryption key without migrating existing encrypted tokens.
 - Production migration `20260910203331_gmail_production_setup.sql` installs missing Gmail tables and communications fields without replaying unrelated historical storage migrations. Its hosted history marker is reconciled with the repository filename.
-- All five Gmail functions are deployed. Four require a Supabase JWT and an active CRM writable profile. Only the Google callback has gateway JWT verification disabled; it requires an expiring, single-use server-side OAuth state and rechecks CRM access.
+- The five mailbox functions and the lender-package sender are deployed; see `lender-email-2026-09-10.md`. Four require a Supabase JWT and an active CRM writable profile. Only the Google callback has gateway JWT verification disabled; it requires an expiring, single-use server-side OAuth state and rechecks CRM access.
 
 ## Frontend release
 

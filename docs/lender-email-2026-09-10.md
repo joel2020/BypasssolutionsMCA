@@ -17,3 +17,7 @@ A unique request ID is reserved before Gmail is called. Concurrent/repeated requ
 ## Acceptance still requiring a person
 
 A CRM user must connect Gmail first. Google OAuth remains in Testing with Joel's mailbox listed. No actual lender email or client file was sent during development. A test with an explicitly approved recipient and non-sensitive sample documents is still needed to verify inbox delivery and attachment opening.
+
+## Production release
+
+Source commit `4c34f65` was promoted to `https://crm.bypasssolution.com` as Vercel deployment `dpl_DR3ijbbA256eeUKmwHaXCH2JesrK`. The public CRM asset matches the verified deployment. `gmail-send-lender` is ACTIVE with JWT verification enabled, and the new migration is applied with its repository history marker. An unauthenticated request returned 401. Production database checks confirmed the completion RPC is service-role-only and no lender delivery attempts were made during testing. GitHub, Vercel and Supabase preview checks passed; the security advisor reported no findings for the new lender objects.
