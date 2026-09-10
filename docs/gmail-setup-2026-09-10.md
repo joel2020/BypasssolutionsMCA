@@ -13,6 +13,10 @@ Google Cloud project: `refined-analogy-508220-d6` (Bypass Solutions CRM), create
 - Production migration `20260910203331_gmail_production_setup.sql` installs missing Gmail tables and communications fields without replaying unrelated historical storage migrations. Its hosted history marker is reconciled with the repository filename.
 - All five Gmail functions are deployed. Four require a Supabase JWT and an active CRM writable profile. Only the Google callback has gateway JWT verification disabled; it requires an expiring, single-use server-side OAuth state and rechecks CRM access.
 
+## Frontend release
+
+Source commit `d40db5c` was deployed and promoted to `https://crm.bypasssolution.com` as Vercel deployment `dpl_9d5tSKTKoze1Mwt61sG4U94DVjWr`. The email route returned HTTP 200 on the verified deployment; the live CRM correctly requires sign-in before opening Email. GitHub verification, Vercel preview and Supabase preview checks passed.
+
 ## Repairs
 
 Tokens are encrypted with AES-GCM and inaccessible to browser database clients. Gmail metadata/messages are restricted to the mailbox owner, including admins. Server persistence uses a service client after caller authentication; lead matching still uses the caller's RLS-scoped client. Unmatched personal mail is not copied into shared CRM communications.
@@ -30,5 +34,5 @@ Sync is manual and reads the latest 50 Inbox and 50 Sent message references per 
 - Live unauthenticated calls to OAuth start, send, sync and disconnect returned 401. A callback without code/state redirected to the CRM with an explicit error.
 - Supabase advisor marks the OAuth-state table as RLS-enabled with no policies. This is intentional: only the service role can consume those states; public/anon/authenticated grants are revoked. [Advisor explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
 - No mailbox has been authorized and no Gmail message was sent during setup. Joel must sign in to CRM → Email → Connect Gmail and approve the Google permissions. Then verify sync, an explicitly approved test send, refresh and disconnect.
-- Testing-mode grants for these Gmail scopes expire after seven days. Production publishing and Google's applicable verification are still required for an unrestricted rollout. [Google OAuth documentation](https://developers.google.com/identity/protocols/oauth2/web-server).
+- Testing-mode grants for these Gmail scopes expire after seven days. Production publishing and Google's applicable verification are still required for an unrestricted rollout. [Google OAuth documentation](https://developers.google.com/identity/protocols/oauth2#expiration).
 - The existing PR remains unmerged because older Supabase migration history is inconsistent; release directly from the verified branch rather than replaying old migrations/seeds.
