@@ -28,6 +28,11 @@ export function assertSupabaseConfigured() {
 // Capture invitation/recovery intent before the SDK consumes and clears the URL fragment.
 const authLinkType = typeof window === 'undefined' ? null : new URLSearchParams(window.location.hash.slice(1)).get('type');
 export const isPasswordSetupLink = authLinkType === 'invite' || authLinkType === 'recovery';
+const authParams = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(`${window.location.search.slice(1)}&${window.location.hash.slice(1)}`);
+const authErrorCode = authParams.get('error_code') || authParams.get('error');
+export const initialAuthError = !authErrorCode ? '' : authErrorCode === 'signup_disabled'
+  ? 'This CRM is invitation-only. Ask your administrator to add your Google email address.'
+  : 'Google sign-in was not completed. Please try again or sign in with your email and password.';
 
 export const supabase = createClient(
   isSupabaseConfigured ? supabaseUrl! : 'https://missing-config.invalid',
