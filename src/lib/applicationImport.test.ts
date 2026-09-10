@@ -14,6 +14,10 @@ describe('partner application extraction', () => {
   it('keeps only last four tax digits in CRM candidates', () => {
     expect(parseApplicationText('EIN: 12-3456789\nSSN: 123-45-6789').fields).toMatchObject({ein_last_four:'6789',ssn_last_four:'6789'});
   });
+  it('reads printed labels without colons and separates partner-section fields', () => {
+    const result=parseApplicationText('Legal Business Name Example LLC\nSECTION 2 Owner / Principal Information\nTitle / Position Owner\nSECTION 3 Partner Information\nPartner Full Name Second Person\nTitle / Position Co-owner\nSocial Security Number 123-45-6789');
+    expect(result.fields).toMatchObject({legal_name:'Example LLC',owner_title:'Owner',partner_full_name:'Second Person',partner_title:'Co-owner',partner_ssn:'123456789'});
+  });
   it('flags invalid OCR email instead of saving it', () => {
     const result=parseApplicationText('Business Email: sample @example.com');
     expect(result.fields.business_email).toBeUndefined();expect(result.warnings).toHaveLength(1);

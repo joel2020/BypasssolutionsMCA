@@ -1,28 +1,28 @@
 export interface ApplicationField { key: string; label: string; aliases: string[]; type?: 'date' | 'number'; wide?: boolean }
 export const APPLICATION_FIELDS: ApplicationField[] = [
   {key:'legal_name',label:'Legal business name',aliases:['business legal name','legal name','business name','company name']},
-  {key:'dba',label:'DBA',aliases:['doing business as','business dba']},
+  {key:'dba',label:'DBA',aliases:['doing business as','business dba','DBA (Doing Business As)']},
   {key:'business_address',label:'Business address',aliases:['business street address','physical business address'],wide:true},
   {key:'city',label:'City',aliases:['business city']},
   {key:'state',label:'State',aliases:['business state']},
   {key:'zip',label:'ZIP',aliases:['zip code','business zip','postal code']},
-  {key:'business_phone',label:'Business phone',aliases:['business telephone','company phone']},
+  {key:'business_phone',label:'Business phone',aliases:['business telephone','company phone','business phone number']},
   {key:'business_email',label:'Business email',aliases:['business email address','company email']},
   {key:'website',label:'Website',aliases:['business website']},
   {key:'start_date',label:'Business start date',aliases:['date business started','date established','business inception date'],type:'date'},
   {key:'entity_type',label:'Entity type',aliases:['business structure','business entity type','type of entity']},
-  {key:'industry',label:'Industry',aliases:['type of business','business industry']},
-  {key:'funding_amount_requested',label:'Requested amount ($)',aliases:['requested amount','amount requested','funding amount requested','loan amount','requested funding'],type:'number'},
-  {key:'use_of_funds',label:'Use of funds',aliases:['purpose of funding','loan purpose']},
-  {key:'annual_revenue',label:'Gross annual revenue ($)',aliases:['gross annual revenue','annual revenue','annual sales'],type:'number'},
-  {key:'owner_full_name',label:'Owner full name',aliases:['owner name','principal name','applicant name']},
+  {key:'industry',label:'Industry',aliases:['type of business','business industry','Industry / Nature of Business']},
+  {key:'funding_amount_requested',label:'Requested amount ($)',aliases:['requested amount','amount requested','funding amount requested','loan amount','requested funding','Requested Funding Amount ($)'],type:'number'},
+  {key:'use_of_funds',label:'Use of funds',aliases:['purpose of funding','loan purpose','intended use of funds']},
+  {key:'annual_revenue',label:'Gross annual revenue ($)',aliases:['gross annual revenue','annual revenue','annual sales','Gross Annual Revenue ($)'],type:'number'},
+  {key:'owner_full_name',label:'Owner full name',aliases:['owner name','principal name','applicant name','Owner / Principal Full Name']},
   {key:'owner_title',label:'Owner title',aliases:['principal title']},
   {key:'ownership_pct',label:'Ownership %',aliases:['ownership percentage','percent ownership','percentage ownership']},
   {key:'owner_dob',label:'Owner date of birth',aliases:['owner dob','date of birth','dob'],type:'date'},
   {key:'phone',label:'Owner mobile',aliases:['owner phone','mobile phone','cell phone','owner cell']},
   {key:'owner_home_address',label:'Owner home address',aliases:['home address','owner address','residential address'],wide:true},
   {key:'ein_last_four',label:'EIN last four',aliases:[]},
-  {key:'full_ein',label:'Full EIN (PDF only)',aliases:['ein','business ein','federal tax id','tax id']},
+  {key:'full_ein',label:'Full EIN (PDF only)',aliases:['ein','business ein','federal tax id','tax id','Federal Tax ID (EIN)']},
   {key:'ssn_last_four',label:'SSN last four',aliases:[]},
   {key:'full_ssn',label:'Full SSN (PDF only)',aliases:['ssn','owner ssn','social security number']},
   {key:'partner_full_name',label:'Partner full name (PDF only)',aliases:['partner full name','partner name','second owner name','owner 2 name']},
@@ -66,8 +66,26 @@ export function normalizeApplicationField(field: ApplicationField, raw: string):
   return value;
 }
 export function parseApplicationText(text: string) {
+  let section: 'business' | 'owner' | 'partner' | null = null;
+  text=text.split(/\r?\n/).map(line=>{
+    if (/^(?:SECTION\s*\d+\s+)?Business Information$/i.test(line.trim())) section='business';
+    if (/^(?:SECTION\s*\d+\s+)?Owner(?: \/ Principal)? Information$/i.test(line.trim())) section='owner';
+    if (/^(?:SECTION\s*\d+\s+)?Partner Information$/i.test(line.trim())) section='partner';
+    if (/^(?:SECTION\s*\d+\s+)?(?:Applicant Authorization|Signature)/i.test(line.trim())) section=null;
+    const address=/^City\s*\/\s*State\s*\/\s*ZIP\s*:?\s*(.+?)[,\s]+([A-Z]{2})[,\s]+(\d{5}(?:-\d{4})?)$/i.exec(line.trim());
+    if (address) return `City: ${address[1]}\nState: ${address[2]}\nZIP: ${address[3]}`;
+    if (section==='business') line=line.replace(/^Email Address(?=[:\s]|$)/i,'Business Email');
+    if (section==='owner' || section==='partner') {
+      const prefix=section==='owner'?'Owner':'Partner';
+      line=line.replace(/^Title \/ Position(?=[:\s]|$)/i,`${prefix} Title`).replace(/^Ownership Percentage\s*(?:\(%\))?(?=[:\s]|$)/i,`${prefix==='Owner'?'':prefix+' '}Ownership %`).replace(/^Date of Birth(?=[:\s]|$)/i,`${prefix} Date of Birth`).replace(/^Social Security Number(?=[:\s]|$)/i,`${prefix} SSN`).replace(/^Mobile Phone Number(?=[:\s]|$)/i,`${prefix} Mobile`).replace(/^Home Address(?=[:\s]|$)/i,`${prefix} Home Address`);
+    }
+    return line;
+  }).join('\n');
   const aliases = new Map<string, ApplicationField>();
   for (const field of APPLICATION_FIELDS) for (const alias of [field.label, field.key.replace(/_/g,' '), ...field.aliases]) aliases.set(alias.toLowerCase(), field);
+  // Printed forms often omit colons. Recognize known labels at the beginning of a row.
+  const prefixPattern=new RegExp(String.raw`^(${[...aliases.keys()].sort((a,b)=>b.length-a.length).map(escaped).join('|')})[ \t]+(?=[^:\s])`,'gim');
+  text=text.replace(prefixPattern,'$1: ');
   // Labels need a colon or a line break. PDF/OCR engines can collapse column spacing.
   const pattern = new RegExp(`(?:^|[\\n\\t]| +)(${[...aliases.keys()].sort((a,b)=>b.length-a.length).map(escaped).join('|')})[ \\t]*(?::[ \\t]*|(?=\\r?\\n|$))`, 'gim');
   const matches = [...text.matchAll(pattern)];

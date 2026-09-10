@@ -12,8 +12,10 @@ Signature reuse is NOT implemented pending the user's answer about applicant aut
 
 Generation validates an accessible same-lead source before privileged work, cleans up a generated file if the document-row insert fails, and no longer logs error objects that could contain document data. The modal uses the existing checked lead-update helper; blank amounts and dates become null and zero remains zero.
 
-Validation: 155 automated tests passed, TypeScript app/server checks, ESLint and production build passed. Browser testing of a synthetic typed PDF extracted 18 values including derived last-four fields. Synthetic image and forced PDF OCR extracted 17 accepted values and correctly flagged the OCR-corrupted email after a validation fix. No real applicant was contacted. Live rollout verification will be recorded below.
+Validation: 156 automated tests passed, TypeScript app/server checks, ESLint and production build passed. Browser testing of a synthetic typed PDF extracted 18 values including derived last-four fields. Synthetic image and forced PDF OCR extracted 17 accepted values and correctly flagged the OCR-corrupted email after a validation fix. No real applicant was contacted. Live rollout verification will be recorded below.
 
 Review limitation: the previously attempted Claude reviewer is unavailable because its OAuth login expired; no independent Claude approval is claimed.
 
 The actual private Bypass template was downloaded and a synthetic filled PDF rendered and visually inspected: business, primary owner and all seven partner fields fit the template; signature lines remain blank.
+
+Field recognition also handles printed labels without colons, common owner/partner section headings, and combined city/state/ZIP rows. These are conservative rules with review required, not an unrestricted form-understanding model.
