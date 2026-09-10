@@ -1,8 +1,10 @@
-import { useMemo, useState, type DragEvent } from 'react';
-import { Eye, FileSignature, FileText, Send, Trash2, Upload, XCircle } from 'lucide-react';
+import { useState, type DragEvent } from 'react';
+import { Eye, FileSignature, FileText, Trash2, Upload, XCircle } from 'lucide-react';
 import { createDocumentSignedUrl, deleteDocument, REQUIRED_DOCUMENT_TYPES, useUploadDocument } from '../../hooks/useDocuments';
-import { useCreatePartnerSubmission, useFundingPartners } from '../../hooks/usePartnerSubmissions';
-import type { Document, FundingPartner, PartnerSubmission } from '../../lib/supabase';
+import { useCreatePartnerSubmission } from '../../hooks/usePartnerSubmissions';
+import type { Document, PartnerSubmission } from '../../lib/supabase';
+
+export { default as SubmitToLenderModal } from './SubmitToLenderModal';
 
 const documentTypes = [...REQUIRED_DOCUMENT_TYPES, 'Other'];
 
@@ -184,41 +186,6 @@ export function DocumentList({
   );
 }
 
-export function SubmitToLenderModal({ leadId, applicationId, documents, onClose, onSubmitted }: { leadId?: string | null; applicationId: string; documents: Document[]; onClose: () => void; onSubmitted: () => void }) {
-  const { data: partners, loading } = useFundingPartners();
-  const { createSubmission, loading: submitting } = useCreatePartnerSubmission();
-  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
-  const [selectedDocs, setSelectedDocs] = useState<string[]>(documents.map((doc) => doc.id));
-  const [notes, setNotes] = useState('');
-  const selectedPartnerRecords = useMemo(() => partners.filter((partner) => selectedPartners.includes(partner.id)), [partners, selectedPartners]);
-
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    for (const fundingPartnerId of selectedPartners) {
-      await createSubmission({ applicationId, leadId, fundingPartnerId, notes, includedDocumentIds: selectedDocs });
-    }
-    onSubmitted();
-    onClose();
-  }
-
-  function togglePartner(partner: FundingPartner) {
-    setSelectedPartners((current) => current.includes(partner.id) ? current.filter((id) => id !== partner.id) : [...current, partner.id]);
-  }
-
-  return (
-    <ModalShell title="Submit to Lender" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div><p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Funding partners</p><div className="mt-2 max-h-52 space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.03] p-2">{loading ? <p className="p-3 text-[13px] text-slate-400">Loading partners...</p> : partners.map((partner) => <button type="button" key={partner.id} onClick={() => togglePartner(partner)} className={`w-full rounded-lg border p-3 text-left transition ${selectedPartners.includes(partner.id) ? 'border-blue-400 bg-blue-500/15' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}`}><span className="block text-[14px] font-bold text-white">{partner.name}</span><span className="text-[12px] text-slate-400">{partner.contact_name || 'No contact'} {partner.email ? `• ${partner.email}` : ''}</span></button>)}</div></div>
-        <div><p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Documents to include</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{documents.length === 0 ? <p className="text-[13px] text-amber-200">No documents uploaded yet.</p> : documents.map((doc) => <label key={doc.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-[13px] text-slate-200"><input type="checkbox" checked={selectedDocs.includes(doc.id)} onChange={() => setSelectedDocs((current) => current.includes(doc.id) ? current.filter((id) => id !== doc.id) : [...current, doc.id])} />{doc.document_type || doc.doc_type}</label>)}</div></div>
-        <label className="block"><span className="text-[12px] font-bold uppercase tracking-wider text-slate-400">Submission notes</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-[14px] text-white outline-none focus:border-blue-400" placeholder="What should the lender know?" /></label>
-        <div className="rounded-xl border border-amber-300/20 bg-amber-500/10 p-3 text-[12px] text-amber-100">This creates CRM submission records and package metadata. Email delivery is not faked; connect an email provider before automatic lender delivery.</div>
-        <button disabled={selectedPartners.length === 0 || submitting} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />{submitting ? 'Submitting...' : `Submit to ${selectedPartnerRecords.length || ''} lender${selectedPartnerRecords.length === 1 ? '' : 's'}`}</button>
-      </form>
-    </ModalShell>
-  );
-}
-
 export function MarkDeclinedModal({ submission, leadId, onClose, onDeclined }: { submission: PartnerSubmission; leadId?: string | null; onClose: () => void; onDeclined: () => void }) {
   const [reason, setReason] = useState(denialReasons[0]);
   const [notes, setNotes] = useState('');
@@ -253,6 +220,7 @@ export function PartnerSubmissionList({ submissions, leadId, onChanged }: { subm
       {submissions.map((submission) => (
         <div key={submission.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[14px] font-bold text-white">{submission.funding_partners?.name || 'Funding Partner'}</p><p className="mt-1 text-[12px] text-slate-400">Submitted {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : '—'}</p></div><div className="flex items-center gap-2"><StatusBadge status={submission.status} />{submission.status !== 'Declined' && <button onClick={() => setDeclineTarget(submission)} className="rounded-lg border border-red-400/20 px-3 py-2 text-[12px] font-bold text-red-200 hover:bg-red-500/10">Mark Declined</button>}</div></div>
+          {submission.email_delivery_id && <p className="mt-2 text-[12px] text-emerald-200">Emailed via Gmail · {submission.included_document_ids?.length || 0} attachment(s)</p>}
           {submission.notes && <p className="mt-3 text-[13px] text-slate-300">{submission.notes}</p>}
           {submission.denial_reason && <div className="mt-3 rounded-lg border border-red-400/20 bg-red-500/10 p-3 text-[12px] text-red-100"><strong>Denial:</strong> {submission.denial_reason}{submission.denial_notes ? ` — ${submission.denial_notes}` : ''}</div>}
         </div>

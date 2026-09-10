@@ -107,3 +107,17 @@ export function useGmailMessages(filters?: { leadId?: string | null }) {
     return (data ?? []) as GmailMessage[];
   }, [], [filters?.leadId]);
 }
+
+export interface LenderEmailInput {
+  request_id: string;
+  lead_id: string;
+  application_id: string;
+  funding_partner_id: string;
+  recipient: string;
+  document_ids: string[];
+  subject: string;
+  body: string;
+}
+export function sendLenderEmail(input: LenderEmailInput) {
+  return invoke<{ sent: boolean; message_id: string; already_sent?: boolean; warning?: string }>('gmail-send-lender', input as unknown as Record<string, unknown>);
+}

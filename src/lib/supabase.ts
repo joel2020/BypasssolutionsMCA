@@ -188,6 +188,7 @@ export interface FundingPartner {
 
 export interface PartnerSubmission {
   id: string;
+  email_delivery_id?: string | null;
   created_at: string;
   updated_at: string;
   application_id: string | null;
