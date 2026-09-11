@@ -78,35 +78,33 @@ function ConfigurationErrorScreen() {
 }
 
 function AdminGuard({ session, children }: { session: Session | null | undefined; children: React.ReactNode }) {
-  const [roleCheck, setRoleCheck] = useState<RoleCheckResult | null>(null);
-  const [checkingRole, setCheckingRole] = useState(false);
+  const [checkedRole, setCheckedRole] = useState<{ userId: string; result: RoleCheckResult } | null>(null);
+  const roleCheck = checkedRole?.userId === session?.user.id ? checkedRole?.result : null;
 
   useEffect(() => {
     let active = true;
 
     if (!session) {
-      setRoleCheck(null);
-      setCheckingRole(false);
+      setCheckedRole(null);
       return;
     }
 
-    setCheckingRole(true);
+    // Recheck refreshed sessions in the background, preserving open forms and viewers.
+    // A different account never inherits the previous account's permission result.
+    const userId = session.user.id;
     getCurrentUserRole()
       .then((result) => {
-        if (active) setRoleCheck(result);
+        if (active) setCheckedRole({ userId, result });
       })
       .catch((error: unknown) => {
         if (active) {
-          setRoleCheck({
+          setCheckedRole({ userId, result: {
             profile: null,
             role: null,
             allowed: false,
             reason: error instanceof Error ? error.message : 'Unable to verify CRM permissions.',
-          });
+          } });
         }
-      })
-      .finally(() => {
-        if (active) setCheckingRole(false);
       });
 
     return () => {
@@ -114,7 +112,7 @@ function AdminGuard({ session, children }: { session: Session | null | undefined
     };
   }, [session]);
 
-  if (session === undefined || checkingRole) return <LoadingScreen />;
+  if (session === undefined || (session && !roleCheck)) return <LoadingScreen />;
   if (!session) return <Navigate to="/admin" replace />;
 
   if (!roleCheck?.allowed) {
