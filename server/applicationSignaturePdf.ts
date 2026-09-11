@@ -5,6 +5,15 @@ import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import {assertSignatureImageOrientation,type SignatureSelection,type SignatureTransfer} from '../src/lib/applicationSignatures.js';
 
 export class SignatureSourceChanged extends Error {}
+function assertVisibleSignature(pixels: Uint8ClampedArray) {
+  let darkest=255;
+  for(let i=0;i<pixels.length;i+=4) {
+    const alpha=pixels[i+3]/255;
+    const shade=(.2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2])*alpha+255*(1-alpha);
+    darkest=Math.min(darkest,shade);
+  }
+  if(darkest>243) throw new Error('The selected signature rendered blank. Review the selection or upload a clear scan before copying it.');
+}
 /** Rasterize only the chosen area, so hidden text from the source page is not embedded. */
 export async function rasterizeSignature(sourceBytes: Uint8Array, selection: SignatureSelection) {
   const {createCanvas,loadImage}=await import('@napi-rs/canvas');
@@ -12,7 +21,8 @@ export async function rasterizeSignature(sourceBytes: Uint8Array, selection: Sig
   if(isPdf) {
     const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');
     const root=dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
-    const task=getDocument({data:sourceBytes.slice(),standardFontDataUrl:join(root,'standard_fonts')+'/',cMapUrl:join(root,'cmaps')+'/',cMapPacked:true,wasmUrl:join(root,'wasm')+'/',useSystemFonts:true});
+    // Serverless hosts may have no system fonts. Use bundled PDF fonts and glyph paths.
+    const task=getDocument({data:sourceBytes.slice(),standardFontDataUrl:join(root,'standard_fonts')+'/',cMapUrl:join(root,'cmaps')+'/',cMapPacked:true,wasmUrl:join(root,'wasm')+'/',useSystemFonts:false,disableFontFace:true});
     try {
       const document=await task.promise;
       if(document.numPages>20 || selection.page>document.numPages) throw new Error('The selected page is unavailable or the PDF exceeds 20 pages.');
@@ -24,6 +34,7 @@ export async function rasterizeSignature(sourceBytes: Uint8Array, selection: Sig
       const height=Math.max(1,Math.ceil(viewport.height*selection.height));
       const canvas=createCanvas(width,height);
       await page.render({canvas:canvas as unknown as HTMLCanvasElement,viewport,transform:[1,0,0,1,-selection.x*viewport.width,-selection.y*viewport.height]}).promise;
+      assertVisibleSignature(canvas.getContext('2d').getImageData(0,0,width,height).data);
       return canvas.toBuffer('image/png');
     } finally {await task.destroy();}
   }
@@ -47,6 +58,7 @@ export async function rasterizeSignature(sourceBytes: Uint8Array, selection: Sig
   const canvas=createCanvas(Math.max(1,Math.ceil(cropWidth*scale)),Math.max(1,Math.ceil(cropHeight*scale)));
   const context=canvas.getContext('2d');context.fillStyle='white';context.fillRect(0,0,canvas.width,canvas.height);
   context.drawImage(image,image.width*selection.x,image.height*selection.y,cropWidth,cropHeight,0,0,canvas.width,canvas.height);
+  assertVisibleSignature(context.getImageData(0,0,canvas.width,canvas.height).data);
   return canvas.toBuffer('image/png');
 }
 

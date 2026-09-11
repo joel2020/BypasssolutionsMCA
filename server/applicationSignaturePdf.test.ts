@@ -30,6 +30,14 @@ it.each([
 it('renders interactive appearance fields instead of silently copying a blank area',async()=>{
  const pixels=await darkPixels(await rasterizeSignature(await source(0,true),selection));expect(pixels.dark).toBeGreaterThan(100);
 },20000);
+it('renders an unembedded oblique PDF font using bundled glyphs',async()=>{
+ const pdf=await PDFDocument.create();const page=pdf.addPage([400,600]);
+ page.drawText('QA TEST ONLY',{x:80,y:105,size:14,font:await pdf.embedFont(StandardFonts.HelveticaOblique)});
+ const pixels=await darkPixels(await rasterizeSignature(await pdf.save(),selection));expect(pixels.dark).toBeGreaterThan(100);
+},20000);
+it('rejects a blank source selection instead of attaching an empty signature',async()=>{
+ await expect(rasterizeSignature(await source(),{...selection,x:.7,y:.1})).rejects.toThrow(/rendered blank/);
+},20000);
 it('adds visible provenance and preserves the original bytes',async()=>{
  const bytes=await source();const hash=createHash('sha256').update(bytes).digest('hex');const pdf=await PDFDocument.create();pdf.addPage([612,792]);
  const copied=await addTransferredSignatures(pdf,bytes,{authorized:true,authorizationNote:'Synthetic QA authorization record',sourceSha256:hash,selections:[selection]},context);
