@@ -114,6 +114,7 @@ export interface LenderEmailInput {
   application_id: string;
   funding_partner_id: string;
   recipient: string;
+  cc_emails?: string[];
   document_ids: string[];
   subject: string;
   body: string;

@@ -83,3 +83,14 @@ describe('lender email package',()=>{
   expect(await sendLenderPackage(input,deps)).toMatchObject({sent:true,message_id:'gmail-id',warning:expect.stringContaining('Do not resend')});
  });
 });
+it('sends and records the reviewed CC recipients with the attachments',async()=>{
+ vi.mocked(deps.authorize).mockResolvedValue({email:'lender@example.com',from:'rep@example.com',cc:['contact@example.com','desk@example.com']});
+ await sendLenderPackage({...input,cc_emails:['desk@example.com','CONTACT@example.com']},deps);
+ expect(Buffer.from(vi.mocked(deps.send).mock.calls[0][0],'base64url').toString()).toContain('Cc: contact@example.com, desk@example.com');
+ expect(deps.reserve).toHaveBeenCalledWith(expect.objectContaining({cc_emails:['contact@example.com','desk@example.com']}));
+});
+it('blocks stale or substituted CC recipients before downloading client files',async()=>{
+ vi.mocked(deps.authorize).mockResolvedValue({email:'lender@example.com',from:'rep@example.com',cc:['current@example.com']});
+ await expect(sendLenderPackage({...input,cc_emails:['old@example.com']},deps)).rejects.toThrow(/CC addresses changed/);
+ expect(deps.download).not.toHaveBeenCalled();expect(deps.send).not.toHaveBeenCalled();
+});

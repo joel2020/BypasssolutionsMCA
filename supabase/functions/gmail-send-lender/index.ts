@@ -1,3 +1,4 @@
+import { resolveLenderRecipients } from '../_shared/lenderRecipients.ts';
 import { corsHeaders, ensureAccessToken, gmailFetch, json, requireUser } from '../_shared/gmail.ts';
 import { sendLenderPackage } from './handler.ts';
 
@@ -15,13 +16,14 @@ Deno.serve(async req => {
         if (leadError || !lead) throw new Error('Client access denied.');
         const { data: application, error: appError } = await supabase.from('applications').select('id').eq('id',input.application_id).eq('lead_id',input.lead_id).maybeSingle();
         if (appError || !application) throw new Error('Application does not belong to this client or access is denied.');
-        const { data: partner, error: partnerError } = await supabase.from('funding_partners').select('email,status').eq('id',input.funding_partner_id).maybeSingle();
-        if (partnerError || partner?.status !== 'Active' || !partner.email) throw new Error('Choose an active lender with an email address.');
+        const { data: partner, error: partnerError } = await supabase.from('funding_partners').select('email,submission_email,additional_cc_emails,status').eq('id',input.funding_partner_id).maybeSingle();
+        if (partnerError || partner?.status !== 'Active') throw new Error('Choose an active lender with an email address.');
+        const recipients=resolveLenderRecipients(partner);
         const { data: connection, error } = await service.from('gmail_connections').select('*').eq('user_id',user.id).eq('status','connected').maybeSingle();
         if (error || !connection) throw new Error('Connect your Gmail account on the CRM Email page first.');
         accessToken = await ensureAccessToken(service,connection);
         fromEmail = connection.gmail_email;
-        return { email: partner.email.trim(), from: fromEmail };
+        return { email: recipients.to, cc: recipients.cc, from: fromEmail };
       },
       async documents(ids,leadId) {
         const { data,error } = await supabase.from('documents').select('id,lead_id,application_id,file_name,file_size,mime_type,storage_path,file_path,status').eq('lead_id',leadId).in('id',ids);

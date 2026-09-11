@@ -8,7 +8,7 @@ import { useLead } from '../../hooks/useLead';
 import { useOffers } from '../../hooks/useOffers';
 import { useTasks } from '../../hooks/useTasks';
 import { useDocuments } from '../../hooks/useDocuments';
-import { useNotes } from '../../hooks/useNotes';
+import DealNotes from '../../components/admin/DealNotes';
 import { useApplicationByLead } from '../../hooks/useApplications';
 import { usePartnerSubmissions } from '../../hooks/usePartnerSubmissions';
 import { sendGmailEmail, syncGmail, useGmailMessages, type GmailMessage } from '../../hooks/useGmail';
@@ -130,8 +130,7 @@ export default function LeadDetail() {
   const { data: offers } = useOffers(id);
   const { data: tasks } = useTasks({ leadId: id });
   const { data: documents, refetch: refetchDocuments } = useDocuments({ leadId: id });
-  const { data: submissions, refetch: refetchSubmissions } = usePartnerSubmissions(application?.id);
-  const { data: notes } = useNotes(id);
+  const { data: submissions, error: submissionsError, loading: submissionsLoading, refetch: refetchSubmissions } = usePartnerSubmissions(id);
   const { data: gmailMessages, refetch: refetchGmailMessages } = useGmailMessages({ leadId: id });
 
   if (loading) return <div className="min-h-screen bg-[#071225] p-6 lg:p-8"><SkeletonLoader label="Loading application..." /></div>;
@@ -157,6 +156,7 @@ export default function LeadDetail() {
   const ownerName = `${lead.first_name} ${lead.last_name}`.trim() || text(extended, 'owner_full_name');
   const statusClass = leadStatusColors[lead.status] ?? 'bg-slate-100 text-slate-600 border-slate-200';
   const currentApplicationId = application?.id ?? null;
+  const lenderList = submissionsError ? <p role="alert" className="text-sm text-red-200">{submissionsError}</p> : submissionsLoading ? <p className="text-sm text-slate-400">Loading lender submissions…</p> : <PartnerSubmissionList submissions={submissions} leadId={id} onChanged={refetchSubmissions} />;
 
   return (
     <div className="min-h-screen bg-[#071225] text-white">
@@ -186,8 +186,8 @@ export default function LeadDetail() {
           </div>
         )}
         <div className="mb-5 overflow-x-auto"><div className="flex min-w-max gap-1">{tabs.map((tab) => <button key={tab} onClick={() => setActiveTab(tab)} className={`h-10 rounded-lg px-4 text-[13px] font-bold transition ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/8 hover:text-white'}`}>{tab}</button>)}</div></div>
-        <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-          <GlassCard className="p-6">
+        <div className={`grid gap-5 ${activeTab === 'Documents' ? '' : 'xl:grid-cols-[minmax(0,1fr)_340px]'}`}>
+          <GlassCard className="min-w-0 p-6">
             {activeTab === 'Overview' && (
               <div className="space-y-6">
                 <div>
@@ -212,8 +212,9 @@ export default function LeadDetail() {
                     <Field label="Assigned rep" value={lead.assigned_rep || 'Unassigned'} />
                   </div>
                 </div>
+                <section aria-label="Lenders sent to"><h3 className="mb-3 text-[16px] font-bold text-white">Lenders sent to</h3>{lenderList}</section>
                 <div>
-                  <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-blue-300">Notes</p>
+                  <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-blue-300">Lead notes</p>
                   <div className="whitespace-pre-wrap rounded-xl border border-white/10 bg-white/[0.04] p-4 text-[14px] text-slate-200">{lead.notes || 'No notes added.'}</div>
                 </div>
               </div>
@@ -237,14 +238,14 @@ export default function LeadDetail() {
               />
             )}
             {activeTab === 'Email Activity' && <EmailActivity messages={gmailMessages} lastContactAt={lead.last_contact_at} onSend={() => setShowEmail(true)} onSync={async () => { setEmailActionError(null); try { await syncGmail(); await refetchGmailMessages(); } catch (err) { setEmailActionError(err instanceof Error ? err.message : 'Unable to sync Gmail.'); } }} error={emailActionError} />}
-            {activeTab === 'Lender Submissions' && <PartnerSubmissionList submissions={submissions} leadId={id} onChanged={refetchSubmissions} />}
+            {activeTab === 'Lender Submissions' && lenderList}
             {activeTab === 'Offers' && <List items={offers.map((offer) => `${offer.funder_name}: ${currency.format(offer.funding_amount)} • ${offer.status}`)} empty="No offers created." />}
             {activeTab === 'Communications' && <p className="text-[14px] text-slate-400">Communications are loaded from Supabase communication tables in the dedicated Email, SMS, and Calls pages.</p>}
             {activeTab === 'Tasks' && <List items={tasks.map((task) => `${task.title} • ${task.status}`)} empty="No tasks assigned." />}
-            {activeTab === 'Notes' && <List items={notes.map((note) => `${note.created_by_name}: ${note.text}`)} empty="No notes added." />}
+            {activeTab === 'Notes' && id && <DealNotes key={id} leadId={id} />}
             {activeTab === 'Activity Timeline' && <List items={[`Created ${new Date(lead.created_at).toLocaleString()}`, `Last updated ${new Date(lead.updated_at).toLocaleString()}`, `${documents.length} document(s) uploaded`, `${submissions.length} lender submission(s)`]} empty="No activity logged." />}
           </GlassCard>
-          <GlassCard className="p-5"><h3 className="text-[16px] font-bold text-white">Quick Facts</h3><div className="mt-4 space-y-4"><Field label="Requested" value={currency.format(lead.funding_amount_requested)} /><Field label="Monthly revenue" value={currency.format(lead.monthly_revenue)} /><Field label="Documents" value={String(documents.length)} /><Field label="Lender submissions" value={String(submissions.length)} /></div></GlassCard>
+          {activeTab === 'Overview' && id ? <GlassCard className="min-w-0 self-start p-5"><DealNotes key={id} leadId={id} /></GlassCard> : activeTab !== 'Documents' && <GlassCard className="self-start p-5"><h3 className="text-[16px] font-bold text-white">Quick Facts</h3><div className="mt-4 space-y-4"><Field label="Requested" value={currency.format(lead.funding_amount_requested)} /><Field label="Monthly revenue" value={currency.format(lead.monthly_revenue)} /><Field label="Documents" value={String(documents.length)} /><Field label="Lender submissions" value={String(submissions.length)} /></div></GlassCard>}
         </div>
       </div>
       {showEmail && <LeadEmailModal leadEmail={lead.email} leadId={id} onClose={() => setShowEmail(false)} onSent={() => { void refetchGmailMessages(); }} />}

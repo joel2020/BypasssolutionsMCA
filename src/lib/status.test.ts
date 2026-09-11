@@ -68,3 +68,12 @@ describe('pipeline stages', () => {
     expect(approvedStatuses).not.toContain('Funded');
   });
 });
+
+import {contactStatuses,contactStatusForLead} from './status';
+it('preserves six contact dispositions independently from pipeline stages',()=>{
+ expect(contactStatuses).toEqual(['New lead','Contacted/Qualified','Low rev/Not interested','Unresponsive','Missing docs','Submitted']);
+ for(const lead_status of contactStatuses)expect(contactStatusForLead({status:'New Lead',lead_status})).toBe(lead_status);
+ expect(contactStatusForLead({status:'Contacted'})).toBe('Contacted/Qualified');
+ expect(contactStatusForLead({status:'Documents Needed'})).toBe('Missing docs');
+ expect(contactStatusForLead({status:'Under Review'})).toBe('Submitted');
+});

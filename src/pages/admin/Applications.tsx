@@ -1,3 +1,4 @@
+import { contactStatuses, contactStatusForLead } from '../../lib/status';
 import { updateLead } from '../../lib/leadMutations';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -18,6 +19,8 @@ function money(value: number) {
 
 export default function Applications() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [savingStatus, setSavingStatus] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(searchParams.get('new') === '1');
   const [managing, setManaging] = useState<Lead | null>(null);
@@ -39,10 +42,11 @@ export default function Applications() {
   useEffect(() => {
     setNoteDrafts((prev) => {
       const next = { ...prev };
+      let changed = false;
       leads.forEach((lead) => {
-        if (next[lead.id] === undefined) next[lead.id] = lead.notes || '';
+        if (next[lead.id] === undefined) { next[lead.id] = lead.notes || ''; changed = true; }
       });
-      return next;
+      return changed ? next : prev;
     });
   }, [leads]);
 
@@ -67,6 +71,14 @@ export default function Applications() {
     }
   }
 
+  async function saveStatus(leadId: string, value: string) {
+    if (!(contactStatuses as readonly string[]).includes(value)) return;
+    setSavingStatus(leadId); setNotice(null);
+    try { await updateLead(leadId, {lead_status: value}); await refetch(); }
+    catch (err) { setNotice({id: leadId, text: err instanceof Error ? err.message : 'Unable to save lead status.'}); }
+    finally { setSavingStatus(null); }
+  }
+
   async function saveNote(leadId: string) {
     const draft = noteDrafts[leadId] ?? '';
     const original = leads.find((l) => l.id === leadId)?.notes || '';
@@ -85,8 +97,8 @@ export default function Applications() {
   }
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return leads.filter((l) => !q || l.business_name.toLowerCase().includes(q));
-  }, [leads, search]);
+    return leads.filter((l) => (!q || l.business_name.toLowerCase().includes(q)) && (statusFilter === 'All' || contactStatusForLead(l) === statusFilter));
+  }, [leads, search, statusFilter]);
 
   return (
     <div className="p-6 lg:p-8">
@@ -100,7 +112,7 @@ export default function Applications() {
         </button>
       </div>
 
-      <div className="card mb-5 p-4">
+      <div className="card mb-5 flex flex-wrap items-center gap-4 p-4">
         <div className="relative w-full max-w-sm">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -111,6 +123,11 @@ export default function Applications() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <label className="text-sm text-slate-600">Status
+          <select aria-label="Filter lead status" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="select-field ml-2">
+            <option value="All">All</option>{contactStatuses.map(status=><option key={status}>{status}</option>)}
+          </select>
+        </label>
       </div>
 
       {loading ? (
@@ -122,10 +139,10 @@ export default function Applications() {
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1140px] text-left">
+            <table className="w-full min-w-[1300px] text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  {['Company', 'Owner', 'Phone', 'Email', 'Requested', 'Rev/mo', 'Rep', 'Notes', ''].map((h) => (
+                  {['Company', 'Owner', 'Phone', 'Email', 'Requested', 'Rev/mo', 'Status', 'Rep', 'Notes', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">{h}</th>
                   ))}
                 </tr>
@@ -135,7 +152,6 @@ export default function Applications() {
                   <tr key={lead.id} className="border-b border-slate-100 last:border-none align-top hover:bg-slate-50/60">
                     <td className="px-4 py-3">
                       <p className="text-[13px] font-semibold text-navy-900">{lead.business_name}</p>
-                      <p className="text-[11px] text-slate-400">{lead.status}</p>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">{lead.first_name} {lead.last_name}</td>
                     <td className="px-4 py-3 text-[13px]">
@@ -150,6 +166,9 @@ export default function Applications() {
                     </td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-slate-800">{money(lead.funding_amount_requested || 0)}</td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">{money(lead.monthly_revenue || 0)}</td>
+                    <td className="px-4 py-3"><select aria-label={`Lead status for ${lead.business_name}`} value={contactStatusForLead(lead)} disabled={savingStatus === lead.id} onChange={e=>void saveStatus(lead.id,e.target.value)} className="select-field min-w-[180px] text-[12px]">
+                      {contactStatuses.map(status=><option key={status}>{status}</option>)}
+                    </select></td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">{lead.assigned_rep || 'Unassigned'}</td>
                     <td className="px-4 py-3">
                       <textarea

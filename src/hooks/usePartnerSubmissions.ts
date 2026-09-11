@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase, type FundingPartner, type PartnerSubmission } from '../lib/supabase';
 import { useSupabaseQuery } from './useSupabaseQuery';
+import type { FundingPartnerCriteria } from '../lib/fundingPartnerFields';
 
 export function useFundingPartners() {
   return useSupabaseQuery<FundingPartner[]>(async () => {
@@ -14,19 +15,19 @@ export function useFundingPartners() {
   }, [], []);
 }
 
-export function usePartnerSubmissions(applicationId?: string) {
+export function usePartnerSubmissions(leadId?: string) {
   return useSupabaseQuery<PartnerSubmission[]>(async () => {
-    let query = supabase
-      .from('partner_submissions')
+    if (!leadId) return [];
+    const {data: applications,error: appError}=await supabase.from('applications').select('id').eq('lead_id',leadId);
+    if(appError)throw appError;
+    if(!applications?.length)return [];
+    const {data,error}=await supabase.from('partner_submissions')
       .select('*, funding_partners(name, email, contact_name)')
-      .order('created_at', { ascending: false });
-
-    if (applicationId) query = query.eq('application_id', applicationId);
-
-    const { data, error } = await query;
-    if (error) throw error;
+      .in('application_id',applications.map(application=>application.id))
+      .order('created_at',{ascending:false});
+    if(error)throw error;
     return (data ?? []) as PartnerSubmission[];
-  }, [], [applicationId]);
+  }, [], [leadId]);
 }
 
 export function useCreateFundingPartner() {
@@ -42,6 +43,7 @@ export function useCreateFundingPartner() {
     industriesAccepted?: string[];
     notes?: string;
     status?: 'Active' | 'Inactive';
+    criteria?: FundingPartnerCriteria;
   }) {
     setLoading(true);
 
@@ -58,11 +60,13 @@ export function useCreateFundingPartner() {
           industries_accepted: payload.industriesAccepted ?? [],
           status: payload.status ?? 'Active',
           notes: payload.notes?.trim() || null,
+          ...payload.criteria,
         })
         .select()
         .single();
 
       if (error) throw error;
+      if (!data?.id) throw new Error('Funding partner was not created. Refresh and try again.');
       return data as FundingPartner;
     } finally {
       setLoading(false);

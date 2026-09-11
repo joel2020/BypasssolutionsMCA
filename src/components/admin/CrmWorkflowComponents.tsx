@@ -1,4 +1,5 @@
-import { useState, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Eye, FileSignature, FileText, Trash2, Upload, XCircle } from 'lucide-react';
 import { createDocumentSignedUrl, deleteDocument, REQUIRED_DOCUMENT_TYPES, useUploadDocument } from '../../hooks/useDocuments';
 import { useCreatePartnerSubmission } from '../../hooks/usePartnerSubmissions';
@@ -105,13 +106,25 @@ export function DocumentList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<{ url: string; name: string } | null>(null);
+  const [viewer, setViewer] = useState<{ url: string; name: string; image: boolean } | null>(null);
+  const closeViewer = useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    if(!viewer)return;
+    const previousFocus=document.activeElement as HTMLElement | null;
+    const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
+    closeViewer.current?.focus();
+    const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();setViewer(null);}};
+    window.addEventListener('keydown',onKey);
+    return ()=>{document.body.style.overflow=overflow;window.removeEventListener('keydown',onKey);previousFocus?.focus();};
+  },[viewer]);
 
   async function openInViewer(doc: Document) {
-    setLoadingId(doc.id);
+    setLoadingId(doc.id); setActionError(null);
     try {
       const url = await createDocumentSignedUrl(doc.storage_path || doc.file_path || '');
-      setViewer({ url, name: doc.file_name || doc.document_type || doc.doc_type || 'Document' });
+      setViewer({ url, name: doc.file_name || doc.document_type || doc.doc_type || 'Document', image: /\.(png|jpe?g|webp|gif)$/i.test(doc.file_name || '') });
+    } catch(err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to open this document.');
     } finally {
       setLoadingId(null);
     }
@@ -135,14 +148,14 @@ export function DocumentList({
 
   return (
     <>
-      {actionError && <div className="mb-3 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-[13px] text-red-100">{actionError}</div>}
+      {actionError && <div role="alert" className="mb-3 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-[13px] text-red-100">{actionError}</div>}
       <div className="space-y-3">
         {documents.map((doc) => (
           <div key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
             <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/15 text-blue-200"><FileText size={18} /></span><div className="min-w-0"><p className="truncate text-[14px] font-bold text-white">{doc.file_name}</p><p className="text-[12px] text-slate-400">{doc.document_type || doc.doc_type} • {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : 'Private file'}</p></div></div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={doc.status} />
-              <button onClick={() => void openInViewer(doc)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><Eye size={13} />{loadingId === doc.id ? 'Opening...' : 'View'}</button>
+              <button disabled={loadingId !== null} onClick={() => void openInViewer(doc)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-200 hover:bg-white/10"><Eye size={13} />{loadingId === doc.id ? 'Opening...' : 'View'}</button>
               {onConvert && (
                 <button
                   onClick={() => onConvert(doc)}
@@ -168,19 +181,19 @@ export function DocumentList({
           </div>
         ))}
       </div>
-      {viewer && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-slate-950/85 p-3 backdrop-blur-sm sm:p-6" onClick={() => setViewer(null)}>
-          <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1730]" onClick={(e) => e.stopPropagation()}>
+      {viewer && createPortal(
+        <div role="dialog" aria-modal="true" aria-label={`Document viewer: ${viewer.name}`} className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col bg-slate-950 p-0 sm:p-2" onClick={() => setViewer(null)}>
+          <div className="mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1730]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
               <p className="truncate text-[14px] font-bold text-white">{viewer.name}</p>
               <div className="flex items-center gap-2">
-                <a href={viewer.url} target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-300 hover:bg-white/10">Open in new tab</a>
-                <button onClick={() => setViewer(null)} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button>
+                <a href={viewer.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[12px] font-bold text-slate-300 hover:bg-white/10">Open in new tab</a>
+                <button ref={closeViewer} aria-label="Close document viewer" onClick={() => setViewer(null)} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button>
               </div>
             </div>
-            <iframe title={viewer.name} src={viewer.url} className="h-full w-full flex-1 bg-white" />
+            {viewer.image ? <div className="min-h-0 flex-1 overflow-auto bg-slate-900 p-2"><img alt={viewer.name} src={viewer.url} className="mx-auto h-auto max-w-full" /></div> : <iframe title={viewer.name} src={`${viewer.url}#view=FitH`} className="min-h-0 w-full flex-1 border-0 bg-white" />}
           </div>
-        </div>
+        </div>, document.body
       )}
     </>
   );
