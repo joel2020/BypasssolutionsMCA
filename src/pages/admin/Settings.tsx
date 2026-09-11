@@ -3,18 +3,19 @@ import { Save, Plus, Trash2, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import { supabase, type Profile } from '../../lib/supabase';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery';
+import { getGmailConnection } from '../../hooks/useGmail';
 
 const settingsTabs = ['Organization', 'Team Members', 'Integrations', 'Automations', 'Billing'];
 const roles: Profile['role'][] = ['admin', 'underwriter', 'sales_rep', 'viewer'];
 
 const integrations = [
-  { name: 'Twilio', desc: 'SMS and voice calling', category: 'Communications', connected: false },
-  { name: 'JustCall', desc: 'Cloud phone system', category: 'Communications', connected: false },
-  { name: 'Aircall', desc: 'Business phone platform', category: 'Communications', connected: false },
-  { name: 'Google Workspace', desc: 'Email and calendar sync', category: 'Productivity', connected: true, href: '/admin/email' },
-  { name: 'Stripe', desc: 'Commission payouts', category: 'Finance', connected: false },
-  { name: 'DocuSign', desc: 'Electronic contract signing', category: 'Documents', connected: false },
-  { name: 'Zapier', desc: 'Workflow automation', category: 'Automation', connected: false },
+  { name: 'Twilio', desc: 'SMS and voice calling', category: 'Communications' },
+  { name: 'JustCall', desc: 'Cloud phone system', category: 'Communications' },
+  { name: 'Aircall', desc: 'Business phone platform', category: 'Communications' },
+  { name: 'Gmail', desc: 'Email sync and sending', category: 'Productivity', href: '/admin/email' },
+  { name: 'Stripe', desc: 'Commission payouts', category: 'Finance' },
+  { name: 'DocuSign', desc: 'Electronic contract signing', category: 'Documents' },
+  { name: 'Zapier', desc: 'Workflow automation', category: 'Automation' },
 ];
 
 const automationRules = [
@@ -120,6 +121,25 @@ function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function GmailIntegrationCard() {
+  const { data: connection, loading, error } = useSupabaseQuery(getGmailConnection, null, []);
+  const connected = !loading && !error && connection?.status === 'connected';
+  return (
+    <div className="card flex items-start justify-between gap-3 p-5">
+      <div>
+        <div className="mb-1 flex items-center gap-2">
+          <p className="text-[14px] font-semibold text-navy-900">Gmail</p>
+          {connected && <span className="badge bg-green-50 text-green-700 text-[10px]">Connected</span>}
+        </div>
+        <p className="text-[12px] text-slate-400">Email sync and sending</p>
+        <p className="mt-1 text-[12px] text-slate-500">{loading ? 'Checking connection…' : error ? 'Unable to check Gmail connection.' : connected ? connection.gmail_email : 'No Gmail account connected for your user.'}</p>
+        <span className="badge-default mt-1.5 text-[10px]">Productivity</span>
+      </div>
+      <button disabled={loading} onClick={() => window.location.assign('/admin/email')} className="h-8 flex-shrink-0 rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50">{connected ? 'Manage Gmail' : 'Connect Gmail'}</button>
     </div>
   );
 }
@@ -249,21 +269,16 @@ export default function Settings() {
 
       {activeTab === 'Integrations' && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {integrations.map((integ) => (
+          {integrations.map((integ) => integ.href ? <GmailIntegrationCard key={integ.name} /> : (
             <div key={integ.name} className="card flex items-start justify-between gap-3 p-5">
               <div>
                 <div className="mb-1 flex items-center gap-2">
                   <p className="text-[14px] font-semibold text-navy-900">{integ.name}</p>
-                  {integ.connected && <span className="badge bg-green-50 text-green-700 text-[10px]">Connected</span>}
                 </div>
                 <p className="text-[12px] text-slate-400">{integ.desc}</p>
                 <span className="badge-default mt-1.5 text-[10px]">{integ.category}</span>
               </div>
-              {integ.href ? (
-                <button onClick={() => window.location.assign(integ.href!)} className="h-8 flex-shrink-0 rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200">Manage</button>
-              ) : (
-                <button disabled title="Integration setup is not configured yet." className="h-8 flex-shrink-0 cursor-not-allowed rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-400">Connect</button>
-              )}
+              <button disabled title="Integration setup is not configured yet." className="h-8 flex-shrink-0 cursor-not-allowed rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-400">Connect</button>
             </div>
           ))}
         </div>
