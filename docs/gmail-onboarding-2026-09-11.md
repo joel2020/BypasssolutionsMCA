@@ -11,3 +11,5 @@ Settings previously hard-coded Google Workspace as Connected for every user and 
 Validation: three new regression tests failed against the old behavior, then passed after the fix. Full `npm run verify` passed: 235 tests across 34 files, app/server TypeScript, ESLint and production build. The existing Vite large-chunk advisory is unchanged.
 
 The investigation does not establish that Roman's mailbox is connected. His Google account selection/consent must be tested after the correct address is enrolled. Existing Gmail account isolation and CRM membership checks remain enforced.
+
+Release: implementation `774bfa4` deployed as `dpl_74LMGj6Jjqd4CQvhecnSJWg1BuH1` to https://crm.bypasssolution.com. GitHub verify, Vercel preview and Supabase preview passed. Live Settings showed Checking connection, then Connected with `joelcarias23@gmail.com` and Manage Gmail after its query completed. The Google Add users form is prepared, with no address entered or saved, pending the affected mailbox clarification.
