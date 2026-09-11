@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { assertSignatureImageOrientation } from './applicationSignatures';
 import { parseApplicationText } from './applicationImport';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -7,9 +8,8 @@ import { createWorker, type Worker } from 'tesseract.js';
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 const ASSETS = `${window.location.origin}/application-reader/`;
 const MAX_BYTES = 20 * 1024 * 1024;
-export async function readApplication(documentId: string, leadId: string, progress: (message: string) => void, signal: AbortSignal, scanAll: boolean) {
+export async function loadApplicationSource(documentId: string, leadId: string, signal: AbortSignal) {
   signal.throwIfAborted();
-  progress('Opening the original application…');
   // Resolve a fresh URL from the authorized document row, never an arbitrary URL.
   const { data: doc, error } = await supabase.from('documents').select('id,lead_id,storage_path,file_path,file_name,mime_type,file_size').eq('id',documentId).eq('lead_id',leadId).single();
   if (error || !doc) throw new Error('This application is unavailable or you do not have access.');
@@ -26,7 +26,12 @@ export async function readApplication(documentId: string, leadId: string, progre
   if (Number(response.headers.get('content-length'))>MAX_BYTES) throw new Error('This application exceeds the 20 MB extraction limit.');
   const blob=await response.blob();
   if (blob.size>MAX_BYTES) throw new Error('This application exceeds the 20 MB extraction limit.');
-  return extractApplicationBlob(blob, pdf, progress, signal, scanAll);
+  return {blob,pdf};
+}
+export async function readApplication(documentId: string, leadId: string, progress: (message: string) => void, signal: AbortSignal, scanAll: boolean) {
+  progress('Opening the original application…');
+  const {blob,pdf}=await loadApplicationSource(documentId,leadId,signal);
+  return extractApplicationBlob(blob,pdf,progress,signal,scanAll);
 }
 
 /** Reads bytes locally. The original, including any signature, is never modified. */
@@ -92,4 +97,33 @@ export async function extractApplicationBlob(blob: Blob, pdf: boolean, progress:
     const text=pages.map((text,i)=>`--- Page ${i+1} ---\n${text}`).join('\n\n');
     return {...parseApplicationText(text),text,pageCount:pages.length};
   } finally {signal.removeEventListener('abort',stop);await worker?.terminate();}
+}
+
+/** Display the normal PDF page orientation, matching the server renderer. */
+export async function renderSignaturePage(blob: Blob, pdf: boolean, pageNumber: number, signal: AbortSignal) {
+  const canvas=document.createElement('canvas');
+  signal.throwIfAborted();
+  let count=1;
+  if (pdf) {
+    const task=getDocument({data:await blob.arrayBuffer(),cMapUrl:`${ASSETS}cmaps/`,cMapPacked:true,standardFontDataUrl:`${ASSETS}standard_fonts/`,wasmUrl:`${ASSETS}wasm/`});
+    const abort=()=>{void task.destroy();};signal.addEventListener('abort',abort,{once:true});
+    try {
+      const document=await task.promise;count=document.numPages;
+      if (count>20) throw new Error('Signature import supports source PDFs up to 20 pages.');
+      const page=await document.getPage(pageNumber);
+      const base=page.getViewport({scale:1});
+      const viewport=page.getViewport({scale:1600/Math.max(base.width,base.height)});
+      canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+      await page.render({canvas,viewport}).promise;
+    } finally {signal.removeEventListener('abort',abort);await task.destroy();}
+  } else {
+    assertSignatureImageOrientation(new Uint8Array(await blob.arrayBuffer()));
+    const bitmap=await createImageBitmap(blob);const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height));
+    canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);
+    canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+  }
+  signal.throwIfAborted();
+  const result={url:canvas.toDataURL('image/png'),width:canvas.width,height:canvas.height,pageCount:count};
+  canvas.width=canvas.height=0;
+  return result;
 }

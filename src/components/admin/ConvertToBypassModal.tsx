@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ExternalLink, FileSignature, XCircle } from 'lucide-react';
 import { supabase, type Lead } from '../../lib/supabase';
 import { APPLICATION_FIELDS as FIELDS, applicationPatch } from '../../lib/applicationImport';
 import { updateLead } from '../../lib/leadMutations';
+import { validateSignatureTransfer } from '../../lib/applicationSignatures';
+import type { SelectedSignatures } from './ApplicationSignaturePicker';
+const ApplicationSignaturePicker = lazy(() => import('./ApplicationSignaturePicker'));
 
 interface Props {
   lead: Lead;
@@ -26,6 +29,10 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       return acc;
     }, {}),
   );
+  const [copySignatures, setCopySignatures] = useState(false);
+  const [selectedSignatures, setSelectedSignatures] = useState<SelectedSignatures | null>(null);
+  const [signatureAuthorized, setSignatureAuthorized] = useState(false);
+  const [authorizationNote, setAuthorizationNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -54,7 +61,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
     } finally { if (!controller.signal.aborted) setExtracting(false); }
   }
 
-  const set = (key: string) => (value: string) => { setReviewed(false); setForm((cur) => ({ ...cur, [key]: value })); };
+  const set = (key: string) => (value: string) => { setReviewed(false); setSignatureAuthorized(false); setForm((cur) => ({ ...cur, [key]: value })); };
 
   async function submit(send: boolean) {
     setError(null);
@@ -70,6 +77,15 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       return;
     }
 
+    if (send && copySignatures) { setError('Turn off signature copying to request a fresh signature instead.'); return; }
+    let signatureTransfer;
+    try {
+      if (copySignatures) {
+        if (!selectedSignatures) throw new Error('Select and review a signature from the original application.');
+        signatureTransfer=validateSignatureTransfer({...selectedSignatures,authorized:signatureAuthorized,authorizationNote});
+        if (signatureTransfer?.selections.some(s=>s.role==='partner') && !form.partner_full_name.trim()) throw new Error('Enter the partner name before copying their signature.');
+      }
+    } catch(err) {setError(err instanceof Error?err.message:'Review the signature selections.');return;}
     setSaving(true);
     try {
       const patch = applicationPatch(form);
@@ -86,7 +102,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       const genRes = await fetch('/api/generate-application', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ leadId: lead.id, sourceDocumentId, identifiers: { ein: form.full_ein, ssn: form.full_ssn }, partner: Object.fromEntries(Object.entries(form).filter(([key]) => key.startsWith('partner_'))) }),
+        body: JSON.stringify({ leadId: lead.id, sourceDocumentId, signatureTransfer, identifiers: { ein: form.full_ein, ssn: form.full_ssn }, partner: Object.fromEntries(Object.entries(form).filter(([key]) => key.startsWith('partner_'))) }),
       });
       const gen = await genRes.json().catch(() => ({}));
       if (!genRes.ok) throw new Error(gen?.error || 'Unable to generate the Bypass application.');
@@ -147,7 +163,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
               </>}
             </div>}
             <div className="rounded-xl border border-white/10 p-3 text-[12px] leading-relaxed text-slate-300">
-              The original application and any signature stay unchanged. This creates a filled, unsigned Bypass application; it does not transfer a signature or mark the source as signed. “Convert &amp; send to sign” emails the applicant a new signature request using saved CRM fields. The signer completes full identifiers and partner fields in that separate request.
+              The original application stays unchanged. The new Bypass application is unsigned unless you select and authorize a signature copy below. A copied signature is labeled with its source and authorization record; it is not a new digital-signature event. “Convert &amp; send to sign” emails the applicant a new signature request using saved CRM fields. The signer completes full identifiers and partner fields in that separate request.
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -171,7 +187,17 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
               Full EIN and SSN, when provided, appear in the private generated PDF. Only the last four digits of the primary owner’s identifiers are saved to CRM fields. Partner details are saved in the PDF only. If left blank, the PDF uses the saved last four. Other details remain in the original; extracted text is not saved separately.
             </p>
 
-            <label className="flex items-start gap-2 text-[13px]"><input type="checkbox" className="mt-1" checked={reviewed} disabled={extracting || saving} onChange={e=>setReviewed(e.target.checked)} /> I reviewed the values against the original, checked additional owners and missing information, and understand this Bypass copy is unsigned.</label>
+            {sourceDocumentId && <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={copySignatures} disabled={saving || extracting} onChange={e=>{setCopySignatures(e.target.checked);setSelectedSignatures(null);setSignatureAuthorized(false);setReviewed(false);}} /> Copy an authorized signature from the original</label>
+              {copySignatures && <>
+                <Suspense fallback={<p role="status">Loading signature preview…</p>}><ApplicationSignaturePicker leadId={lead.id} documentId={sourceDocumentId} disabled={saving || extracting} onChange={value=>{setSelectedSignatures(value);setSignatureAuthorized(false);setReviewed(false);}} /></Suspense>
+                <label className="block text-sm">Authorization record <textarea maxLength={500} value={authorizationNote} disabled={saving || extracting} onChange={e=>{setAuthorizationNote(e.target.value);setSignatureAuthorized(false);setReviewed(false);}} placeholder="How and when did the applicant authorize reuse on the Bypass application?" className="mt-1 block w-full rounded bg-slate-800 p-3" /></label>
+                <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={signatureAuthorized} disabled={saving || extracting || !selectedSignatures} onChange={e=>{setSignatureAuthorized(e.target.checked);setReviewed(false);}} /> I confirm each selected signer explicitly authorized copying their signature onto this Bypass application, and I have reviewed the signature previews.</label>
+                <p className="text-xs text-slate-300">The generated PDF includes the source fingerprint and your confirmation record. To request a fresh e-signature instead, turn off signature copying.</p>
+              </>}
+            </div>}
+
+            <label className="flex items-start gap-2 text-[13px]"><input type="checkbox" className="mt-1" checked={reviewed} disabled={extracting || saving} onChange={e=>setReviewed(e.target.checked)} /> {copySignatures ? 'I reviewed the fields, signer names, original dates and signature previews against the source application.' : 'I reviewed the values against the original, checked additional owners and missing information, and understand this Bypass copy is unsigned.'}</label>
 
             {error && <div role="alert" className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[13px] text-red-100">{error}</div>}
             {success && <div className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-100"><CheckCircle2 size={15} /> {success}</div>}
@@ -188,7 +214,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
             >
               Attach only
             </button>
-            <button type="button" onClick={() => void submit(true)} disabled={saving || extracting || !reviewed} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={() => void submit(true)} disabled={saving || extracting || !reviewed || copySignatures} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
               <FileSignature size={15} />{saving ? 'Working...' : 'Convert & send to sign'}
             </button>
           </div>

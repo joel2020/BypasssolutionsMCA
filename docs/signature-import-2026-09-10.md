@@ -1,0 +1,11 @@
+# Authorized signature import — 2026-09-10
+
+Extends Convert to Bypass Application with optional owner and partner signature selection from the original PDF, PNG or JPG. The rep previews each selected crop, can record the original signing date, records how authorization was obtained, and separately confirms each signer authorized reuse on the Bypass application. Changes clear confirmation. Copying disables the fresh-signature email action; Attach only produces a private document.
+
+The server validates the active user's client access, original document ownership and storage path, selection geometry, authorization and source SHA-256 before reading the original. Only selected raster pixels enter the generated PDF; source-page text and other hidden source contents are not embedded. The output is labeled “signature copy,” has a visible copy notice and an audit page recording source, actor, timestamp and authorization. This is not a new digital-signature event. Original files and their status remain unchanged.
+
+Limits: 20 MB, 20 PDF pages, owner and partner sections only. Signature selection is manual with a preview, not automatic handwriting detection. Metadata-rotated images must first be saved upright as PDF/PNG. Field extraction retains the documented limitations in application-import-2026-09-10.md. A representative real partner application and confirmation for any actual signature reuse remain outstanding. Building and testing this workflow does not attest that a real applicant authorized copying.
+
+Validation before deployment: all 181 tests in 25 files passed, including PDF rotation, PDF form appearance rendering, PNG/JPG cropping, source fingerprint checks, client boundaries and separate authorization gates. App/server TypeScript, ESLint and production build passed. The synthetic “QA TEST ONLY” crop was rendered on the actual Bypass template; placement, original date, copy notice and audit page were visually checked. No real signature was used and no email was sent. Evidence: /tmp/bypass-signature-test/ and /tmp/bypass-signature-verify.log.
+
+Claude review was attempted but its OAuth session expired. No independent Claude approval is claimed. Production workflow and cleanup verification will be recorded after deployment.

@@ -1,3 +1,5 @@
+import { validateSignatureTransfer, signatureSourcePath } from '../src/lib/applicationSignatures.js';
+import { addTransferredSignatures, SignatureSourceChanged } from '../server/applicationSignaturePdf.js';
 import { APPLICATION_FIELDS, normalizeApplicationField } from '../src/lib/applicationImport.js';
 import { getWritableLead } from '../server/crmAccess.js';
 import { createClient } from '@supabase/supabase-js';
@@ -118,7 +120,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const { data: userData, error: userError } = await authClient.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Invalid CRM session.' });
 
-  let body: { leadId?: string; sourceDocumentId?: string; identifiers?: { ein?: string; ssn?: string }; partner?: Record<string, unknown> };
+  let body: { leadId?: string; sourceDocumentId?: string; identifiers?: { ein?: string; ssn?: string }; partner?: Record<string, unknown>; signatureTransfer?: unknown };
   try {
     body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body) || {};
   } catch { return res.status(400).json({ error: 'Invalid request body.' }); }
@@ -142,12 +144,32 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     partner[field.key] = value;
   }
 
+  let signatureTransfer;
+  try { signatureTransfer = validateSignatureTransfer(body.signatureTransfer); }
+  catch (err) { return res.status(400).json({error:err instanceof Error?err.message:'Invalid signature transfer.'}); }
+  if (signatureTransfer && !body.sourceDocumentId) return res.status(400).json({error:'A source application is required for signature transfer.'});
+
   const access = await getWritableLead(authClient, userData.user.id, leadId);
   if (!access.lead) return res.status(access.status).json({ error: access.error });
+  let signatureSource: {id:string;lead_id:string;application_id?:string|null;file_name:string;storage_path?:string|null;file_path?:string|null;file_size?:number|null} | null = null;
+  let signaturePath = '';
   if (body.sourceDocumentId) {
     if (typeof body.sourceDocumentId !== 'string') return res.status(400).json({ error: 'Invalid source document.' });
-    const { data: source, error: sourceError } = await authClient.from('documents').select('id').eq('id', body.sourceDocumentId).eq('lead_id', leadId).maybeSingle();
+    const { data: source, error: sourceError } = await authClient.from('documents').select('id,lead_id,application_id,file_name,storage_path,file_path,file_size').eq('id', body.sourceDocumentId).eq('lead_id', leadId).maybeSingle();
     if (sourceError || !source) return res.status(403).json({ error: 'The source application is not available on this lead.' });
+    signatureSource = source;
+    if (signatureTransfer) {
+      let applicationId: string | undefined;
+      if (source.application_id) {
+        const {data: application, error: appError} = await authClient.from('applications').select('id').eq('id',source.application_id).eq('lead_id',leadId).maybeSingle();
+        if (appError || !application) return res.status(403).json({error:'The source application does not belong to this client.'});
+        applicationId=application.id;
+      }
+      try { signaturePath=signatureSourcePath(source,leadId,applicationId); }
+      catch { return res.status(403).json({error:'The source file does not belong to this client.'}); }
+      if (Number(source.file_size)>20*1024*1024) return res.status(400).json({error:'Signature import supports source files up to 20 MB.'});
+      if (signatureTransfer.selections.some(s=>s.role==='partner') && !partner.partner_full_name) return res.status(400).json({error:'Enter the partner name before transferring their signature.'});
+    }
   }
   const lead = access.lead;
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -186,6 +208,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       filled += 1;
     }
 
+    let signaturesCopied=0;
+    if (signatureTransfer && signatureSource) {
+      const {data: original,error: sourceError}=await admin.storage.from(BUCKET).download(signaturePath);
+      if (sourceError || !original) throw new Error('Unable to read the original signature source.');
+      signaturesCopied=await addTransferredSignatures(pdf,new Uint8Array(await original.arrayBuffer()),signatureTransfer,{
+        sourceDocumentId:signatureSource.id,sourceName:signatureSource.file_name,actorId:userData.user.id,
+        ownerName:values.owner_full_name,partnerName:partner.partner_full_name || '',createdAt:new Date().toISOString(),
+      });
+    }
     const bytes = await pdf.save();
 
     // 3) Store it against the deal.
@@ -196,13 +227,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       .upload(path, bytes, { contentType: 'application/pdf', upsert: false });
     if (uploadError) throw uploadError;
 
-    const fileName = `Bypass Application - ${str(lead as Lead, 'business_name') || 'Applicant'}.pdf`;
+    const fileName = `Bypass Application${signaturesCopied ? ' (signature copy)' : ''} - ${str(lead as Lead, 'business_name') || 'Applicant'}.pdf`;
     const { data: docRow, error: docError } = await admin
       .from('documents')
       .insert({
         lead_id: leadId,
-        doc_type: 'Bypass Application',
-        document_type: 'Bypass Application',
+        doc_type: signaturesCopied ? 'Bypass Application (signature copy)' : 'Bypass Application',
+        document_type: signaturesCopied ? 'Bypass Application (signature copy)' : 'Bypass Application',
         file_name: fileName,
         file_size: bytes.length,
         storage_path: path,
@@ -217,9 +248,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       throw new Error('Unable to attach the generated application. Please retry.');
     }
 
-    return res.status(200).json({ ok: true, documentId: docRow.id, fileName, fieldsFilled: filled });
+    return res.status(200).json({ ok: true, documentId: docRow.id, fileName, fieldsFilled: filled, signaturesCopied });
   } catch (err) {
     console.error('generate-application failed');
-    return res.status(502).json({ error: err instanceof Error ? err.message : 'Unable to generate the application.' });
+    return res.status(err instanceof SignatureSourceChanged ? 409 : 502).json({ error: err instanceof Error ? err.message : 'Unable to generate the application.' });
   }
 }

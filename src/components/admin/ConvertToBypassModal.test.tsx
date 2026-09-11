@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import ConvertToBypassModal from './ConvertToBypassModal';
 import type { Lead } from '../../lib/supabase';
 const mocks=vi.hoisted(()=>({update:vi.fn(),read:vi.fn()}));
+vi.mock('./ApplicationSignaturePicker',()=>({default:({onChange}:{onChange:(value:unknown)=>void})=><button type="button" onClick={()=>onChange({sourceSha256:'a'.repeat(64),selections:[{role:'owner',page:1,x:.1,y:.7,width:.3,height:.1}]})}>Use QA signature</button>}));
 vi.mock('../../lib/leadMutations',()=>({updateLead:mocks.update}));
 vi.mock('../../lib/readApplication',()=>({readApplication:mocks.read}));
 vi.mock('../../lib/supabase',()=>({supabase:{auth:{getSession:vi.fn().mockResolvedValue({data:{session:{access_token:'test'}}})}}}));
@@ -42,4 +43,18 @@ it('retains a date input when another field changes and sends it to the PDF',asy
  await waitFor(()=>expect(fetch).toHaveBeenCalledOnce());
  const body=JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
  expect(body.partner.partner_dob).toBe('1982-02-12');
+});
+
+it('requires a separate signature authorization and records it in the generation request',async()=>{
+ show();fireEvent.click(screen.getByLabelText('Copy an authorized signature from the original'));
+ fireEvent.click(await screen.findByRole('button',{name:'Use QA signature'}));
+ fireEvent.change(screen.getByLabelText('Authorization record'),{target:{value:'Synthetic test permission, no real applicant.'}});
+ fireEvent.click(screen.getByLabelText(/I reviewed the fields/));fireEvent.click(screen.getByRole('button',{name:'Attach only'}));
+ await waitFor(()=>expect(screen.getByRole('alert').textContent).toContain('authorized'));
+ expect(mocks.update).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByLabelText(/I confirm each selected signer/));fireEvent.click(screen.getByLabelText(/I reviewed the fields/));
+ expect((screen.getByRole('button',{name:'Convert & send to sign'}) as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'Attach only'}));await waitFor(()=>expect(fetch).toHaveBeenCalledOnce());
+ const body=JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+ expect(body.signatureTransfer).toMatchObject({authorized:true,authorizationNote:'Synthetic test permission, no real applicant.'});
 });
