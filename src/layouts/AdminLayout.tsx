@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useScope } from '../hooks/useScope';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import Logo from '../components/brand/Logo';
+import RepViewProvider from '../components/admin/RepViewProvider';
+import { useRepView } from '../hooks/useRepView';
 import {
   LayoutDashboard, FileText, Tag, Building2, CheckSquare,
   BarChart3, Settings, LogOut, Bell, Search, Menu, ChevronDown,
@@ -49,7 +51,13 @@ interface DirectoryHit {
 }
 
 export default function AdminLayout() {
+  return <RepViewProvider><AdminShell /></RepViewProvider>;
+}
+
+function AdminShell() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { target, selectRep, reps, loading: repsLoading, error: repsError, available } = useRepView();
   const { profile } = useCurrentUser();
   const { canAccess } = useScope();
 
@@ -87,7 +95,7 @@ export default function AdminLayout() {
     navigate('/admin');
   };
 
-  const Sidebar = () => (
+  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <aside className="w-[292px] flex-shrink-0 border-r border-white/10 bg-[#07152c]/95 backdrop-blur-xl flex flex-col h-full">
       <div className="pl-4 pr-6 py-7 border-b border-white/10">
         <Logo size="lg" inverse />
@@ -99,6 +107,18 @@ export default function AdminLayout() {
           <NavItem key={item.href} {...item} />
         ))}
       </nav>
+
+      {available && <div className="border-t border-white/10 p-5">
+        <label htmlFor={mobile ? 'mobile-ninja-rep' : 'ninja-rep'} className="mb-2 block text-sm font-semibold text-blue-100">Ninja mode</label>
+        <select id={mobile ? 'mobile-ninja-rep' : 'ninja-rep'} aria-label="Ninja mode rep" value={target?.id || ''} disabled={repsLoading || Boolean(repsError)} onChange={(event) => {
+          selectRep(event.target.value); setSidebarOpen(false); setQuery(''); setResults([]); navigate('/admin/dashboard');
+        }} className="h-10 w-full rounded-lg border border-white/20 bg-[#132442] px-2 text-sm text-white">
+          <option value="">{repsLoading ? 'Loading reps...' : 'Admin view — all reps'}</option>
+          {reps.map((rep) => <option key={rep.id} value={rep.id}>{rep.full_name || rep.email}</option>)}
+        </select>
+        {repsError && <p role="alert" className="mt-2 text-xs text-red-200">Unable to load reps: {repsError}</p>}
+        {!repsLoading && !repsError && reps.length === 0 && <p className="mt-2 text-xs text-slate-400">No active reps available.</p>}
+      </div>}
 
       <div className="border-t border-white/10 p-5">
         <button onClick={handleLogout} className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-md text-[13px] text-slate-400 hover:text-red-200 hover:bg-red-500/10 transition-colors">
@@ -116,7 +136,7 @@ export default function AdminLayout() {
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/70" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 flex"><Sidebar /></div>
+          <div className="absolute left-0 top-0 bottom-0 flex"><Sidebar mobile /></div>
         </div>
       )}
 
@@ -218,7 +238,15 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-transparent"><Outlet /></main>
+        {target && <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-400/30 bg-violet-950 px-5 py-3 text-sm text-violet-100">
+          <div><strong>Ninja mode · Viewing as {target.full_name || target.email}</strong><p className="mt-1 text-xs">Viewing this rep’s CRM records. Actions use your admin account.</p></div>
+          <button className="rounded-md border border-violet-300/40 px-3 py-2 font-semibold hover:bg-white/10" onClick={() => { selectRep(''); navigate('/admin/dashboard'); }}>Exit Ninja mode</button>
+        </div>}
+        <main className="flex-1 overflow-y-auto bg-transparent">
+          {target && ['/admin/email', '/admin/settings'].includes(location.pathname.replace(/\/$/, ''))
+            ? <div className="p-8 text-sm text-slate-200">Exit Ninja mode to open your email or account settings.</div>
+            : <Outlet key={target?.id || 'admin'} />}
+        </main>
       </div>
     </div>
   );

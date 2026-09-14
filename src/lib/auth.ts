@@ -40,11 +40,13 @@ export async function getCurrentUserRole(): Promise<RoleCheckResult> {
     return { profile: null, role: null, allowed: false, reason: 'No active Supabase session.' };
   }
 
-  const { data, error } = await supabase
+  const readProfile = () => supabase
     .from('profiles')
     .select('id,email,full_name,role,status')
     .eq('id', user.id)
     .maybeSingle();
+  const { data: initialProfile, error } = await readProfile();
+  let data = initialProfile;
 
   if (error) {
     const setupMissing = error.code === '42P01' || /profiles/i.test(error.message);
@@ -60,7 +62,16 @@ export async function getCurrentUserRole(): Promise<RoleCheckResult> {
   }
 
   if (!data) {
-    return { profile: null, role: null, allowed: false, reason: 'No CRM profile exists for this user.' };
+    const { data: enrolled, error: enrollmentError } = await supabase.rpc('enroll_company_crm_user');
+    if (enrollmentError) {
+      return { profile: null, role: null, allowed: false, reason: 'Unable to set up your company CRM access. Please try again or contact an admin.' };
+    }
+    if (enrolled) {
+      const result = await readProfile();
+      if (result.error) return { profile: null, role: null, allowed: false, reason: result.error.message };
+      data = result.data;
+    }
+    if (!data) return { profile: null, role: null, allowed: false, reason: 'Sign in with your verified @bypasssolution.com account, or ask an admin for an invitation.' };
   }
 
   if (data.status !== 'active') {

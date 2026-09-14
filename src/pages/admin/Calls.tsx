@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { useScope } from '../../hooks/useScope';
+import { useRepView } from '../../hooks/useRepView';
+import { belongsToRep } from '../../lib/repView';
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 
@@ -13,18 +15,20 @@ interface CallRecord {
   duration: string;
   disposition: string;
   notes: string;
-  leads: { business_name: string } | null;
+  leads: { business_name: string; assigned_to?: string | null; assigned_rep?: string | null } | null;
 }
 
 export default function Calls() {
   const { role, repName } = useScope();
+  const { target } = useRepView();
   const canWrite = role === 'admin' || role === 'underwriter' || role === 'sales_rep';
   const { data: leads, error: leadsError } = useLeads();
-  const { data: calls, loading, error, refetch } = useSupabaseQuery<CallRecord[]>(async () => {
-    const { data, error: queryError } = await supabase.from('call_logs').select('*, leads(business_name)').order('created_at', { ascending: false });
+  const { data: allCalls, loading, error, refetch } = useSupabaseQuery<CallRecord[]>(async () => {
+    const { data, error: queryError } = await supabase.from('call_logs').select('*, leads(business_name, assigned_to, assigned_rep)').order('created_at', { ascending: false });
     if (queryError) throw new Error(queryError.message);
     return (data ?? []) as unknown as CallRecord[];
   }, [], []);
+  const calls = target ? allCalls.filter((call) => call.leads && belongsToRep(target, call.leads.assigned_to, call.leads.assigned_rep)) : allCalls;
   const [showLog, setShowLog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');

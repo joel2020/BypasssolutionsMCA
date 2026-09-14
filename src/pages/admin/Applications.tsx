@@ -6,6 +6,8 @@ import { Search, Plus, FolderOpen, Phone, Mail, FileSignature } from 'lucide-rea
 import { supabase, type Lead, type LeadStatus } from '../../lib/supabase';
 import { useLeads } from '../../hooks/useLeads';
 import { useScope } from '../../hooks/useScope';
+import { useReps } from '../../hooks/useReps';
+import { belongsToRep } from '../../lib/repView';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import NewApplicationModal from '../../components/admin/NewApplicationModal';
 import ManageLeadModal from '../../components/admin/ManageLeadModal';
@@ -20,6 +22,7 @@ function money(value: number) {
 export default function Applications() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [repFilter, setRepFilter] = useState('All');
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(searchParams.get('new') === '1');
@@ -30,7 +33,8 @@ export default function Applications() {
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [sendingApp, setSendingApp] = useState<string | null>(null);
   const { data: allLeads, loading, error, refetch } = useLeads();
-  const { canAccess } = useScope();
+  const { canAccess, isAdmin } = useScope();
+  const { data: reps, error: repsError } = useReps();
 
   // Reps only see leads assigned to them.
   const leads = useMemo(
@@ -97,15 +101,23 @@ export default function Applications() {
   }
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return leads.filter((l) => (!q || l.business_name.toLowerCase().includes(q)) && (statusFilter === 'All' || contactStatusForLead(l) === statusFilter));
-  }, [leads, search, statusFilter]);
+    const rep = reps.find((item) => item.id === repFilter);
+    return leads.filter((l) => {
+      const matchesRep = !isAdmin || repFilter === 'All' || (repFilter === 'Unassigned'
+        ? !l.assigned_to && (!l.assigned_rep || l.assigned_rep === 'Unassigned')
+        : Boolean(rep && belongsToRep(rep, l.assigned_to, l.assigned_rep)));
+      return matchesRep && (!q || l.business_name.toLowerCase().includes(q)
+        || Boolean(isAdmin && [l.assigned_rep, reps.find((item) => item.id === l.assigned_to)?.full_name, reps.find((item) => item.id === l.assigned_to)?.email].some((value) => value?.toLowerCase().includes(q))))
+        && (statusFilter === 'All' || contactStatusForLead(l) === statusFilter);
+    });
+  }, [leads, search, statusFilter, repFilter, reps, isAdmin]);
 
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-[20px] font-bold text-navy-900">Leads</h1>
-          <p className="text-[13px] text-slate-400">{loading ? 'Loading...' : `${leads.length} leads not yet submitted`}</p>
+          <p className="text-[13px] text-slate-400">{loading ? 'Loading...' : `${filtered.length} leads not yet submitted`}</p>
         </div>
         <button onClick={() => { setShowCreate(true); setSearchParams({ new: '1' }); }} className="btn-primary h-9 px-4 text-[13px]">
           <Plus size={14} /> New Application
@@ -117,7 +129,7 @@ export default function Applications() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by company name..."
+            placeholder={isAdmin ? 'Search by company or rep...' : 'Search by company name...'}
             className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 pl-8 pr-4 text-[13px] placeholder:text-slate-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -128,6 +140,14 @@ export default function Applications() {
             <option value="All">All</option>{contactStatuses.map(status=><option key={status}>{status}</option>)}
           </select>
         </label>
+        {isAdmin && <label className="text-sm text-slate-600">Rep
+          <select aria-label="Filter leads by rep" value={repFilter} onChange={(e) => setRepFilter(e.target.value)} className="select-field ml-2">
+            <option value="All">All reps</option>
+            {reps.map((rep) => <option key={rep.id} value={rep.id}>{rep.full_name || rep.email}</option>)}
+            <option value="Unassigned">Unassigned</option>
+          </select>
+        </label>}
+        {isAdmin && repsError && <p role="alert" className="text-sm text-red-600">Unable to load reps: {repsError}</p>}
       </div>
 
       {loading ? (

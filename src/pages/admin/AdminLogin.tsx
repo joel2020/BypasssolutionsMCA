@@ -77,6 +77,7 @@ export default function AdminLogin() {
               <Shield size={22} className="text-slate-600" />
             </div>
             <h1 className="text-[20px] font-bold text-navy-900">CRM Portal</h1>
+            <p className="mt-2 text-[13px] text-slate-500">Use Google sign-in with your @bypasssolution.com account to join as a rep.</p>
             <p className="text-[14px] text-slate-500 mt-1">Sign in to the CRM dashboard</p>
           </div>
 

@@ -1,7 +1,7 @@
 import { updateLead } from '../../lib/leadMutations';
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileSignature, FileText, Mail, Pencil, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileText, Mail, Pencil, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlassCard } from './Dashboard';
 import { useLead } from '../../hooks/useLead';
@@ -51,34 +51,9 @@ export default function LeadDetail() {
   const { canAccess } = useScope();
   const isAdmin = profile?.role === 'admin';
   const [savingStatus, setSavingStatus] = useState(false);
-  const [sendingApp, setSendingApp] = useState(false);
   const [convertSource, setConvertSource] = useState<{ url: string | null; name: string; id: string } | null>(null);
   const [checkingSig, setCheckingSig] = useState(false);
   const [appResult, setAppResult] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function sendEsignApplication() {
-    setSendingApp(true);
-    setAppResult(null);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const res = await fetch('/api/send-application', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ leadId: id }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || 'Unable to send the application.');
-      setAppResult({ ok: true, text: `Application emailed to ${payload.sentTo} (${payload.prefilled} fields prefilled).` });
-      await refetchLead();
-    } catch (err) {
-      setAppResult({ ok: false, text: err instanceof Error ? err.message : 'Unable to send the application.' });
-    } finally {
-      setSendingApp(false);
-    }
-  }
 
   // Pull the executed Bypass application onto the deal once the merchant signs it.
   async function checkForSignature() {
@@ -170,7 +145,6 @@ export default function LeadDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowEdit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Pencil size={15} />Edit</button>
             <button onClick={() => void checkForSignature()} disabled={checkingSig} title="Pull the signed Bypass application in once the merchant has signed it" className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12] disabled:opacity-60"><RefreshCw size={15} />{checkingSig ? 'Checking...' : 'Check for signature'}</button>
-            <button onClick={() => void sendEsignApplication()} disabled={sendingApp} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><FileSignature size={15} />{sendingApp ? 'Sending...' : 'Send e-sign App'}</button>
             <button onClick={() => setShowEmail(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[13px] font-black text-white"><Mail size={15} />Send Email</button>
             <button onClick={() => setShowUpload(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Upload size={15} />Upload Document</button>
             {profile?.status === 'active' && ['admin','underwriter','sales_rep'].includes(profile.role) && <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>}
