@@ -4,6 +4,7 @@ import { supabase, type FundingPartner } from '../../lib/supabase';
 import { useCreateFundingPartner, useFundingPartners } from '../../hooks/usePartnerSubmissions';
 import { useScope } from '../../hooks/useScope';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
+import { fundingPartnerForm, parseFundingPartnerForm, type FundingPartnerForm } from '../../lib/fundingPartnerFields';
 
 function currency(value?: number | null) {
   return `$${Number(value || 0).toLocaleString()}`;
@@ -14,17 +15,7 @@ function FundingPartnerModal({ partner, onClose, onSaved }: { partner?: FundingP
   const { createFundingPartner, loading } = useCreateFundingPartner();
   const isEdit = Boolean(partner);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    name: partner?.name ?? '',
-    contactName: partner?.contact_name ?? '',
-    email: partner?.email ?? '',
-    phone: partner?.phone ?? '',
-    minRevenue: partner?.min_revenue ? String(partner.min_revenue) : '',
-    maxFunding: partner?.max_funding ? String(partner.max_funding) : '',
-    industriesAccepted: (partner?.industries_accepted ?? []).join(', '),
-    notes: partner?.notes ?? '',
-    status: (partner?.status ?? 'Active') as 'Active' | 'Inactive',
-  });
+  const [form, setForm] = useState(() => fundingPartnerForm(partner));
   const [error, setError] = useState<string | null>(null);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -35,38 +26,31 @@ function FundingPartnerModal({ partner, onClose, onSaved }: { partner?: FundingP
     event.preventDefault();
     setError(null);
 
-    const industries = form.industriesAccepted.split(',').map((item) => item.trim()).filter(Boolean);
-
     try {
+      const payload = parseFundingPartnerForm(form);
       if (isEdit && partner) {
         setSaving(true);
-        const { error: updateError } = await supabase
+        const { data, error: updateError } = await supabase
           .from('funding_partners')
           .update({
-            name: form.name,
-            contact_name: form.contactName,
-            email: form.email,
-            phone: form.phone,
-            min_revenue: Number(form.minRevenue || 0),
-            max_funding: Number(form.maxFunding || 0),
-            industries_accepted: industries,
-            notes: form.notes,
-            status: form.status,
+            name: payload.name,
+            contact_name: payload.contactName || null,
+            email: payload.email || null,
+            phone: payload.phone || null,
+            min_revenue: payload.minRevenue,
+            max_funding: payload.maxFunding,
+            industries_accepted: payload.industriesAccepted,
+            notes: payload.notes || null,
+            status: payload.status,
+            ...payload.criteria,
           })
-          .eq('id', partner.id);
+          .eq('id', partner.id)
+          .select('id')
+          .single();
         if (updateError) throw updateError;
+        if (!data?.id) throw new Error('Funding partner was not updated. Refresh and try again.');
       } else {
-        await createFundingPartner({
-          name: form.name,
-          contactName: form.contactName,
-          email: form.email,
-          phone: form.phone,
-          minRevenue: Number(form.minRevenue || 0),
-          maxFunding: Number(form.maxFunding || 0),
-          industriesAccepted: industries,
-          notes: form.notes,
-          status: form.status,
-        });
+        await createFundingPartner(payload);
       }
       onSaved();
       onClose();
@@ -79,39 +63,83 @@ function FundingPartnerModal({ partner, onClose, onSaved }: { partner?: FundingP
 
   const busy = loading || saving;
 
+  function field(key: keyof FundingPartnerForm, label: string, options: { type?: string; placeholder?: string; whole?: boolean; wide?: boolean; min?: number; max?: number } = {}) {
+    return <label key={key} className={`block ${options.wide ? 'md:col-span-2' : ''}`}>
+      <span className="text-[12px] font-semibold text-slate-600">{label}</span>
+      <input required={key === 'name'} type={options.type ?? 'text'} min={options.type === 'number' ? options.min ?? 0 : undefined} max={options.max} step={options.type === 'number' ? options.whole ? 1 : 'any' : undefined} className="input-field mt-1.5" placeholder={options.placeholder} value={form[key]} onChange={(event) => update(key, event.target.value as FundingPartnerForm[typeof key])} />
+    </label>;
+  }
+
+  function notesField(key: 'notes' | 'criteriaNotes' | 'bonusNotes', label: string) {
+    return <label className="block"><span className="text-[12px] font-semibold text-slate-600">{label}</span><textarea className="input-field mt-1.5 min-h-24" value={form[key]} onChange={(event) => update(key, event.target.value)} /></label>;
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="funding-partner-title" className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[20px] font-bold text-navy-900">{isEdit ? 'Edit Funding Partner' : 'Add Funding Partner'}</h2>
+            <h2 id="funding-partner-title" className="text-[20px] font-bold text-navy-900">{isEdit ? 'Edit Funding Partner' : 'Add Funding Partner'}</h2>
             <p className="text-[13px] text-slate-500">{isEdit ? 'Update this lender/funder record.' : 'Create a lender/funder record for submissions.'}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
+          <button disabled={busy} aria-label="Close funding partner editor" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Partner name</span><input required className="input-field mt-1.5" value={form.name} onChange={(e) => update('name', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Contact name</span><input className="input-field mt-1.5" value={form.contactName} onChange={(e) => update('contactName', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Phone</span><input className="input-field mt-1.5" value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Minimum monthly revenue</span><input type="number" min="0" className="input-field mt-1.5" value={form.minRevenue} onChange={(e) => update('minRevenue', e.target.value)} /></label>
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Maximum funding</span><input type="number" min="0" className="input-field mt-1.5" value={form.maxFunding} onChange={(e) => update('maxFunding', e.target.value)} /></label>
-            <label className="block md:col-span-2"><span className="text-[12px] font-semibold text-slate-600">Industries accepted</span><input className="input-field mt-1.5" placeholder="Restaurants, Retail, Construction" value={form.industriesAccepted} onChange={(e) => update('industriesAccepted', e.target.value)} /></label>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="block"><span className="text-[12px] font-semibold text-slate-600">Status</span>
-              <select className="select-field mt-1.5" value={form.status} onChange={(e) => update('status', e.target.value as 'Active' | 'Inactive')}>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </label>
-          </div>
-          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Notes</span><textarea className="input-field mt-1.5 min-h-24" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
-          {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
+          <fieldset disabled={busy} className="space-y-5 disabled:opacity-70">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {field('name', 'Partner name')}
+              {field('contactName', 'Contact name')}
+              {field('email', 'Contact email', { type: 'email' })}
+              {field('phone', 'Phone', { type: 'tel' })}
+              <label className="block"><span className="text-[12px] font-semibold text-slate-600">Status</span>
+                <select className="select-field mt-1.5" value={form.status} onChange={(event) => update('status', event.target.value as 'Active' | 'Inactive')}>
+                  <option value="Active">Active</option><option value="Inactive">Inactive</option>
+                </select>
+              </label>
+            </div>
+            <section className="space-y-4 border-t border-slate-200 pt-5" aria-labelledby="submission-routing-title">
+              <h3 id="submission-routing-title" className="font-semibold text-navy-900">Submission routing</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {field('submissionEmail', 'Submission email', { type: 'email' })}
+                <label className="block"><span className="text-[12px] font-semibold text-slate-600">Preferred submission method</span>
+                  <select className="select-field mt-1.5" value={form.preferredSubmissionMethod} onChange={(event) => update('preferredSubmissionMethod', event.target.value as FundingPartnerForm['preferredSubmissionMethod'])}>
+                    <option value="email">Email</option><option value="portal">Portal</option><option value="api">API</option><option value="manual">Manual</option>
+                  </select>
+                </label>
+                {field('additionalCcEmails', 'Additional CC emails', { wide: true, placeholder: 'rep2@funder.com, rep3@funder.com' })}
+                <p className="text-[12px] text-slate-500 md:col-span-2">Separate addresses with commas. Submissions use the submission email, falling back to the contact email. The contact email and these additional addresses are copied, excluding duplicates and the primary recipient.</p>
+                {field('portalUrl', 'Portal URL', { type: 'url', wide: true, placeholder: 'https://portal.example.com' })}
+              </div>
+            </section>
+            <section className="space-y-4 border-t border-slate-200 pt-5" aria-labelledby="funding-criteria-title">
+              <h3 id="funding-criteria-title" className="font-semibold text-navy-900">Funding criteria</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {field('minFunding', 'Minimum funding', { type: 'number' })}
+                {field('maxFunding', 'Maximum funding', { type: 'number' })}
+                {field('minRevenue', 'Minimum monthly revenue', { type: 'number' })}
+                {field('minMonths', 'Minimum months in business', { type: 'number', whole: true })}
+                {field('minCreditScore', 'Minimum credit / FICO', { type: 'number', whole: true, min: 300, max: 850 })}
+                {field('maxPositions', 'Maximum existing positions', { type: 'number', whole: true })}
+                {field('maxNegativeDays', 'Maximum negative days', { type: 'number', whole: true })}
+                {field('maxNsfCount', 'Maximum NSF count', { type: 'number', whole: true })}
+                {field('avgApprovalDays', 'Average decision days', { type: 'number', whole: true })}
+                {field('statesServed', 'States served', { placeholder: 'NY, NJ, FL' })}
+                {field('restrictedStates', 'Restricted states', { placeholder: 'TX, CA, PR' })}
+                {field('productTypes', 'Product types')}
+                {field('industriesAccepted', 'Industries accepted / preferred', { placeholder: 'Restaurants, Retail, Construction' })}
+                {field('restrictedIndustries', 'Restricted industries', { placeholder: 'Cannabis, gambling' })}
+                {field('requiredDocuments', 'Required documents', { wide: true, placeholder: 'completed_application, bank_statements, drivers_license, voided_check' })}
+              </div>
+              <p className="text-[12px] text-slate-500">Separate states, industries, products and required documents with commas. Leave optional criteria blank when unspecified.</p>
+            </section>
+            {notesField('criteriaNotes', 'Criteria notes')}
+            {notesField('notes', 'Notes / rules')}
+            {notesField('bonusNotes', 'Bonus notes')}
+          </fieldset>
+          {error && <div role="alert" className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            <button type="button" disabled={busy} onClick={onClose} className="btn-secondary">Cancel</button>
             <button disabled={busy} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{busy ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Partner'}</button>
           </div>
         </form>

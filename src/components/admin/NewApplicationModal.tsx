@@ -44,10 +44,10 @@ export default function NewApplicationModal({ onClose, onCreated }: NewApplicati
       if (!form.businessName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.phone.trim()) {
         throw new Error('Business name, owner name, email, and phone are required.');
       }
-      if (requestedAmount <= 0) {
+      if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
         throw new Error('Requested funding amount must be greater than zero.');
       }
-      if (monthlyRevenue < 0) {
+      if (!Number.isFinite(monthlyRevenue) || monthlyRevenue < 0) {
         throw new Error('Monthly revenue cannot be negative.');
       }
 
@@ -55,6 +55,9 @@ export default function NewApplicationModal({ onClose, onCreated }: NewApplicati
       if (authError || !authData.user) {
         throw new Error('Your CRM session expired. Sign in again and retry.');
       }
+
+      const assignedProfile = reps.find((rep) => (rep.full_name || rep.email) === form.assignedRep);
+      if (form.assignedRep && !assignedProfile) throw new Error('Choose an active rep before creating the lead.');
 
       // Always create a LEAD. Full submissions are made via "Convert to submission"
       // from the Leads table, which requires the last 4 months of bank statements.
@@ -73,7 +76,7 @@ export default function NewApplicationModal({ onClose, onCreated }: NewApplicati
           gross_monthly_revenue: monthlyRevenue,
           status: 'New Lead',
           assigned_rep: form.assignedRep.trim() || 'Unassigned',
-          assigned_to: authData.user.id,
+          assigned_to: assignedProfile?.id ?? authData.user.id,
           created_by: authData.user.id,
           source: form.source.trim() || 'CRM',
           notes: form.notes.trim(),
@@ -81,7 +84,7 @@ export default function NewApplicationModal({ onClose, onCreated }: NewApplicati
           submitted_at: null,
         });
 
-      if (leadError) throw leadError;
+      if (leadError) throw new Error(leadError.message);
 
       setSuccess('Lead created.');
       await onCreated();

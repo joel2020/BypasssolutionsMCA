@@ -23,4 +23,7 @@ dist-ssr
 .env
 
 .env.local
-.github/
+
+supabase/.temp/
+
+/public/application-reader/

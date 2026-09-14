@@ -3,18 +3,19 @@ import { Save, Plus, Trash2, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import { supabase, type Profile } from '../../lib/supabase';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery';
+import { getGmailConnection } from '../../hooks/useGmail';
 
 const settingsTabs = ['Organization', 'Team Members', 'Integrations', 'Automations', 'Billing'];
 const roles: Profile['role'][] = ['admin', 'underwriter', 'sales_rep', 'viewer'];
 
 const integrations = [
-  { name: 'Twilio', desc: 'SMS and voice calling', category: 'Communications', connected: false },
-  { name: 'JustCall', desc: 'Cloud phone system', category: 'Communications', connected: false },
-  { name: 'Aircall', desc: 'Business phone platform', category: 'Communications', connected: false },
-  { name: 'Google Workspace', desc: 'Email and calendar sync', category: 'Productivity', connected: true, href: '/admin/email' },
-  { name: 'Stripe', desc: 'Commission payouts', category: 'Finance', connected: false },
-  { name: 'DocuSign', desc: 'Electronic contract signing', category: 'Documents', connected: false },
-  { name: 'Zapier', desc: 'Workflow automation', category: 'Automation', connected: false },
+  { name: 'Twilio', desc: 'SMS and voice calling', category: 'Communications' },
+  { name: 'JustCall', desc: 'Cloud phone system', category: 'Communications' },
+  { name: 'Aircall', desc: 'Business phone platform', category: 'Communications' },
+  { name: 'Gmail', desc: 'Email sync and sending', category: 'Productivity', href: '/admin/email' },
+  { name: 'Stripe', desc: 'Commission payouts', category: 'Finance' },
+  { name: 'DocuSign', desc: 'Electronic contract signing', category: 'Documents' },
+  { name: 'Zapier', desc: 'Workflow automation', category: 'Automation' },
 ];
 
 const automationRules = [
@@ -41,6 +42,7 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void 
 }
 
 function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [action, setAction] = useState<'invite' | 'resend'>('invite');
   const [form, setForm] = useState({ fullName: '', email: '', role: 'sales_rep' as Profile['role'] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,10 +56,11 @@ function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCre
       const origin = window.location.origin;
       const { data, error: invokeError } = await supabase.functions.invoke('invite-team-member', {
         body: {
+          action,
           full_name: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
           role: form.role,
-          redirect_to: `${origin}/admin`,
+          redirect_to: `${origin}/admin/set-password`,
         },
       });
 
@@ -93,26 +96,50 @@ function AddTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCre
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h2 className="text-[18px] font-bold text-navy-900">Add Team Member</h2>
-            <p className="text-[13px] text-slate-500">Invite a user and create their CRM profile.</p>
+            <p className="text-[13px] text-slate-500">Invite a rep or resend access to an existing account.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>
         <form onSubmit={submit} className="space-y-4 p-6">
-          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Full name</span><input required className="input-field mt-1.5" value={form.fullName} onChange={(e) => setForm((current) => ({ ...current, fullName: e.target.value }))} /></label>
+          <label className="block text-sm">Action
+            <select className="select-field mt-1.5" value={action} onChange={(event) => setAction(event.target.value as 'invite' | 'resend')}>
+              <option value="invite">Invite new team member</option><option value="resend">Resend access email</option>
+            </select>
+          </label>
+          <label className="block"><span className="text-[12px] font-semibold text-slate-600">Full name</span><input required={action === 'invite'} disabled={action === 'resend'} className="input-field mt-1.5" value={form.fullName} onChange={(e) => setForm((current) => ({ ...current, fullName: e.target.value }))} /></label>
           <label className="block"><span className="text-[12px] font-semibold text-slate-600">Email</span><input required type="email" className="input-field mt-1.5" value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} /></label>
           <label className="block">
             <span className="text-[12px] font-semibold text-slate-600">Role</span>
-            <select className="select-field mt-1.5" value={form.role} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as Profile['role'] }))}>
+            <select disabled={action === 'resend'} className="select-field mt-1.5" value={form.role} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as Profile['role'] }))}>
               {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
             </select>
           </label>
           {error && <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Sending invite...' : 'Send Invite'}</button>
+            <button disabled={saving} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Sending...' : action === 'resend' ? 'Resend access email' : 'Send Invite'}</button>
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function GmailIntegrationCard() {
+  const { data: connection, loading, error } = useSupabaseQuery(getGmailConnection, null, []);
+  const connected = !loading && !error && connection?.status === 'connected';
+  return (
+    <div className="card flex items-start justify-between gap-3 p-5">
+      <div>
+        <div className="mb-1 flex items-center gap-2">
+          <p className="text-[14px] font-semibold text-navy-900">Gmail</p>
+          {connected && <span className="badge bg-green-50 text-green-700 text-[10px]">Connected</span>}
+        </div>
+        <p className="text-[12px] text-slate-400">Email sync and sending</p>
+        <p className="mt-1 text-[12px] text-slate-500">{loading ? 'Checking connection…' : error ? 'Unable to check Gmail connection.' : connected ? connection.gmail_email : 'No Gmail account connected for your user.'}</p>
+        <span className="badge-default mt-1.5 text-[10px]">Productivity</span>
+      </div>
+      <button disabled={loading} onClick={() => window.location.assign('/admin/email')} className="h-8 flex-shrink-0 rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50">{connected ? 'Manage Gmail' : 'Connect Gmail'}</button>
     </div>
   );
 }
@@ -236,27 +263,22 @@ export default function Settings() {
               </tbody>
             </table>
           </div>
-          {showAddMember && <AddTeamMemberModal onClose={() => setShowAddMember(false)} onCreated={() => { setFeedback('Team invite sent and profile created.'); void refetchProfiles(); }} />}
+          {showAddMember && <AddTeamMemberModal onClose={() => setShowAddMember(false)} onCreated={() => { setFeedback('Team access email sent.'); void refetchProfiles(); }} />}
         </div>
       )}
 
       {activeTab === 'Integrations' && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {integrations.map((integ) => (
+          {integrations.map((integ) => integ.href ? <GmailIntegrationCard key={integ.name} /> : (
             <div key={integ.name} className="card flex items-start justify-between gap-3 p-5">
               <div>
                 <div className="mb-1 flex items-center gap-2">
                   <p className="text-[14px] font-semibold text-navy-900">{integ.name}</p>
-                  {integ.connected && <span className="badge bg-green-50 text-green-700 text-[10px]">Connected</span>}
                 </div>
                 <p className="text-[12px] text-slate-400">{integ.desc}</p>
                 <span className="badge-default mt-1.5 text-[10px]">{integ.category}</span>
               </div>
-              {integ.href ? (
-                <button onClick={() => window.location.assign(integ.href!)} className="h-8 flex-shrink-0 rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200">Manage</button>
-              ) : (
-                <button disabled title="Integration setup is not configured yet." className="h-8 flex-shrink-0 cursor-not-allowed rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-400">Connect</button>
-              )}
+              <button disabled title="Integration setup is not configured yet." className="h-8 flex-shrink-0 cursor-not-allowed rounded-md bg-slate-100 px-3 text-[12px] font-medium text-slate-400">Connect</button>
             </div>
           ))}
         </div>

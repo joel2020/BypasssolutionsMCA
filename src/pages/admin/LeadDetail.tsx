@@ -1,13 +1,14 @@
+import { updateLead } from '../../lib/leadMutations';
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileSignature, FileText, Mail, Pencil, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, FileText, Mail, Pencil, Phone, RefreshCw, Send, Upload, UserRound, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlassCard } from './Dashboard';
 import { useLead } from '../../hooks/useLead';
 import { useOffers } from '../../hooks/useOffers';
 import { useTasks } from '../../hooks/useTasks';
 import { useDocuments } from '../../hooks/useDocuments';
-import { useNotes } from '../../hooks/useNotes';
+import DealNotes from '../../components/admin/DealNotes';
 import { useApplicationByLead } from '../../hooks/useApplications';
 import { usePartnerSubmissions } from '../../hooks/usePartnerSubmissions';
 import { sendGmailEmail, syncGmail, useGmailMessages, type GmailMessage } from '../../hooks/useGmail';
@@ -50,34 +51,9 @@ export default function LeadDetail() {
   const { canAccess } = useScope();
   const isAdmin = profile?.role === 'admin';
   const [savingStatus, setSavingStatus] = useState(false);
-  const [sendingApp, setSendingApp] = useState(false);
   const [convertSource, setConvertSource] = useState<{ url: string | null; name: string; id: string } | null>(null);
   const [checkingSig, setCheckingSig] = useState(false);
   const [appResult, setAppResult] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function sendEsignApplication() {
-    setSendingApp(true);
-    setAppResult(null);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const res = await fetch('/api/send-application', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ leadId: id }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || 'Unable to send the application.');
-      setAppResult({ ok: true, text: `Application emailed to ${payload.sentTo} (${payload.prefilled} fields prefilled).` });
-      await refetchLead();
-    } catch (err) {
-      setAppResult({ ok: false, text: err instanceof Error ? err.message : 'Unable to send the application.' });
-    } finally {
-      setSendingApp(false);
-    }
-  }
 
   // Pull the executed Bypass application onto the deal once the merchant signs it.
   async function checkForSignature() {
@@ -116,8 +92,11 @@ export default function LeadDetail() {
     const next = statusForStage(selection) ?? selection;
     setSavingStatus(true);
     try {
-      await supabase.from('leads').update({ status: next }).eq('id', id);
+      if (!id) throw new Error('Lead not found.');
+      await updateLead(id, { status: next });
       await refetchLead();
+    } catch (err) {
+      setAppResult({ ok: false, text: err instanceof Error ? err.message : 'Unable to change status.' });
     } finally {
       setSavingStatus(false);
     }
@@ -125,9 +104,8 @@ export default function LeadDetail() {
   const { data: application, refetch: refetchApplication } = useApplicationByLead(id);
   const { data: offers } = useOffers(id);
   const { data: tasks } = useTasks({ leadId: id });
-  const { data: documents, refetch: refetchDocuments } = useDocuments({ leadId: id, applicationId: application?.id });
-  const { data: submissions, refetch: refetchSubmissions } = usePartnerSubmissions(application?.id);
-  const { data: notes } = useNotes(id);
+  const { data: documents, refetch: refetchDocuments } = useDocuments({ leadId: id });
+  const { data: submissions, error: submissionsError, loading: submissionsLoading, refetch: refetchSubmissions } = usePartnerSubmissions(id);
   const { data: gmailMessages, refetch: refetchGmailMessages } = useGmailMessages({ leadId: id });
 
   if (loading) return <div className="min-h-screen bg-[#071225] p-6 lg:p-8"><SkeletonLoader label="Loading application..." /></div>;
@@ -135,7 +113,7 @@ export default function LeadDetail() {
   if (notFound || !lead) return <NotFoundState />;
 
   // A rep may not open a deal that is not assigned to them.
-  if (!canAccess(lead.assigned_rep)) {
+  if (!canAccess(lead.assigned_rep, lead.assigned_to)) {
     return (
       <div className="min-h-screen bg-[#071225] p-6 text-white lg:p-8">
         <Link to="/admin/applications" className="mb-6 inline-flex items-center gap-2 text-[13px] font-semibold text-slate-400 hover:text-white"><ArrowLeft size={15} /> Back</Link>
@@ -153,6 +131,7 @@ export default function LeadDetail() {
   const ownerName = `${lead.first_name} ${lead.last_name}`.trim() || text(extended, 'owner_full_name');
   const statusClass = leadStatusColors[lead.status] ?? 'bg-slate-100 text-slate-600 border-slate-200';
   const currentApplicationId = application?.id ?? null;
+  const lenderList = submissionsError ? <p role="alert" className="text-sm text-red-200">{submissionsError}</p> : submissionsLoading ? <p className="text-sm text-slate-400">Loading lender submissions…</p> : <PartnerSubmissionList submissions={submissions} leadId={id} onChanged={refetchSubmissions} />;
 
   return (
     <div className="min-h-screen bg-[#071225] text-white">
@@ -166,10 +145,9 @@ export default function LeadDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowEdit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Pencil size={15} />Edit</button>
             <button onClick={() => void checkForSignature()} disabled={checkingSig} title="Pull the signed Bypass application in once the merchant has signed it" className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12] disabled:opacity-60"><RefreshCw size={15} />{checkingSig ? 'Checking...' : 'Check for signature'}</button>
-            <button onClick={() => void sendEsignApplication()} disabled={sendingApp} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><FileSignature size={15} />{sendingApp ? 'Sending...' : 'Send e-sign App'}</button>
             <button onClick={() => setShowEmail(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[13px] font-black text-white"><Mail size={15} />Send Email</button>
             <button onClick={() => setShowUpload(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.08] px-4 text-[13px] font-black text-white ring-1 ring-white/10 hover:bg-white/[0.12]"><Upload size={15} />Upload Document</button>
-            {isAdmin && <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>}
+            {profile?.status === 'active' && ['admin','underwriter','sales_rep'].includes(profile.role) && <button disabled={!currentApplicationId} onClick={() => setShowSubmit(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={15} />Submit to Lender</button>}
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-right"><p className="text-[12px] text-slate-400">Requested</p><p className="text-[22px] font-black text-white">{currency.format(lead.funding_amount_requested)}</p></div>
           </div>
         </div>
@@ -182,8 +160,8 @@ export default function LeadDetail() {
           </div>
         )}
         <div className="mb-5 overflow-x-auto"><div className="flex min-w-max gap-1">{tabs.map((tab) => <button key={tab} onClick={() => setActiveTab(tab)} className={`h-10 rounded-lg px-4 text-[13px] font-bold transition ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/8 hover:text-white'}`}>{tab}</button>)}</div></div>
-        <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-          <GlassCard className="p-6">
+        <div className={`grid gap-5 ${activeTab === 'Documents' ? '' : 'xl:grid-cols-[minmax(0,1fr)_340px]'}`}>
+          <GlassCard className="min-w-0 p-6">
             {activeTab === 'Overview' && (
               <div className="space-y-6">
                 <div>
@@ -208,8 +186,9 @@ export default function LeadDetail() {
                     <Field label="Assigned rep" value={lead.assigned_rep || 'Unassigned'} />
                   </div>
                 </div>
+                <section aria-label="Lenders sent to"><h3 className="mb-3 text-[16px] font-bold text-white">Lenders sent to</h3>{lenderList}</section>
                 <div>
-                  <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-blue-300">Notes</p>
+                  <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-blue-300">Lead notes</p>
                   <div className="whitespace-pre-wrap rounded-xl border border-white/10 bg-white/[0.04] p-4 text-[14px] text-slate-200">{lead.notes || 'No notes added.'}</div>
                 </div>
               </div>
@@ -233,14 +212,14 @@ export default function LeadDetail() {
               />
             )}
             {activeTab === 'Email Activity' && <EmailActivity messages={gmailMessages} lastContactAt={lead.last_contact_at} onSend={() => setShowEmail(true)} onSync={async () => { setEmailActionError(null); try { await syncGmail(); await refetchGmailMessages(); } catch (err) { setEmailActionError(err instanceof Error ? err.message : 'Unable to sync Gmail.'); } }} error={emailActionError} />}
-            {activeTab === 'Lender Submissions' && <PartnerSubmissionList submissions={submissions} leadId={id} onChanged={refetchSubmissions} />}
+            {activeTab === 'Lender Submissions' && lenderList}
             {activeTab === 'Offers' && <List items={offers.map((offer) => `${offer.funder_name}: ${currency.format(offer.funding_amount)} • ${offer.status}`)} empty="No offers created." />}
             {activeTab === 'Communications' && <p className="text-[14px] text-slate-400">Communications are loaded from Supabase communication tables in the dedicated Email, SMS, and Calls pages.</p>}
             {activeTab === 'Tasks' && <List items={tasks.map((task) => `${task.title} • ${task.status}`)} empty="No tasks assigned." />}
-            {activeTab === 'Notes' && <List items={notes.map((note) => `${note.created_by_name}: ${note.text}`)} empty="No notes added." />}
+            {activeTab === 'Notes' && id && <DealNotes key={id} leadId={id} />}
             {activeTab === 'Activity Timeline' && <List items={[`Created ${new Date(lead.created_at).toLocaleString()}`, `Last updated ${new Date(lead.updated_at).toLocaleString()}`, `${documents.length} document(s) uploaded`, `${submissions.length} lender submission(s)`]} empty="No activity logged." />}
           </GlassCard>
-          <GlassCard className="p-5"><h3 className="text-[16px] font-bold text-white">Quick Facts</h3><div className="mt-4 space-y-4"><Field label="Requested" value={currency.format(lead.funding_amount_requested)} /><Field label="Monthly revenue" value={currency.format(lead.monthly_revenue)} /><Field label="Documents" value={String(documents.length)} /><Field label="Lender submissions" value={String(submissions.length)} /></div></GlassCard>
+          {activeTab === 'Overview' && id ? <GlassCard className="min-w-0 self-start p-5"><DealNotes key={id} leadId={id} /></GlassCard> : activeTab !== 'Documents' && <GlassCard className="self-start p-5"><h3 className="text-[16px] font-bold text-white">Quick Facts</h3><div className="mt-4 space-y-4"><Field label="Requested" value={currency.format(lead.funding_amount_requested)} /><Field label="Monthly revenue" value={currency.format(lead.monthly_revenue)} /><Field label="Documents" value={String(documents.length)} /><Field label="Lender submissions" value={String(submissions.length)} /></div></GlassCard>}
         </div>
       </div>
       {showEmail && <LeadEmailModal leadEmail={lead.email} leadId={id} onClose={() => setShowEmail(false)} onSent={() => { void refetchGmailMessages(); }} />}
@@ -256,7 +235,7 @@ export default function LeadDetail() {
         />
       )}
       {showUpload && <UploadDocumentModal leadId={id} applicationId={currentApplicationId} onClose={() => setShowUpload(false)} onUploaded={() => { void refetchDocuments(); void refetchApplication(); }} />}
-      {showSubmit && currentApplicationId && <SubmitToLenderModal leadId={id} applicationId={currentApplicationId} documents={documents} onClose={() => setShowSubmit(false)} onSubmitted={refetchSubmissions} />}
+      {showSubmit && currentApplicationId && <SubmitToLenderModal leadId={id} applicationId={currentApplicationId} businessName={lead.business_name || ownerName} documents={documents} onClose={() => setShowSubmit(false)} onSubmitted={() => { void refetchSubmissions(); void refetchGmailMessages(); }} />}
     </div>
   );
 }

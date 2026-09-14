@@ -63,3 +63,11 @@ describe('admin-only powers (per Chris)', () => {
     expect(canSubmitToLender('underwriter')).toBe(false);
   });
 });
+
+// UUID ownership is also accepted by the database, even when the display name is stale.
+it('allows a rep to open a lead assigned to their user ID', () => {
+  expect(canAccessRecord({ role: 'sales_rep', name: 'Rep', id: 'rep-1' }, 'Unassigned', 'rep-1')).toBe(true);
+});
+it('does not treat missing user IDs as matching ownership', () => {
+  expect(canAccessRecord({ role: 'sales_rep', name: 'Rep' }, 'Another rep', undefined)).toBe(false);
+});

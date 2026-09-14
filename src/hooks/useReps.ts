@@ -8,6 +8,7 @@ export function useReps() {
       .from('profiles')
       .select('id,full_name,email,role,status')
       .in('role', ['admin', 'sales_rep', 'underwriter'])
+      .eq('status', 'active')
       .order('full_name');
     if (error) throw error;
     return (data ?? []) as Profile[];

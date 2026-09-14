@@ -1,17 +1,9 @@
 import { corsHeaders, env, gmailScopes, json, requireUser } from '../_shared/gmail.ts';
 
-async function signState(payload: Record<string, unknown>) {
-  const encodedPayload = btoa(JSON.stringify(payload));
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env('GOOGLE_CLIENT_SECRET')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(encodedPayload));
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
-  return `${encodedPayload}.${encodedSignature}`;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
-    const { user } = await requireUser(req);
+    const { user, service } = await requireUser(req);
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', env('GOOGLE_CLIENT_ID'));
     url.searchParams.set('redirect_uri', env('GOOGLE_REDIRECT_URI'));
@@ -20,7 +12,12 @@ Deno.serve(async (req) => {
     url.searchParams.set('access_type', 'offline');
     url.searchParams.set('prompt', 'consent');
     url.searchParams.set('include_granted_scopes', 'true');
-    url.searchParams.set('state', await signState({ user_id: user.id, nonce: crypto.randomUUID(), app_url: env('APP_URL'), created_at: Date.now() }));
+    env('GMAIL_TOKEN_ENCRYPTION_KEY');
+    const nonce = crypto.randomUUID();
+    await service.from('gmail_oauth_states').delete().lt('expires_at', new Date().toISOString());
+    const { error } = await service.from('gmail_oauth_states').insert({ nonce, user_id: user.id, expires_at: new Date(Date.now() + 600_000).toISOString() });
+    if (error) throw error;
+    url.searchParams.set('state', nonce);
     if (new URL(req.url).searchParams.get('json') === '1') return json({ url: url.toString() });
     return Response.redirect(url.toString(), 302);
   } catch (error) {

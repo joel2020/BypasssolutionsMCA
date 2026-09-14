@@ -76,3 +76,14 @@ export const leadProgressMap: Record<LeadStatus, number> = {
   Declined: 100,
   Lost: 100,
 };
+
+/** Contact dispositions are independent of underwriting pipeline decisions. */
+export const contactStatuses = ['New lead', 'Contacted/Qualified', 'Low rev/Not interested', 'Unresponsive', 'Missing docs', 'Submitted'] as const;
+export function contactStatusForLead(lead: {lead_status?: string | null; status: LeadStatus}): string {
+  if (lead.lead_status && (contactStatuses as readonly string[]).includes(lead.lead_status)) return lead.lead_status;
+  if (lead.status === 'New Lead') return 'New lead';
+  if (['Contacted', 'Application Started'].includes(lead.status)) return 'Contacted/Qualified';
+  if (lead.status === 'Documents Needed') return 'Missing docs';
+  if (['Declined', 'Lost'].includes(lead.status)) return 'Low rev/Not interested';
+  return 'Submitted';
+}

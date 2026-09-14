@@ -1,6 +1,8 @@
 import { supabase, type Lead, type LeadStatus } from '../lib/supabase';
 import { normaliseLead } from '../lib/leadNormalise';
 import { useSupabaseQuery } from './useSupabaseQuery';
+import { useRepView } from './useRepView';
+import { belongsToRep } from '../lib/repView';
 
 export interface LeadFilters {
   status?: LeadStatus | 'All';
@@ -9,7 +11,8 @@ export interface LeadFilters {
 }
 
 export function useLeads(filters: LeadFilters = {}) {
-  return useSupabaseQuery<Lead[]>(async () => {
+  const { target } = useRepView();
+  const result = useSupabaseQuery<Lead[]>(async () => {
     let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (filters.status && filters.status !== 'All') query = query.eq('status', filters.status);
     if (filters.assignedRep && filters.assignedRep !== 'All') query = query.eq('assigned_rep', filters.assignedRep);
@@ -18,4 +21,5 @@ export function useLeads(filters: LeadFilters = {}) {
     if (error) throw error;
     return (data ?? []).map((row) => normaliseLead(row as Record<string, unknown>));
   }, [], [filters.status, filters.assignedRep, filters.source]);
+  return { ...result, data: target ? result.data.filter((lead) => belongsToRep(target, lead.assigned_to, lead.assigned_rep)) : result.data };
 }

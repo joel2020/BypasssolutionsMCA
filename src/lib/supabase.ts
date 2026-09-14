@@ -25,6 +25,15 @@ export function assertSupabaseConfigured() {
   }
 }
 
+// Capture invitation/recovery intent before the SDK consumes and clears the URL fragment.
+const authLinkType = typeof window === 'undefined' ? null : new URLSearchParams(window.location.hash.slice(1)).get('type');
+export const isPasswordSetupLink = authLinkType === 'invite' || authLinkType === 'recovery';
+const authParams = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(`${window.location.search.slice(1)}&${window.location.hash.slice(1)}`);
+const authErrorCode = authParams.get('error_code') || authParams.get('error');
+export const initialAuthError = !authErrorCode ? '' : authErrorCode === 'signup_disabled'
+  ? 'This CRM is invitation-only. Ask your administrator to add your Google email address.'
+  : 'Google sign-in was not completed. Please try again or sign in with your email and password.';
+
 export const supabase = createClient(
   isSupabaseConfigured ? supabaseUrl! : 'https://missing-config.invalid',
   isSupabaseConfigured ? supabaseAnonKey! : 'missing-supabase-anon-key',
@@ -80,7 +89,9 @@ export interface Lead {
   avg_daily_balance: number;
   urgency: string;
   status: LeadStatus;
+  lead_status?: string | null;
   assigned_rep: string;
+  assigned_to?: string | null;
   lead_score: number;
   source: string;
   last_contact_at: string | null;
@@ -106,6 +117,7 @@ export interface Task {
   description?: string | null;
   task_type: string;
   assigned_rep: string;
+  assigned_to?: string | null;
   due_date: string | null;
   priority: 'High' | 'Medium' | 'Low';
   status: 'Open' | 'In Progress' | 'Completed';
@@ -172,6 +184,24 @@ export interface FundingPartner {
   name: string;
   contact_name: string | null;
   email: string | null;
+  submission_email?: string | null;
+  additional_cc_emails?: string | null;
+  portal_url?: string | null;
+  preferred_submission_method?: string | null;
+  min_funding_amount?: number | null;
+  min_time_in_business_months?: number | null;
+  min_credit_score?: number | null;
+  max_existing_positions?: number | null;
+  max_negative_days?: number | null;
+  max_nsf_count?: number | null;
+  avg_approval_days?: number | null;
+  states_served?: string[] | null;
+  restricted_states?: string[] | null;
+  product_types?: string[] | null;
+  restricted_industries?: string[] | null;
+  required_documents?: string[] | null;
+  criteria_notes?: string | null;
+  bonus_notes?: string | null;
   phone: string | null;
   min_revenue: number | null;
   max_funding: number | null;
@@ -182,6 +212,7 @@ export interface FundingPartner {
 
 export interface PartnerSubmission {
   id: string;
+  email_delivery_id?: string | null;
   created_at: string;
   updated_at: string;
   application_id: string | null;

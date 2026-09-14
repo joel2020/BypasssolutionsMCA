@@ -1,25 +1,18 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ExternalLink, FileSignature, XCircle } from 'lucide-react';
 import { supabase, type Lead } from '../../lib/supabase';
+import { APPLICATION_FIELDS as FIELDS, applicationPatch } from '../../lib/applicationImport';
+import { updateLead } from '../../lib/leadMutations';
+import { validateSignatureTransfer } from '../../lib/applicationSignatures';
+import type { SelectedSignatures } from './ApplicationSignaturePicker';
+const ApplicationSignaturePicker = lazy(() => import('./ApplicationSignaturePicker'));
 
-/**
- * "Convert to Bypass application".
- *
- * A rep uploads another broker's application (Elite, etc). This carries every
- * detail across into a Bypass-branded application, renders it as a completed PDF,
- * and attaches it to the deal. The applicant is NOT contacted.
- *
- * The application's own authorisation language permits sharing the information
- * and documents between brokers/assignees, which is what this does. The document
- * the applicant actually signed stays attached as the executed instrument — we
- * don't reproduce their signature onto a different agreement.
- */
 interface Props {
   lead: Lead;
   /** Signed URL of the uploaded application, so the rep can read it while typing. */
   sourceUrl?: string | null;
   sourceName?: string;
-  /** The uploaded third-party application, marked as the executed document. */
+  /** Original partner application; its signature status is not inferred. */
   sourceDocumentId?: string;
   onClose: () => void;
   onDone: () => void;
@@ -27,55 +20,53 @@ interface Props {
 
 type Form = Record<string, string>;
 
-const FIELDS: Array<{ key: string; label: string; col: string; wide?: boolean; type?: string }> = [
-  { key: 'legal_name', label: 'Legal business name', col: 'legal_name' },
-  { key: 'dba', label: 'DBA', col: 'dba' },
-  { key: 'business_address', label: 'Business address', col: 'business_address', wide: true },
-  { key: 'city', label: 'City', col: 'city' },
-  { key: 'state', label: 'State', col: 'state' },
-  { key: 'zip', label: 'ZIP', col: 'zip' },
-  { key: 'business_phone', label: 'Business phone', col: 'business_phone' },
-  { key: 'business_email', label: 'Business email', col: 'business_email' },
-  { key: 'website', label: 'Website', col: 'website' },
-  { key: 'start_date', label: 'Business start date', col: 'start_date', type: 'date' },
-  { key: 'entity_type', label: 'Entity type', col: 'entity_type' },
-  { key: 'industry', label: 'Industry', col: 'industry' },
-  { key: 'funding_amount_requested', label: 'Requested amount ($)', col: 'funding_amount_requested', type: 'number' },
-  { key: 'use_of_funds', label: 'Use of funds', col: 'use_of_funds' },
-  { key: 'annual_revenue', label: 'Gross annual revenue ($)', col: 'annual_revenue', type: 'number' },
-  { key: 'owner_full_name', label: 'Owner full name', col: 'owner_full_name' },
-  { key: 'owner_title', label: 'Owner title', col: 'owner_title' },
-  { key: 'ownership_pct', label: 'Ownership %', col: 'ownership_pct' },
-  { key: 'owner_dob', label: 'Owner date of birth', col: 'owner_dob', type: 'date' },
-  { key: 'phone', label: 'Owner mobile', col: 'phone' },
-  { key: 'owner_home_address', label: 'Owner home address', col: 'owner_home_address', wide: true },
-];
-
 export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sourceDocumentId, onClose, onDone }: Props) {
   const record = lead as unknown as Record<string, unknown>;
   const [form, setForm] = useState<Form>(() =>
     FIELDS.reduce<Form>((acc, f) => {
-      const value = record[f.col];
-      acc[f.key] = value === null || value === undefined || value === 0 ? '' : String(value);
+      const value = record[f.key] ?? (f.key === 'legal_name' ? record.business_name : f.key === 'owner_full_name' ? [record.first_name, record.last_name].filter(Boolean).join(' ') : f.key === 'business_email' ? record.email : f.key === 'funding_amount_requested' ? record.requested_amount : undefined);
+      acc[f.key] = value === null || value === undefined ? '' : String(value);
       return acc;
     }, {}),
   );
+  const [copySignatures, setCopySignatures] = useState(false);
+  const [selectedSignatures, setSelectedSignatures] = useState<SelectedSignatures | null>(null);
+  const [signatureAuthorized, setSignatureAuthorized] = useState(false);
+  const [authorizationNote, setAuthorizationNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const set = (key: string) => (value: string) => setForm((cur) => ({ ...cur, [key]: value }));
+  const [extracting, setExtracting] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [scanAll, setScanAll] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
+  const [extracted, setExtracted] = useState<{ fields: Form; warnings: string[]; text: string; pageCount: number } | null>(null);
+  const extraction = useRef<AbortController | null>(null);
+  useEffect(() => () => extraction.current?.abort(), []);
 
-  /**
-   * `send` = also email the merchant the Bypass application to sign.
-   *
-   * That signature is what makes the application genuinely Bypass's — it is the
-   * difference between telling a funder the deal came from Bypass and it
-   * actually having done so.
-   */
+  async function extract() {
+    if (!sourceDocumentId) return;
+    const controller = new AbortController();
+    extraction.current?.abort(); extraction.current = controller;
+    setExtracting(true); setError(null); setReviewed(false);
+    try {
+      const { readApplication } = await import('../../lib/readApplication');
+      const result = await readApplication(sourceDocumentId, lead.id, setProgress, controller.signal, scanAll);
+      if (controller.signal.aborted) return;
+      setExtracted(result);
+      setForm(current => ({ ...current, ...result.fields }));
+    } catch (err) {
+      if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Unable to read the application. You can still fill the fields manually.');
+    } finally { if (!controller.signal.aborted) setExtracting(false); }
+  }
+
+  const set = (key: string) => (value: string) => { setReviewed(false); setSignatureAuthorized(false); setForm((cur) => ({ ...cur, [key]: value })); };
+
   async function submit(send: boolean) {
     setError(null);
     setSuccess(null);
+    if (extracting || !reviewed) { setError('Review the fields against the original and confirm before saving.'); return; }
 
     if (!form.legal_name.trim() || !form.owner_full_name.trim()) {
       setError('Legal business name and owner name are required.');
@@ -86,22 +77,20 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       return;
     }
 
+    if (send && copySignatures) { setError('Turn off signature copying to request a fresh signature instead.'); return; }
+    let signatureTransfer;
+    try {
+      if (copySignatures) {
+        if (!selectedSignatures) throw new Error('Select and review a signature from the original application.');
+        signatureTransfer=validateSignatureTransfer({...selectedSignatures,authorized:signatureAuthorized,authorizationNote});
+        if (signatureTransfer?.selections.some(s=>s.role==='partner') && !form.partner_full_name.trim()) throw new Error('Enter the partner name before copying their signature.');
+      }
+    } catch(err) {setError(err instanceof Error?err.message:'Review the signature selections.');return;}
     setSaving(true);
     try {
-      const numeric = new Set(['funding_amount_requested', 'annual_revenue']);
-      const patch: Record<string, unknown> = {};
-      for (const f of FIELDS) {
-        const raw = form[f.key].trim();
-        if (numeric.has(f.col)) patch[f.col] = Number(raw.replace(/[^\d.]/g, '')) || 0;
-        else patch[f.col] = raw;
-      }
-      // keep the mirrored columns in step so nothing renders as $0
-      patch.requested_amount = patch.funding_amount_requested;
-      patch.business_name = patch.legal_name;
+      const patch = applicationPatch(form);
       if (!record.email && form.business_email) patch.email = form.business_email.trim();
-
-      const { error: updateError } = await supabase.from('leads').update(patch).eq('id', lead.id);
-      if (updateError) throw updateError;
+      await updateLead(lead.id, patch);
 
       const { data: sessionData } = await supabase.auth.getSession();
       const headers = {
@@ -113,7 +102,7 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
       const genRes = await fetch('/api/generate-application', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ leadId: lead.id, sourceDocumentId }),
+        body: JSON.stringify({ leadId: lead.id, sourceDocumentId, signatureTransfer, identifiers: { ein: form.full_ein, ssn: form.full_ssn }, partner: Object.fromEntries(Object.entries(form).filter(([key]) => key.startsWith('partner_'))) }),
       });
       const gen = await genRes.json().catch(() => ({}));
       if (!genRes.ok) throw new Error(gen?.error || 'Unable to generate the Bypass application.');
@@ -131,8 +120,9 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
         setSuccess(`Bypass application attached and sent to ${sent.sentTo} to sign. Once they sign, use "Check for signature" to pull the executed copy onto this deal.`);
       }
 
+      // Close before refetching: the parent briefly unmounts while loading.
+      onClose();
       onDone();
-      window.setTimeout(onClose, send ? 3200 : 2400);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to convert this application.');
     } finally {
@@ -153,29 +143,40 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white"><XCircle size={18} /></button>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); void submit(true); }} className="flex min-h-0 flex-1 flex-col">
+        <form onSubmit={(e) => { e.preventDefault(); void submit(false); }} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             {sourceUrl && (
               <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-[12px] font-bold text-blue-200 hover:bg-white/10">
-                <ExternalLink size={13} /> Open the uploaded application to copy from
+                <ExternalLink size={13} /> Open original application
               </a>
             )}
 
-            <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-[12px] leading-relaxed text-blue-100">
-              <strong className="text-white">Convert &amp; send to sign</strong> attaches the completed Bypass application
-              and emails it to the merchant — one tap for them. Their signature is what makes this genuinely Bypass's
-              application, which is what a funder relies on. <strong className="text-white">Attach only</strong> files the
-              completed app without contacting them; in that case the document they already signed remains the executed one.
+            {sourceDocumentId && <div className="space-y-3 rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-[13px]">
+              <p>Extract PDF text and form fields, or read scanned PDF, PNG and JPG applications in your browser. Check every value against the original; handwriting, additional owners and unfamiliar layouts may need manual entry.</p>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={scanAll} disabled={extracting || saving} onChange={e=>setScanAll(e.target.checked)} /> Scan every page (for mixed text and scanned PDFs)</label>
+              <button type="button" disabled={extracting || saving} onClick={()=>void extract()} className="rounded-lg bg-blue-600 px-4 py-2 font-bold disabled:opacity-60">{extracting ? 'Extracting…' : 'Extract & fill fields'}</button>
+              {extracting && <p role="status">{progress}</p>}
+              {extracted && <>
+                <p role="status">{Object.keys(extracted.fields).length} fields filled from {extracted.pageCount} page(s). Highlighted fields are suggestions to review. Unmatched information stays in the original document.</p>
+                {extracted.warnings.length > 0 && <ul className="list-disc pl-5 text-amber-200">{extracted.warnings.map(warning=><li key={warning}>{warning}</li>)}</ul>}
+                <details><summary className="cursor-pointer font-bold">Review all extracted text</summary><pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-black/20 p-3 text-xs">{extracted.text || 'No text was readable. Review the original manually.'}</pre></details>
+              </>}
+            </div>}
+            <div className="rounded-xl border border-white/10 p-3 text-[12px] leading-relaxed text-slate-300">
+              The original application stays unchanged. The new Bypass application is unsigned unless you select and authorize a signature copy below. A copied signature is labeled with its source and authorization record; it is not a new digital-signature event. “Convert &amp; send to sign” emails the applicant a new signature request using saved CRM fields. The signer completes full identifiers and partner fields in that separate request.
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {FIELDS.map((f) => (
                 <label key={f.key} className={`block ${f.wide ? 'md:col-span-3' : ''}`}>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{f.label}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{f.label}{extracted?.fields[f.key] !== undefined && <span className="ml-2 text-blue-300">Review</span>}</span>
                   <input
                     type={f.type || 'text'}
+                    disabled={extracting || saving}
+                    step={f.type === 'number' ? '0.01' : undefined}
                     value={form[f.key]}
                     onChange={(e) => set(f.key)(e.target.value)}
+                    onInput={f.type === 'date' ? (e) => set(f.key)(e.currentTarget.value) : undefined}
                     className="mt-1.5 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-[13px] text-white outline-none focus:border-blue-400"
                   />
                 </label>
@@ -183,10 +184,22 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
             </div>
 
             <p className="text-[12px] text-slate-400">
-              EIN and SSN print masked (last four only) — the full numbers are never stored, so they are never rendered.
+              Full EIN and SSN, when provided, appear in the private generated PDF. Only the last four digits of the primary owner’s identifiers are saved to CRM fields. Partner details are saved in the PDF only. If left blank, the PDF uses the saved last four. Other details remain in the original; extracted text is not saved separately.
             </p>
 
-            {error && <div className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[13px] text-red-100">{error}</div>}
+            {sourceDocumentId && <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={copySignatures} disabled={saving || extracting} onChange={e=>{setCopySignatures(e.target.checked);setSelectedSignatures(null);setSignatureAuthorized(false);setReviewed(false);}} /> Copy an authorized signature from the original</label>
+              {copySignatures && <>
+                <Suspense fallback={<p role="status">Loading signature preview…</p>}><ApplicationSignaturePicker leadId={lead.id} documentId={sourceDocumentId} disabled={saving || extracting} onChange={value=>{setSelectedSignatures(value);setSignatureAuthorized(false);setReviewed(false);}} /></Suspense>
+                <label className="block text-sm">Authorization record <textarea maxLength={500} value={authorizationNote} disabled={saving || extracting} onChange={e=>{setAuthorizationNote(e.target.value);setSignatureAuthorized(false);setReviewed(false);}} placeholder="How and when did the applicant authorize reuse on the Bypass application?" className="mt-1 block w-full rounded bg-slate-800 p-3" /></label>
+                <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={signatureAuthorized} disabled={saving || extracting || !selectedSignatures} onChange={e=>{setSignatureAuthorized(e.target.checked);setReviewed(false);}} /> I confirm each selected signer explicitly authorized copying their signature onto this Bypass application, and I have reviewed the signature previews.</label>
+                <p className="text-xs text-slate-300">The generated PDF includes the source fingerprint and your confirmation record. To request a fresh e-signature instead, turn off signature copying.</p>
+              </>}
+            </div>}
+
+            <label className="flex items-start gap-2 text-[13px]"><input type="checkbox" className="mt-1" checked={reviewed} disabled={extracting || saving} onChange={e=>setReviewed(e.target.checked)} /> {copySignatures ? 'I reviewed the fields, signer names, original dates and signature previews against the source application.' : 'I reviewed the values against the original, checked additional owners and missing information, and understand this Bypass copy is unsigned.'}</label>
+
+            {error && <div role="alert" className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[13px] text-red-100">{error}</div>}
             {success && <div className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-100"><CheckCircle2 size={15} /> {success}</div>}
           </div>
 
@@ -194,14 +207,14 @@ export default function ConvertToBypassModal({ lead, sourceUrl, sourceName, sour
             <button type="button" onClick={onClose} className="inline-flex h-10 items-center rounded-xl border border-white/10 px-4 text-[13px] font-bold text-slate-300 hover:bg-white/10">Cancel</button>
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || extracting || !reviewed}
               onClick={() => void submit(false)}
-              title="Attach a completed Bypass application to the deal without contacting the merchant"
+              title="Attach a filled Bypass application to the deal without contacting the merchant"
               className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-[13px] font-bold text-slate-100 hover:bg-white/10 disabled:opacity-60"
             >
               Attach only
             </button>
-            <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={() => void submit(true)} disabled={saving || extracting || !reviewed || copySignatures} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-5 text-[13px] font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
               <FileSignature size={15} />{saving ? 'Working...' : 'Convert & send to sign'}
             </button>
           </div>

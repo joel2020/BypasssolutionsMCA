@@ -1,0 +1,29 @@
+# Partner application import — 2026-09-10
+
+Implemented in the existing Convert to Bypass Application modal. Reps can extract PDF text, named PDF form fields, and English OCR from scanned PDFs/PNG/JPG, review suggestions and original text, then attach a filled Bypass PDF or explicitly email a new signature request. Enter defaults to attach-only. Extraction does not save automatically and editing clears the review confirmation.
+
+The reader is lazy-loaded and runs in the browser. OCR worker, language, PDF fonts and WASM assets are self-hosted and prepared at npm install. No document bytes go to a third-party OCR service. Limits: 20 MB, 20 PDF pages, rendered longest edge 2400 pixels. Mixed PDFs have a scan-every-page option. Word files need PDF conversion first.
+
+Known limits: field mapping recognizes common English labels, not arbitrary partner schemas or every handwriting style. Conflicting values and malformed dates, amounts, identifiers or emails require review. A second owner can populate the template’s partner section using explicit partner/owner-2 labels or manual review. These details are PDF-only because leads have no partner columns. Owners beyond those two sections and unmapped information remain in the original document. A representative real partner application is still required to validate actual field coverage. Synthetic test coverage is not a claim that all application formats work.
+
+Full EIN/SSN may be reviewed and rendered into the private generated PDF; only last four digits are persisted in lead columns. Extracted text stays in component memory and is not saved separately. Original uploaded files already contain their original information and remain private.
+
+The initial extraction release generated unsigned forms. The follow-up [authorized signature import](signature-import-2026-09-10.md) adds reviewed copying with separate authorization and provenance. The original document is unchanged. Removed the previous unconditional relabeling of any source as “Signed Application (executed)”. The existing explicit signNow request action remains available when copying is off. That separate request uses saved CRM fields; full identifiers and partner fields must be completed by the signer, as disclosed in the modal. Original signature validity is not inferred by OCR.
+
+Generation validates an accessible same-lead source before privileged work, cleans up a generated file if the document-row insert fails, and no longer logs error objects that could contain document data. The modal uses the existing checked lead-update helper; blank amounts and dates become null and zero remains zero.
+
+Validation: 157 automated tests passed, TypeScript app/server checks, ESLint and production build passed. Browser testing of a synthetic typed PDF extracted 18 values including derived last-four fields. Synthetic image and forced PDF OCR extracted 17 accepted values and correctly flagged the OCR-corrupted email after a validation fix. No real applicant was contacted. Live rollout verification will be recorded below.
+
+Review limitation: the previously attempted Claude reviewer is unavailable because its OAuth login expired; no independent Claude approval is claimed.
+
+The actual private Bypass template was downloaded and a synthetic filled PDF rendered and visually inspected: business, primary owner and all seven partner fields fit the template; signature lines remain blank.
+
+Field recognition also handles printed labels without colons, common owner/partner section headings, and combined city/state/ZIP rows. These are conservative rules with review required, not an unrestricted form-understanding model.
+
+Live production verification on source 0cfafcb passed digital extraction (18 fields), forced PDF OCR (17 fields plus invalid-email review warning), no automatic DB writes before review, saved mirrored amounts/dates/last-four fields, generated private PDF with full primary identifiers and partner details, and zero emails sent. Original file SHA-256 before/after matched: daf1c342fe5b7d8cc6b3dc9aecd7f7b930c50f3efc0048d162f467defb2e153b. Source document type remained Business Docs.
+
+The live test exposed two UI issues addressed in the final follow-up: close the conversion modal before the parent refetch to avoid reopening it, and handle date input events so a browser-entered date survives later form edits. A focused regression checks date retention in the generation request and close-before-refresh ordering. Final rollout details follow after rechecking these behaviors.
+
+Final production release: implementation 526e9b3, deployment dpl_B4nvAif9RQSbK78BcAN4SDzJB9D2, https://crm.bypasssolution.com. GitHub verify, Vercel preview and Supabase preview checks passed. Browser retest confirmed the partner date remained after changing another field, survived extraction, and appeared in the downloaded final PDF. Saving closed the conversion form before refresh. Final PDF text checks passed for business name, full EIN, primary SSN, partner name and partner DOB.
+
+Cleanup verified: zero synthetic lead rows, document rows and storage objects remain. The user is left signed in at the production CRM dashboard. Synthetic evidence is retained locally under /tmp/bypass-application-test/. The signature-reuse clarification and a representative partner application remain outstanding; no signature was copied or represented as newly executed.

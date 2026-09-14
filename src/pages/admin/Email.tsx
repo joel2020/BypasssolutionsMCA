@@ -30,15 +30,17 @@ function ComposePanel({ onClose, onSent }: { onClose: () => void; onSent: () => 
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const [sentWarning, setSentWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
     setSending(true);
     setError(null);
     try {
-      await sendGmailEmail({ to, cc, subject, body });
+      const result = await sendGmailEmail({ to, cc, subject, body });
       onSent();
-      onClose();
+      if (result.warning) setSentWarning(result.warning);
+      else onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to send email.');
     } finally {
@@ -56,7 +58,8 @@ function ComposePanel({ onClose, onSent }: { onClose: () => void; onSent: () => 
           <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] outline-none focus:border-accent-500" />
           <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message..." className="min-h-48 w-full rounded-md border border-slate-200 p-3 text-[13px] outline-none focus:border-accent-500" />
           {error && <ErrorState message={error} />}
-          <button disabled={sending || !to || !subject || !body} onClick={() => void submit()} className="btn-primary h-10 px-4 text-[13px] disabled:opacity-50"><Send size={14} />{sending ? 'Sending...' : 'Send Email'}</button>
+          {sentWarning && <p role="status" className="text-sm text-amber-700">{sentWarning}</p>}
+          <button disabled={!!sentWarning || sending || !to || !subject || !body} onClick={() => void submit()} className="btn-primary h-10 px-4 text-[13px] disabled:opacity-50"><Send size={14} />{sending ? 'Sending...' : 'Send Email'}</button>
         </div>
       </div>
     </div>
@@ -70,7 +73,7 @@ export default function Email() {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(() => new URLSearchParams(window.location.search).get('gmail') === 'error' ? new URLSearchParams(window.location.search).get('message') || 'Gmail connection failed.' : null);
   const { data: connection, loading: connectionLoading, error: connectionError, refetch: refetchConnection } = useSupabaseQuery(getGmailConnection, null, []);
   const { data: messages, loading: messagesLoading, error: messagesError, refetch: refetchMessages } = useGmailMessages();
 

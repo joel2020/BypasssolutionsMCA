@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { supabase, type Document } from '../lib/supabase';
 import { useSupabaseQuery } from './useSupabaseQuery';
+import { useRepView } from './useRepView';
+import { belongsToRep } from '../lib/repView';
+
+type ScopedDocument = Document & { leads: { assigned_to?: string | null; assigned_rep?: string | null } | null };
 
 export const DOCUMENT_BUCKET = 'application-documents';
 export const MAX_DOCUMENT_SIZE_BYTES = 50 * 1024 * 1024;
@@ -61,12 +65,13 @@ function validateFile(file: File) {
 }
 
 export function useDocuments(filters?: string | DocumentFilters) {
+  const { target } = useRepView();
   const normalizedFilters: DocumentFilters = typeof filters === 'string' ? { leadId: filters } : filters ?? {};
 
-  return useSupabaseQuery<Document[]>(async () => {
+  const result = useSupabaseQuery<ScopedDocument[]>(async () => {
     let query = supabase
       .from('documents')
-      .select('*, leads(first_name, last_name, business_name)')
+      .select('*, leads(first_name, last_name, business_name, assigned_to, assigned_rep)')
       .order('created_at', { ascending: false });
 
     if (normalizedFilters.leadId) query = query.eq('lead_id', normalizedFilters.leadId);
@@ -74,8 +79,9 @@ export function useDocuments(filters?: string | DocumentFilters) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []) as Document[];
+    return (data ?? []) as ScopedDocument[];
   }, [], [normalizedFilters.leadId, normalizedFilters.applicationId]);
+  return { ...result, data: target ? result.data.filter((row) => row.leads && belongsToRep(target, row.leads.assigned_to, row.leads.assigned_rep)) : result.data };
 }
 
 export function useUploadDocument() {

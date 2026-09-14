@@ -90,7 +90,7 @@ export function initialForm(lead: Lead): Record<string, string> {
   const form: Record<string, string> = {};
   for (const f of ALL_FIELDS) {
     const v = row[f.col];
-    form[f.key] = v === null || v === undefined || v === 0 ? '' : String(v);
+    form[f.key] = v === null || v === undefined ? '' : String(v);
   }
   form.assigned_rep = (row.assigned_rep as string) ?? '';
   form.notes = (row.notes as string) ?? '';
@@ -102,7 +102,14 @@ export function buildPayload(form: Record<string, string>): Record<string, unkno
   const patch: Record<string, unknown> = {};
   for (const f of ALL_FIELDS) {
     const raw = (form[f.key] ?? '').trim();
-    const value: unknown = NUMERIC_COLS.has(f.col) ? Number(raw.replace(/[^\d.]/g, '')) || 0 : raw;
+    let value: unknown = f.type === 'date' ? raw || null : raw;
+    if (NUMERIC_COLS.has(f.col)) {
+      const numeric = Number(raw.replace(/[$,]/g, ''));
+      if (!Number.isFinite(numeric) || (numeric < 0 && f.col !== 'avg_daily_balance') || (f.col === 'nsfs_last_90_days' && !Number.isInteger(numeric))) {
+        throw new Error(`${f.label} must be a ${f.col === 'avg_daily_balance' ? '' : 'non-negative '}${f.col === 'nsfs_last_90_days' ? 'whole number' : 'number'}.`);
+      }
+      value = numeric;
+    }
     patch[f.col] = value;
     for (const mirror of MIRRORS[f.col] ?? []) patch[mirror] = value;
   }

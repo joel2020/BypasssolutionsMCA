@@ -1,18 +1,11 @@
+import { validateSignatureTransfer, signatureSourcePath } from '../src/lib/applicationSignatures.js';
+import { addTransferredSignatures, SignatureSourceChanged } from '../server/applicationSignaturePdf.js';
+import { APPLICATION_FIELDS, normalizeApplicationField } from '../src/lib/applicationImport.js';
+import { getWritableLead } from '../server/crmAccess.js';
 import { createClient } from '@supabase/supabase-js';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-/**
- * Renders a COMPLETED Bypass Solution application from a lead and attaches it to
- * the deal. No email, no signature request — the applicant is never contacted.
- *
- * This is the "convert another broker's application" path: the data is carried
- * across (which the application's own authorisation language permits), the
- * original signed application stays attached as the executed document, and this
- * produces a Bypass-branded, fully filled application for the submission packet.
- *
- * It does NOT reproduce the applicant's signature. The signed instrument remains
- * the document they actually signed.
- */
+/** Generate a filled, unsigned Bypass application. Keep the original source unchanged. */
 
 const BUCKET = 'application-documents';
 const TEMPLATE_PATH = '_templates/bypass-application.pdf';
@@ -41,6 +34,13 @@ const FIELDS: Array<{ key: string; x: number; y: number; w: number }> = [
   { key: 'owner_ssn', x: 507, y: 354, w: 79 },
   { key: 'owner_mobile', x: 112, y: 379, w: 474 },
   { key: 'owner_home_address', x: 84, y: 404, w: 502 },
+  { key: 'partner_full_name', x: 105, y: 451, w: 195 },
+  { key: 'partner_title', x: 390, y: 451, w: 196 },
+  { key: 'partner_ownership_pct', x: 153, y: 476, w: 47 },
+  { key: 'partner_dob', x: 290, y: 476, w: 105 },
+  { key: 'partner_ssn', x: 515, y: 476, w: 71 },
+  { key: 'partner_phone', x: 126, y: 501, w: 460 },
+  { key: 'partner_home_address', x: 96, y: 526, w: 490 },
 ];
 
 type ApiRequest = { method?: string; body?: unknown; headers?: Record<string, string | string[] | undefined> };
@@ -81,7 +81,7 @@ function buildValues(lead: Lead): Record<string, string> {
     business_phone: str(lead, 'business_phone', 'phone'),
     business_email: str(lead, 'business_email', 'email'),
     business_website: str(lead, 'website'),
-    // We only ever store the last four — never render a full tax ID.
+    // Use masked saved values unless reviewed full identifiers were supplied for this PDF.
     business_ein: einLast4 ? `XX-XXX${einLast4}` : '',
     business_start_date: str(lead, 'start_date'),
     entity_type: str(lead, 'entity_type'),
@@ -113,24 +113,66 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const authHeader = (req.headers?.authorization || req.headers?.Authorization) as string | undefined;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) return res.status(401).json({ error: 'Missing CRM session.' });
 
-  const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
+  const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const { data: userData, error: userError } = await authClient.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Invalid CRM session.' });
 
-  const body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {}) as {
-    leadId?: string;
-    sourceDocumentId?: string;
-  };
+  let body: { leadId?: string; sourceDocumentId?: string; identifiers?: { ein?: string; ssn?: string }; partner?: Record<string, unknown>; signatureTransfer?: unknown };
+  try {
+    body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body) || {};
+  } catch { return res.status(400).json({ error: 'Invalid request body.' }); }
   const leadId = typeof body.leadId === 'string' ? body.leadId.trim() : '';
   if (!leadId) return res.status(400).json({ error: 'leadId is required.' });
 
-  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const identifiers: Record<string, string> = {};
+  for (const key of ['ein', 'ssn'] as const) {
+    const raw = body.identifiers?.[key];
+    if (raw === undefined || raw === '') continue;
+    if (typeof raw !== 'string' || !/^\d{9}$/.test(raw.replace(/[\s-]/g, ''))) return res.status(400).json({ error: 'Full EIN and SSN must contain nine digits.' });
+    identifiers[key] = raw.replace(/[\s-]/g, '');
+  }
 
-  const { data: lead, error: leadError } = await admin.from('leads').select('*').eq('id', leadId).single();
-  if (leadError || !lead) return res.status(404).json({ error: 'Lead not found.' });
+  const partner: Record<string, string> = {};
+  for (const field of APPLICATION_FIELDS.filter(field => field.key.startsWith('partner_'))) {
+    const raw = body.partner?.[field.key];
+    if (raw === undefined || raw === '') continue;
+    const value = typeof raw === 'string' ? normalizeApplicationField(field, raw) : null;
+    if (value === null) return res.status(400).json({ error: `Check ${field.label.toLowerCase()}.` });
+    partner[field.key] = value;
+  }
+
+  let signatureTransfer;
+  try { signatureTransfer = validateSignatureTransfer(body.signatureTransfer); }
+  catch (err) { return res.status(400).json({error:err instanceof Error?err.message:'Invalid signature transfer.'}); }
+  if (signatureTransfer && !body.sourceDocumentId) return res.status(400).json({error:'A source application is required for signature transfer.'});
+
+  const access = await getWritableLead(authClient, userData.user.id, leadId);
+  if (!access.lead) return res.status(access.status).json({ error: access.error });
+  let signatureSource: {id:string;lead_id:string;application_id?:string|null;file_name:string;storage_path?:string|null;file_path?:string|null;file_size?:number|null} | null = null;
+  let signaturePath = '';
+  if (body.sourceDocumentId) {
+    if (typeof body.sourceDocumentId !== 'string') return res.status(400).json({ error: 'Invalid source document.' });
+    const { data: source, error: sourceError } = await authClient.from('documents').select('id,lead_id,application_id,file_name,storage_path,file_path,file_size').eq('id', body.sourceDocumentId).eq('lead_id', leadId).maybeSingle();
+    if (sourceError || !source) return res.status(403).json({ error: 'The source application is not available on this lead.' });
+    signatureSource = source;
+    if (signatureTransfer) {
+      let applicationId: string | undefined;
+      if (source.application_id) {
+        const {data: application, error: appError} = await authClient.from('applications').select('id').eq('id',source.application_id).eq('lead_id',leadId).maybeSingle();
+        if (appError || !application) return res.status(403).json({error:'The source application does not belong to this client.'});
+        applicationId=application.id;
+      }
+      try { signaturePath=signatureSourcePath(source,leadId,applicationId); }
+      catch { return res.status(403).json({error:'The source file does not belong to this client.'}); }
+      if (Number(source.file_size)>20*1024*1024) return res.status(400).json({error:'Signature import supports source files up to 20 MB.'});
+      if (signatureTransfer.selections.some(s=>s.role==='partner') && !partner.partner_full_name) return res.status(400).json({error:'Enter the partner name before transferring their signature.'});
+    }
+  }
+  const lead = access.lead;
+  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   try {
     // 1) Load the blank Bypass application.
@@ -141,7 +183,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const pdf = await PDFDocument.load(await blank.arrayBuffer());
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const page = pdf.getPages()[0];
-    const values = buildValues(lead as Lead);
+    const values = { ...buildValues(lead as Lead), ...partner };
+    // Full identifiers live only in this private PDF, not unmasked CRM columns or logs.
+    if (identifiers.ein) values.business_ein = `${identifiers.ein.slice(0,2)}-${identifiers.ein.slice(2)}`;
+    if (identifiers.ssn) values.owner_ssn = `${identifiers.ssn.slice(0,3)}-${identifiers.ssn.slice(3,5)}-${identifiers.ssn.slice(5)}`;
 
     let filled = 0;
     for (const field of FIELDS) {
@@ -163,6 +208,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       filled += 1;
     }
 
+    let signaturesCopied=0;
+    if (signatureTransfer && signatureSource) {
+      const {data: original,error: sourceError}=await admin.storage.from(BUCKET).download(signaturePath);
+      if (sourceError || !original) throw new Error('Unable to read the original signature source.');
+      signaturesCopied=await addTransferredSignatures(pdf,new Uint8Array(await original.arrayBuffer()),signatureTransfer,{
+        sourceDocumentId:signatureSource.id,sourceName:signatureSource.file_name,actorId:userData.user.id,
+        ownerName:values.owner_full_name,partnerName:partner.partner_full_name || '',createdAt:new Date().toISOString(),
+      });
+    }
     const bytes = await pdf.save();
 
     // 3) Store it against the deal.
@@ -173,13 +227,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       .upload(path, bytes, { contentType: 'application/pdf', upsert: false });
     if (uploadError) throw uploadError;
 
-    const fileName = `Bypass Application - ${str(lead as Lead, 'business_name') || 'Applicant'}.pdf`;
+    const fileName = `Bypass Application${signaturesCopied ? ' (signature copy)' : ''} - ${str(lead as Lead, 'business_name') || 'Applicant'}.pdf`;
     const { data: docRow, error: docError } = await admin
       .from('documents')
       .insert({
         lead_id: leadId,
-        doc_type: 'Bypass Application',
-        document_type: 'Bypass Application',
+        doc_type: signaturesCopied ? 'Bypass Application (signature copy)' : 'Bypass Application',
+        document_type: signaturesCopied ? 'Bypass Application (signature copy)' : 'Bypass Application',
         file_name: fileName,
         file_size: bytes.length,
         storage_path: path,
@@ -189,20 +243,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       })
       .select('id')
       .single();
-    if (docError) throw docError;
-
-    // 4) Mark the uploaded third-party app as the executed (signed) document.
-    if (body.sourceDocumentId) {
-      await admin
-        .from('documents')
-        .update({ doc_type: 'Signed Application (executed)', document_type: 'Signed Application (executed)' })
-        .eq('id', body.sourceDocumentId)
-        .eq('lead_id', leadId);
+    if (docError) {
+      await admin.storage.from(BUCKET).remove([path]);
+      throw new Error('Unable to attach the generated application. Please retry.');
     }
 
-    return res.status(200).json({ ok: true, documentId: docRow.id, fileName, fieldsFilled: filled });
+    return res.status(200).json({ ok: true, documentId: docRow.id, fileName, fieldsFilled: filled, signaturesCopied });
   } catch (err) {
-    console.error('generate-application failed', err);
-    return res.status(502).json({ error: err instanceof Error ? err.message : 'Unable to generate the application.' });
+    console.error('generate-application failed');
+    return res.status(err instanceof SignatureSourceChanged ? 409 : 502).json({ error: err instanceof Error ? err.message : 'Unable to generate the application.' });
   }
 }
