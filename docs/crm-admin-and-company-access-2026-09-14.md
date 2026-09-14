@@ -33,3 +33,9 @@ Google verification remains pending. The console reports a 100-user cap for unap
 - Claude review was attempted using the scoped diff, tests and security-sensitive files but failed because its OAuth session expired. No independent Claude approval is claimed.
 
 Each new employee still needs to complete Google sign-in and **Email → Connect Gmail** personally. This release did not complete a new employee's Google consent flow or send a test Gmail message.
+
+## Approved external address
+
+The user clarified that `roman@elitefundingsol.com` should access Bypass CRM. Migration `20260914195729_allow_roman_elite_crm_access.sql` is applied to production and permits that exact address, case-insensitively, in both the Auth signup hook and verified Google enrollment. Other addresses at `elitefundingsol.com` remain ineligible. Initial access is an active sales-rep profile; existing profiles, verification checks and function privileges are preserved.
+
+All 24 enrollment tests passed, including the four exception tests that failed before implementation. TypeScript and focused ESLint checks passed. Live function definitions and privileges confirm the exception and preserved verification/access controls. Claude review was attempted again but its OAuth session is still expired. Roman has no existing Auth account; he must complete Google sign-in and then Email → Connect Gmail himself. No account or email was created on his behalf.

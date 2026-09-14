@@ -15,8 +15,12 @@ beforeAll(async () => {
     insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values ('${id}','new@bypasssolution.com',now(),'{"role":"admin","full_name":"Another Rep"}');
     insert into auth.identities values ('${id}','google','{"email":"new@bypasssolution.com","email_verified":true}');`);
   await db.exec(readFileSync(new URL('../supabase/migrations/20260914194556_company_crm_self_enrollment.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/20260914195729_allow_roman_elite_crm_access.sql', import.meta.url), 'utf8'));
 }, 20000);
 afterAll(async () => { await db.close(); });
+
+const approvedEmail = 'roman@elitefundingsol.com';
+const rejectedExceptions = ['other@elitefundingsol.com', 'roman+other@elitefundingsol.com', 'roman@elitefundingsol.com.evil.test', 'notroman@elitefundingsol.com'];
 
 async function enroll(email = 'new@bypasssolution.com', confirmed = true, existingStatus?: string, verifiedGoogle = true) {
   return db.transaction(async (tx) => {
@@ -44,6 +48,26 @@ it('rejects signup without a verified Google identity, even if Auth auto-confirm
   expect((await enroll(undefined, true, undefined, false)).profiles).toEqual([]);
 });
 it('normalizes the verified address', async () => { expect((await enroll('NEW@BYPASSSOLUTION.COM')).profiles).toHaveLength(1); });
+it.each([approvedEmail, 'Roman@EliteFundingSol.com'])('enrolls the approved external address %s as a sales rep', async (email) => {
+  expect((await enroll(email)).profiles).toEqual([{ email: approvedEmail, full_name: approvedEmail, role: 'sales_rep', status: 'active' }]);
+});
+it.each(rejectedExceptions)('rejects unapproved external address %s', async (email) => {
+  expect((await enroll(email)).profiles).toEqual([]);
+});
+it('requires verified Auth email and Google identity for the approved exception', async () => {
+  expect((await enroll(approvedEmail, false)).profiles).toEqual([]);
+  expect((await enroll(approvedEmail, true, undefined, false)).profiles).toEqual([]);
+});
+it('preserves a disabled profile for the approved exception', async () => {
+  expect((await enroll(approvedEmail, true, 'disabled')).profiles).toEqual([{ email: approvedEmail, full_name: 'Existing Name', role: 'viewer', status: 'disabled' }]);
+});
+it.each([approvedEmail, 'Roman@EliteFundingSol.com'])('allows signup for approved external address %s', async (email) => {
+  const result = await db.transaction(async (tx) => {
+    await tx.exec('set local role supabase_auth_admin');
+    return tx.query('select public.before_company_user_created($1::jsonb) as result', [JSON.stringify({ user: { email } })]);
+  });
+  expect(result.rows).toEqual([{ result: {} }]);
+});
 it.each(['active', 'pending', 'disabled'])('preserves an existing %s profile and its role', async (status) => {
   expect((await enroll(undefined, true, status)).profiles).toEqual([{ email: 'new@bypasssolution.com', full_name: 'Existing Name', role: 'viewer', status }]);
 });
@@ -54,7 +78,7 @@ it('denies anonymous callers and authenticated calls without a user ID', async (
 });
 
 it('blocks outside-domain signup before an Auth user can be created', async () => {
-  for (const email of ['new@example.com', 'new@bypasssolution.com.evil.test', '', null]) {
+  for (const email of ['new@example.com', 'new@bypasssolution.com.evil.test', ...rejectedExceptions, '', null]) {
     const result = await db.transaction(async (tx) => {
       await tx.exec('set local role supabase_auth_admin');
       return tx.query<{ result: { error: { http_code: number } } }>('select public.before_company_user_created($1::jsonb) as result', [JSON.stringify({ user: { email } })]);
