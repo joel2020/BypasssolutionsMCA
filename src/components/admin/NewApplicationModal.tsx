@@ -56,8 +56,8 @@ export default function NewApplicationModal({ onClose, onCreated }: NewApplicati
         throw new Error('Your CRM session expired. Sign in again and retry.');
       }
 
-      // Always create a LEAD. Full submissions are made via "Convert to submission"
-      // from the Leads table, which requires the last 4 months of bank statements.
+      // This form creates a lead. Reps can convert it later or use New Submission
+      // on the Submissions page to create a submission directly.
       const { error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -99,7 +99,7 @@ export default function NewApplicationModal({ onClose, onCreated }: NewApplicati
         <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-6">
           <div>
             <h2 className="text-[20px] font-bold text-navy-900">New Lead</h2>
-            <p className="text-[13px] text-slate-500">Create a CRM lead. Convert it to a full submission once the last 4 months of bank statements are uploaded.</p>
+            <p className="text-[13px] text-slate-500">Create a CRM lead and convert it to a submission when you are ready. Documents can be added later.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
         </div>

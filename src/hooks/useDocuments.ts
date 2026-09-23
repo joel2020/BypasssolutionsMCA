@@ -46,7 +46,7 @@ function safeFileName(name: string) {
   return `${safeBase}${extension.toLowerCase()}`;
 }
 
-function validateFile(file: File) {
+export function validateDocumentFile(file: File) {
   if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
     throw new Error('File is too large. Maximum upload size is 50MB.');
   }
@@ -88,7 +88,7 @@ export function useUploadDocument() {
 
     try {
       if (!input.leadId) throw new Error('Select a lead before uploading a document.');
-      validateFile(input.file);
+      validateDocumentFile(input.file);
 
       const { data: userData } = await supabase.auth.getUser();
       const timestamp = Date.now();
