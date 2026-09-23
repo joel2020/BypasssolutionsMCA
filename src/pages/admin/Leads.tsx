@@ -7,7 +7,7 @@ import { useScope } from '../../hooks/useScope';
 import { EmptyState, ErrorState, SkeletonLoader } from '../../components/admin/States';
 import { leadStatusColors } from '../../lib/status';
 import type { LeadStatus } from '../../lib/supabase';
-import NewApplicationModal from '../../components/admin/NewApplicationModal';
+import NewSubmissionModal from '../../components/admin/NewSubmissionModal';
 
 // Submissions = a lead that already has an application or better.
 // Lead-only records live on the Leads tab and never appear here.
@@ -19,7 +19,7 @@ export default function Leads() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterRep, setFilterRep] = useState('All');
   const [filterSource, setFilterSource] = useState('All');
-  const [showAddLead, setShowAddLead] = useState(false);
+  const [showNewSubmission, setShowNewSubmission] = useState(false);
   const { data: leads, loading, error, refetch } = useLeads({ status: filterStatus === 'All' ? 'All' : filterStatus as never, assignedRep: filterRep, source: filterSource });
   const { data: repProfiles } = useReps();
   const { canAccess } = useScope();
@@ -74,7 +74,7 @@ export default function Leads() {
         <div>
           <h1 className="text-[20px] font-bold text-navy-900">Submissions</h1>
           <p className="text-[13px] text-slate-400">
-            {loading ? 'Loading...' : `${filtered.length} submission${filtered.length !== 1 ? 's' : ''} (application or better)`}
+            {loading ? 'Loading...' : `${filtered.length} submission${filtered.length !== 1 ? 's' : ''} (including incomplete submissions)`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -95,8 +95,8 @@ export default function Leads() {
           >
             <Download size={14} /> Export
           </button>
-          <button onClick={() => setShowAddLead(true)} className="btn-primary h-9 text-[13px] px-4 gap-2">
-            <Plus size={14} /> Add Lead
+          <button onClick={() => setShowNewSubmission(true)} className="btn-primary h-9 text-[13px] px-4 gap-2">
+            <Plus size={14} /> New Submission
           </button>
         </div>
       </div>
@@ -217,7 +217,7 @@ export default function Leads() {
           </div>
         )}
       </div>
-      {showAddLead && <NewApplicationModal onClose={() => setShowAddLead(false)} onCreated={() => void refetch()} />}
+      {showNewSubmission && <NewSubmissionModal onClose={() => setShowNewSubmission(false)} onCreated={() => void refetch()} />}
     </div>
   );
 }
